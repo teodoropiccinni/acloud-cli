@@ -43,6 +43,136 @@ jobs:
           # Windows AMD64
           GOOS=windows GOARCH=amd64 go build -o acloud-windows-amd64.exe -ldflags "-X main.Version=${{ steps.get_version.outputs.VERSION }}"
 
+        - name: Verify Linux AMD64 binary
+          run: |
+            file acloud-linux-amd64
+            ls -lh acloud-linux-amd64
+            if ! file acloud-linux-amd64 | grep -q "ELF 64-bit LSB executable"; then
+              echo "ERROR: acloud-linux-amd64 is not a valid Linux AMD64 binary!"
+              exit 1
+            fi
+
+        - name: Verify Linux ARM64 binary
+          run: |
+            file acloud-linux-arm64
+            ls -lh acloud-linux-arm64
+            if ! file acloud-linux-arm64 | grep -q "ELF 64-bit LSB executable"; then
+              echo "ERROR: acloud-linux-arm64 is not a valid Linux ARM64 binary!"
+              exit 1
+            fi
+
+        - name: Verify macOS AMD64 binary
+          run: |
+            file acloud-darwin-amd64
+            ls -lh acloud-darwin-amd64
+            if ! file acloud-darwin-amd64 | grep -q "Mach-O 64-bit"; then
+              echo "ERROR: acloud-darwin-amd64 is not a valid macOS AMD64 binary!"
+              exit 1
+            fi
+
+        - name: Verify macOS ARM64 binary
+          run: |
+            file acloud-darwin-arm64
+            ls -lh acloud-darwin-arm64
+            if ! file acloud-darwin-arm64 | grep -q "Mach-O 64-bit"; then
+              echo "ERROR: acloud-darwin-arm64 is not a valid macOS ARM64 binary!"
+              exit 1
+            fi
+
+        - name: Verify Windows AMD64 binary
+          run: |
+            file acloud-windows-amd64.exe
+            ls -lh acloud-windows-amd64.exe
+            if ! file acloud-windows-amd64.exe | grep -q "PE32+ executable"; then
+              echo "ERROR: acloud-windows-amd64.exe is not a valid Windows AMD64 binary!"
+              exit 1
+            fi
+        - name: Verify Linux AMD64 binary
+          run: |
+            file acloud-linux-amd64
+            ls -lh acloud-linux-amd64
+            if ! file acloud-linux-amd64 | grep -q "ELF 64-bit LSB executable"; then
+              echo "ERROR: acloud-linux-amd64 is not a valid Linux AMD64 binary!"
+              exit 1
+            fi
+        - name: Verify Linux ARM64 binary
+          run: |
+            file acloud-linux-arm64
+            ls -lh acloud-linux-arm64
+            if ! file acloud-linux-arm64 | grep -q "ELF 64-bit LSB executable"; then
+              echo "ERROR: acloud-linux-arm64 is not a valid Linux ARM64 binary!"
+              exit 1
+            fi
+        - name: Verify macOS AMD64 binary
+          run: |
+            file acloud-darwin-amd64
+            ls -lh acloud-darwin-amd64
+            if ! file acloud-darwin-amd64 | grep -q "Mach-O 64-bit"; then
+              echo "ERROR: acloud-darwin-amd64 is not a valid macOS AMD64 binary!"
+              exit 1
+            fi
+        - name: Verify macOS ARM64 binary
+          run: |
+            file acloud-darwin-arm64
+            ls -lh acloud-darwin-arm64
+            if ! file acloud-darwin-arm64 | grep -q "Mach-O 64-bit"; then
+              echo "ERROR: acloud-darwin-arm64 is not a valid macOS ARM64 binary!"
+              exit 1
+            fi
+        - name: Verify Windows AMD64 binary
+          run: |
+            file acloud-windows-amd64.exe
+            ls -lh acloud-windows-amd64.exe
+            if ! file acloud-windows-amd64.exe | grep -q "PE32+ executable"; then
+              echo "ERROR: acloud-windows-amd64.exe is not a valid Windows AMD64 binary!"
+              exit 1
+            fi
+
+        - name: Verify Linux AMD64 binary
+          run: |
+            file acloud-linux-amd64
+            ls -lh acloud-linux-amd64
+            if ! file acloud-linux-amd64 | grep -q "ELF 64-bit LSB executable"; then
+              echo "ERROR: acloud-linux-amd64 is not a valid Linux AMD64 binary!"
+              exit 1
+            fi
+
+        - name: Verify Linux ARM64 binary
+          run: |
+            file acloud-linux-arm64
+            ls -lh acloud-linux-arm64
+            if ! file acloud-linux-arm64 | grep -q "ELF 64-bit LSB executable"; then
+              echo "ERROR: acloud-linux-arm64 is not a valid Linux ARM64 binary!"
+              exit 1
+            fi
+
+        - name: Verify macOS AMD64 binary
+          run: |
+            file acloud-darwin-amd64
+            ls -lh acloud-darwin-amd64
+            if ! file acloud-darwin-amd64 | grep -q "Mach-O 64-bit"; then
+              echo "ERROR: acloud-darwin-amd64 is not a valid macOS AMD64 binary!"
+              exit 1
+            fi
+
+        - name: Verify macOS ARM64 binary
+          run: |
+            file acloud-darwin-arm64
+            ls -lh acloud-darwin-arm64
+            if ! file acloud-darwin-arm64 | grep -q "Mach-O 64-bit"; then
+              echo "ERROR: acloud-darwin-arm64 is not a valid macOS ARM64 binary!"
+              exit 1
+            fi
+
+        - name: Verify Windows AMD64 binary
+          run: |
+            file acloud-windows-amd64.exe
+            ls -lh acloud-windows-amd64.exe
+            if ! file acloud-windows-amd64.exe | grep -q "PE32+ executable"; then
+              echo "ERROR: acloud-windows-amd64.exe is not a valid Windows AMD64 binary!"
+              exit 1
+            fi
+
       - name: Create checksums
         run: |
           sha256sum acloud-linux-amd64 > checksums.txt
