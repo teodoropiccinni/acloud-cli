@@ -78,8 +78,8 @@ var configShowCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		config, err := LoadConfig()
 		if err != nil {
-			fmt.Printf("Error loading configuration: %v\n", err)
-			os.Exit(1)
+			fmt.Println("No configuration found. Please run 'acloud config set' to create one.")
+			return
 		}
 
 		fmt.Println("Current configuration:")
