@@ -7,8 +7,15 @@ ArubaCloud Command Line Interface - A CLI tool for interacting with Aruba Cloud 
 ### Windows
 
 ```powershell
-# Download the latest release
-# Extract and add to your PATH
+ # Download the latest release binary
+ Invoke-WebRequest -Uri "https://github.com/Arubacloud/acloud-cli/releases/latest/download/acloud-windows-amd64.exe" -OutFile "acloud.exe"
+
+ # (Optional) Move to a folder in your PATH, e.g. C:\acloud
+ # Move-Item -Path .\acloud.exe -Destination C:\acloud\acloud.exe
+ # Optionally, add C:\acloud to your PATH environment variable
+
+ # Run from the command prompt:
+ acloud.exe --help
 ```
 
 ### Linux
