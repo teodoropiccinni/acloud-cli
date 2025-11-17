@@ -28,5 +28,25 @@ go.work.sum
 .env
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build output - acloud binaries
+acloud
+acloud-*
+
+# Configuration files (for testing)
+.acloud.yaml
+*.yaml.bak
+
+# Log files
+*.log
+
+# Temporary files
+tmp/
+temp/
+dist/
