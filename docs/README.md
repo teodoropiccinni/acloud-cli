@@ -7,10 +7,14 @@ Welcome to the Aruba Cloud CLI (`acloud`) documentation. This CLI provides a pow
 - [Getting Started](getting-started.md)
   - [Installation](getting-started.md#installation)
   - [Authentication](getting-started.md#authentication)
+  - [Context Management](getting-started.md#context-management)
   - [Auto-completion](getting-started.md#auto-completion)
 - [Resources](resources/)
   - [Management](resources/management.md)
     - [Projects](resources/management/projects.md)
+  - [Storage](resources/storage.md)
+    - Block Storage
+    - Snapshots
 
 ## Quick Start
 
@@ -18,11 +22,16 @@ Welcome to the Aruba Cloud CLI (`acloud`) documentation. This CLI provides a pow
 # Configure credentials
 acloud config set
 
+# Set up a context (optional but recommended)
+acloud context set my-prod --project-id "your-project-id"
+acloud context use my-prod
+
 # List projects
 acloud management project list
 
-# Get project details
-acloud management project get <project-id>
+# List storage resources (uses context)
+acloud storage blockstorage list
+acloud storage snapshot list
 ```
 
 ## Getting Help

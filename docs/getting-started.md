@@ -86,6 +86,88 @@ export ACLOUD_CLIENT_ID="your-client-id"
 export ACLOUD_CLIENT_SECRET="your-client-secret"
 ```
 
+## Context Management
+
+The CLI provides context management to avoid passing `--project-id` repeatedly. Contexts allow you to save project IDs and switch between them easily.
+
+### Setting up a Context
+
+Create a context with a project ID:
+
+```bash
+acloud context set my-prod --project-id "66a10244f62b99c686572a9f"
+```
+
+### Using a Context
+
+Switch to a saved context:
+
+```bash
+acloud context use my-prod
+```
+
+Once a context is active, you can run commands without specifying `--project-id`:
+
+```bash
+# Works without --project-id
+acloud storage blockstorage list
+acloud storage snapshot list
+acloud management project get <project-id>
+```
+
+### Managing Contexts
+
+**List all contexts:**
+```bash
+acloud context list
+```
+
+Output shows all contexts with the current one marked with `*`:
+```
+Contexts:
+=========
+my-prod              Project ID: 66a10244f62b99c686572a9f *
+my-dev               Project ID: 66a10244f62b99c686572a9e
+my-staging           Project ID: 66a10244f62b99c686572a9d
+
+* = current context
+```
+
+**Show current context:**
+```bash
+acloud context current
+```
+
+**Delete a context:**
+```bash
+acloud context delete my-dev
+```
+
+### Context File
+
+Contexts are stored in `~/.acloud-context.yaml`:
+
+```yaml
+current-context: my-prod
+contexts:
+  my-prod:
+    project-id: 66a10244f62b99c686572a9f
+  my-dev:
+    project-id: 66a10244f62b99c686572a9e
+```
+
+### Overriding Context
+
+You can always override the context by explicitly passing `--project-id`:
+
+```bash
+# Uses context project ID
+acloud storage blockstorage list
+
+# Overrides with specific project ID
+acloud storage blockstorage list --project-id "different-project-id"
+```
+
 ## Auto-completion
 
 The CLI supports shell auto-completion for commands, flags, and resource IDs.

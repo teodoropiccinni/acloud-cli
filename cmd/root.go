@@ -54,12 +54,30 @@ func GetArubaClient() (aruba.Client, error) {
 
 	// Create SDK client with credentials using DefaultOptions
 	options := aruba.DefaultOptions(config.ClientID, config.ClientSecret)
+
 	client, err := aruba.NewClient(options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Aruba Cloud client: %w", err)
 	}
 
 	return client, nil
+}
+
+// GetProjectID returns the project ID from the flag or current context
+func GetProjectID(cmd *cobra.Command) (string, error) {
+	// Try to get from flag first
+	projectID, _ := cmd.Flags().GetString("project-id")
+	if projectID != "" {
+		return projectID, nil
+	}
+
+	// Try to get from context
+	projectID, err := GetCurrentProjectID()
+	if err != nil {
+		return "", fmt.Errorf("project ID not specified. Use --project-id flag or set a context with 'acloud context use <name>'")
+	}
+
+	return projectID, nil
 }
 
 // TableColumn represents a column definition for the table printer
