@@ -51,26 +51,37 @@ acloud storage blockstorage get <volume-id>
 
 **Example:**
 ```bash
-acloud storage blockstorage get vol-123456789
+acloud storage blockstorage get 69442fe38f4a09c12b5ded74
 ```
 
 **Output:**
 ```
 Block Storage Details:
-ID:              vol-123456789
+======================
+ID:              69442fe38f4a09c12b5ded74
+URI:             /projects/68398923fb2cb026400d4d31/providers/Aruba.Storage/blockStorages/69442fe38f4a09c12b5ded74
 Name:            my-volume
 Size (GB):       100
 Type:            Standard
-Zone:            it-mil1-1
-Region:          it-mil1
-Status:          Available
-Billing Period:  Hour
-Created:         2025-12-18T10:30:00Z
-Tags:            environment=production, owner=devops
+Zone:            ITBG-3
+Region:          IT BG
+Status:          NotUsed
+Creation Date:   18-12-2025 10:30:00
+Created By:      aru-123456
+Tags:            [environment=production owner=devops]
 ```
+
+**Note:** The URI field shows the full resource path needed for creating snapshots.
 
 ### Create Block Storage
 
+```bash
+acloud storage blockstorage create \
+  --name "my-volume" \
+  --size 100
+```
+
+**With zone:**
 ```bash
 acloud storage blockstorage create \
   --name "my-volume" \
@@ -92,10 +103,10 @@ acloud storage blockstorage create \
 
 **Required Flags:**
 - `--name`: Name for the block storage volume
-- `--zone`: Zone/datacenter (e.g., `ITBG-3`)
 - `--size`: Size in GB
 
 **Optional Flags:**
+- `--zone`: Zone/datacenter (e.g., `ITBG-3`) - Optional, can be omitted
 - `--region`: Region code (default: `ITBG-Bergamo`)
 - `--type`: Volume type (`Standard` or `Performance`, default: `Standard`)
 - `--billing-period`: Billing period (`Hour`, `Month`, `Year`, default: `Hour`)
@@ -131,33 +142,51 @@ Creation Date:   18-12-2025 16:46:27
 
 ### Update Block Storage
 
-**Note:** The update functionality for block storage is currently limited by the SDK. Size updates are not supported at this time.
+**Important:** Block storage can only be updated when its status is `Used` or `NotUsed`. Updates are not allowed during provisioning states like `InCreation`.
 
 You can update the name and/or tags of a block storage volume:
 
 ```bash
 # Update name
-acloud storage blockstorage update vol-123456789 --name "new-volume-name"
+acloud storage blockstorage update 69442fe38f4a09c12b5ded74 --name "new-volume-name"
 
 # Update tags
-acloud storage blockstorage update vol-123456789 --tags "env=prod,team=backend"
+acloud storage blockstorage update 69442fe38f4a09c12b5ded74 --tags "env=prod,team=backend"
 
 # Update both
-acloud storage blockstorage update vol-123456789 \
+acloud storage blockstorage update 69442fe38f4a09c12b5ded74 \
   --name "new-name" \
   --tags "env=prod,team=backend"
 ```
 
-**Note:** Currently, only name and tags can be updated. Size and type updates are not supported by the API at this time.
+**Example Output:**
+```bash
+$ acloud storage blockstorage update 694557430d0972656501d43c --name "my-updated-volume"
+
+Block storage updated successfully!
+ID:              694557430d0972656501d43c
+Name:            my-updated-volume
+Size (GB):       5
+Type:            Standard
+```
+
+**Status Validation:**
+```bash
+$ acloud storage blockstorage update 69455aa70d0972656501d45d --name "should-fail"
+Error: Cannot update block storage with status 'InCreation'
+Block storage can only be updated when status is 'Used' or 'NotUsed'
+```
+
+**Note:** Size and type updates are not supported by the API at this time. Only name and tags can be modified.
 
 ### Delete Block Storage
 
 ```bash
 # With confirmation prompt
-acloud storage blockstorage delete vol-123456789
+acloud storage blockstorage delete 69442fe38f4a09c12b5ded74
 
 # Skip confirmation
-acloud storage blockstorage delete vol-123456789 --yes
+acloud storage blockstorage delete 69442fe38f4a09c12b5ded74 --yes
 ```
 
 **Example with confirmation:**
@@ -175,25 +204,37 @@ Block storage 69442fe38f4a09c12b5ded74 deleted successfully!
 
 ## Snapshots
 
-Snapshots provide point-in-time copies of block storage volumes for backup and recovery.
+Snapshots provide point-in-time copies of block storage volumes for backup and recovery purposes.
 
 ### List Snapshots
 
+List snapshots for a specific block storage volume:
+
 ```bash
-# Using context
-acloud storage snapshot list
+# List snapshots for a volume (requires volume URI)
+acloud storage snapshot list --volume-uri "/projects/68398923fb2cb026400d4d31/providers/Aruba.Storage/blockStorages/69442fe38f4a09c12b5ded74"
 
 # With explicit project ID
-acloud storage snapshot list --project-id "66a10244f62b99c686572a9f"
+acloud storage snapshot list \
+  --volume-uri "/projects/68398923fb2cb026400d4d31/providers/Aruba.Storage/blockStorages/69442fe38f4a09c12b5ded74" \
+  --project-id "66a10244f62b99c686572a9f"
 ```
 
 **Output:**
 ```
-NAME                SIZE(GB)  SOURCE                  STATUS    
-daily-backup        100       my-volume               Available 
-pre-upgrade         500       data-volume             Available 
-weekly-snap         250       backup-volume           Creating  
+NAME                           ID                         SIZE(GB)     STATUS          
+backup-snapshot-01             69442abc8f4a09c12b5def12   100          Active       
+daily-backup                   69442def8f4a09c12b5def34   250          Active       
+updated-test-snapshot          69455d620d0972656501d477   824634892352 Active
 ```
+
+**Required Flags:**
+- `--volume-uri` - Full URI of the source block storage volume (get this from `blockstorage get` command)
+
+**Optional Flags:**
+- `--project-id` - Project ID (uses context if not specified)
+
+**Note:** The `--volume-uri` flag is required to filter snapshots for a specific volume. Use `blockstorage get <volume-id>` to get the volume URI.
 
 ### Get Snapshot Details
 
@@ -203,36 +244,53 @@ acloud storage snapshot get <snapshot-id>
 
 **Example:**
 ```bash
-acloud storage snapshot get snap-123456789
+acloud storage snapshot get 69442abc8f4a09c12b5def12
 ```
 
 **Output:**
 ```
 Snapshot Details:
-ID:              snap-123456789
+=================
+ID:              69442abc8f4a09c12b5def12
+URI:             /projects/68398923fb2cb026400d4d31/providers/Aruba.Storage/snapshots/69442abc8f4a09c12b5def12
 Name:            daily-backup
 Size (GB):       100
-Region:          it-mil1
-Status:          Available
-Source Volume:   /storage/volumes/vol-123456789
-Created:         2025-12-18T02:00:00Z
-Tags:            type=backup, schedule=daily
+Source Volume:   /projects/68398923fb2cb026400d4d31/providers/Aruba.Storage/blockStorages/69442fe38f4a09c12b5ded74
+Region:          IT BG
+Status:          Active
+Creation Date:   19-12-2025 14:12:50
+Created By:      aru-297647
 ```
 
+**Note:** The Region field shows the format returned by the API (`IT BG`). When updating snapshots, the CLI automatically converts this to the required format (`ITBG-Bergamo`).
 ### Create Snapshot
 
+To create a snapshot, you need the full URI of the source block storage volume. You can get this from the `blockstorage get` command.
+
 ```bash
+# First, get the volume URI
+acloud storage blockstorage get 69442fe38f4a09c12b5ded74
+
+# Then create the snapshot using the URI
 acloud storage snapshot create \
   --name "my-snapshot" \
-  --region "it-mil1" \
-  --volume-uri "/storage/volumes/vol-123456789" \
+  --region "ITBG-Bergamo" \
+  --volume-uri "/projects/68398923fb2cb026400d4d31/providers/Aruba.Storage/blockStorages/69442fe38f4a09c12b5ded74"
+```
+
+**With tags:**
+```bash
+acloud storage snapshot create \
+  --name "daily-backup" \
+  --region "ITBG-Bergamo" \
+  --volume-uri "/projects/68398923fb2cb026400d4d31/providers/Aruba.Storage/blockStorages/69442fe38f4a09c12b5ded74" \
   --tags "type=backup,schedule=daily"
 ```
 
 **Required Flags:**
 - `--name`: Name for the snapshot
-- `--region`: Region code
-- `--volume-uri`: URI of the source volume (e.g., `/storage/volumes/vol-123456789`)
+- `--region`: Region code (e.g., `ITBG-Bergamo`)
+- `--volume-uri`: Full URI of the source volume (get this from `blockstorage get` command)
 
 **Optional Flags:**
 - `--tags`: Comma-separated tags
@@ -240,13 +298,25 @@ acloud storage snapshot create \
 
 **Example Output:**
 ```
+Creating snapshot with the following parameters:
+  Name:       daily-backup
+  Region:     ITBG-Bergamo
+  Volume URI: /projects/68398923fb2cb026400d4d31/providers/Aruba.Storage/blockStorages/69442fe38f4a09c12b5ded74
+  Tags:       [type=backup schedule=daily]
+
 Snapshot created successfully!
-ID:              snap-987654321
-Name:            my-snapshot
+ID:              69442abc8f4a09c12b5def12
+Name:            daily-backup
+Creation Date:   19-12-2025 14:12:50
+```
+
+**Important Notes:**
+- The snapshot will initially be in `InCreation` status and will transition to `Active` when ready
+- SDK v0.1.2+ properly handles block storage state validation during snapshot creation
+- Creation may take several minutes depending on volume size
+Name:            daily-backup
 Size (GB):       100
-Region:          it-mil1
-Status:          Creating
-Source Volume:   /storage/volumes/vol-123456789
+Creation Date:   19-12-2025 14:30:00
 ```
 
 ### Update Snapshot
@@ -255,30 +325,54 @@ You can update the name and/or tags of a snapshot:
 
 ```bash
 # Update name
-acloud storage snapshot update snap-123456789 --name "new-snapshot-name"
+acloud storage snapshot update 69442abc8f4a09c12b5def12 --name "new-snapshot-name"
 
 # Update tags
-acloud storage snapshot update snap-123456789 --tags "type=backup,retention=30days"
+acloud storage snapshot update 69442abc8f4a09c12b5def12 --tags "type=backup,retention=30days"
 
 # Update both
-acloud storage snapshot update snap-123456789 \
+acloud storage snapshot update 69442abc8f4a09c12b5def12 \
   --name "new-name" \
   --tags "type=backup,retention=30days"
 ```
 
-**Note:** Only name and tags can be updated.
+**Example:**
+```bash
+acloud storage snapshot update 69455d620d0972656501d477 --name "updated-test-snapshot"
+```
+
+**Output:**
+```
+Snapshot updated successfully!
+```
+
+**Important Notes:**
+- Only name and tags can be updated
+- The CLI automatically converts region codes from API format (`IT BG`) to the required update format (`ITBG-Bergamo`)
+- This region conversion happens automatically - you don't need to specify the region during updates
 
 ### Delete Snapshot
 
 ```bash
 # With confirmation prompt
-acloud storage snapshot delete snap-123456789
+acloud storage snapshot delete 69442abc8f4a09c12b5def12
 
-# Skip confirmation
-acloud storage snapshot delete snap-123456789 --yes
+# Skip confirmation (useful for automation)
+acloud storage snapshot delete 69442abc8f4a09c12b5def12 --yes
 ```
 
-**Warning:** Deleting a snapshot is permanent and cannot be undone.
+**Example with confirmation:**
+```bash
+$ acloud storage snapshot delete 69455d620d0972656501d477
+Are you sure you want to delete snapshot 69455d620d0972656501d477? (yes/no): yes
+
+Snapshot 69455d620d0972656501d477 deleted successfully!
+```
+
+**Flags:**
+- `-y, --yes` - Skip confirmation prompt (useful for scripts and automation)
+
+**Warning:** Deleting a snapshot is permanent and cannot be undone. Always verify the snapshot ID before deletion.
 
 ## Best Practices
 
@@ -298,57 +392,84 @@ acloud storage snapshot delete snap-123456789 --yes
 3. **Size Planning**: Choose appropriate size based on growth projections
    - Start with minimum required size
    - Monitor usage regularly
-   - Note: Size cannot be increased after creation (API limitation)
+   - Note: Size cannot be increased after creation via update command
    - Consider costs vs. performance
 
 4. **Type Selection**:
    - **Standard**: General-purpose workloads, cost-effective
    - **Performance**: High I/O workloads, databases, critical applications
 
-5. **Regional Placement**: Create volumes in the same region as your compute resources
-   - Default region: `ITBG-Bergamo`
-   - Common zones: `ITBG-3` (Bergamo)
+5. **Zone Selection**:
+   - Zone parameter is **optional** when creating block storage
+   - Can be omitted for region-wide deployment
+   - Specify zone (e.g., `ITBG-3`) for specific datacenter placement
 
-6. **Billing Period**: Choose based on usage duration
-   - **Hour**: Short-term testing, development
+6. **Regional Placement**: Create volumes in the same region as your compute resources
+   - Default region: `ITBG-Bergamo`
+   - Use proper region format: `ITBG-Bergamo` (not `IT BG`)
+
+7. **Billing Period**: Choose based on usage duration
+   - **Hour**: Short-term testing, development (default)
    - **Month**: Production workloads
    - **Year**: Long-term stable infrastructure (best cost savings)
 
+8. **Update Constraints**: Block storage can only be updated when status is `Used` or `NotUsed`
+   - Cannot update during provisioning (`InCreation` state)
+   - Only name and tags can be modified
+   - Size and type changes not supported
+
 ### Snapshots
 
-1. **Regular Backups**: Create snapshots on a regular schedule
+1. **Getting Volume URI**: Always use `blockstorage get` to get the full URI for snapshot operations
+   ```bash
+   # Get the URI from the block storage details
+   acloud storage blockstorage get 69442fe38f4a09c12b5ded74
+   # Copy the URI field for snapshot creation and listing
+   ```
+
+2. **Listing Snapshots**: The volume URI is required to list snapshots
+   ```bash
+   acloud storage snapshot list --volume-uri "/projects/PROJECT_ID/providers/Aruba.Storage/blockStorages/VOLUME_ID"
+   ```
+
+3. **Regular Backups**: Create snapshots on a regular schedule
    ```bash
    --tags "schedule=daily,retention=7days"
    --tags "schedule=weekly,retention=4weeks"
    ```
 
-2. **Pre-Change Snapshots**: Always create a snapshot before major changes
+4. **Pre-Change Snapshots**: Always create a snapshot before major changes
    ```bash
    acloud storage snapshot create \
      --name "pre-upgrade-$(date +%Y%m%d)" \
-     --region "it-mil1" \
-     --volume-uri "/storage/volumes/vol-123"
+     --region "ITBG-Bergamo" \
+     --volume-uri "/projects/PROJECT_ID/providers/Aruba.Storage/blockStorages/VOLUME_ID"
    ```
 
-3. **Naming Convention**: Include date and purpose in snapshot names
+5. **Naming Convention**: Include date and purpose in snapshot names
    ```bash
    --name "prod-db-daily-20251218"
    --name "pre-migration-backup-20251218"
    ```
 
-4. **Retention Policy**: Implement a clear retention policy
+6. **Retention Policy**: Implement a clear retention policy
    - Daily snapshots: 7 days
    - Weekly snapshots: 4 weeks
    - Monthly snapshots: 12 months
 
-5. **Cleanup**: Delete old snapshots to manage costs
+7. **Cleanup**: Delete old snapshots to manage costs
    ```bash
-   # List and identify old snapshots
-   acloud storage snapshot list
+   # List snapshots for a volume
+   acloud storage snapshot list --volume-uri "/projects/PROJECT_ID/providers/Aruba.Storage/blockStorages/VOLUME_ID"
    
    # Delete outdated snapshots
    acloud storage snapshot delete snap-old-123 --yes
    ```
+
+8. **Region Code Handling**: The CLI automatically handles region format conversions
+   - API returns region as `IT BG` in GET operations
+   - API requires region as `ITBG-Bergamo` in POST/PUT operations
+   - The CLI automatically converts formats during updates - no manual intervention needed
 
 ## Common Workflows
 
@@ -378,8 +499,8 @@ acloud storage snapshot create \
 # 1. Create snapshot of source volume
 acloud storage snapshot create \
   --name "migration-source-$(date +%Y%m%d)" \
-  --region "it-mil1" \
-  --volume-uri "/storage/volumes/vol-source-123"
+  --region "ITBG-Bergamo" \
+  --volume-uri "/projects/PROJECT_ID/providers/Aruba.Storage/blockStorages/VOLUME_ID"
 
 # 2. Create new volume in target region from snapshot
 # (Note: This would typically be done through the API or console)
@@ -394,11 +515,14 @@ acloud storage snapshot create \
 acloud context set prod --project-id "prod-project-id"
 acloud context use prod
 
+# Get the volume URI
+acloud storage blockstorage get VOLUME_ID
+
 # Create daily snapshot (run via cron/scheduled task)
 acloud storage snapshot create \
   --name "dr-backup-$(date +%Y%m%d-%H%M)" \
-  --region "it-mil1" \
-  --volume-uri "/storage/volumes/vol-critical-123" \
+  --region "ITBG-Bergamo" \
+  --volume-uri "/projects/PROJECT_ID/providers/Aruba.Storage/blockStorages/VOLUME_ID" \
   --tags "type=dr,schedule=daily,retention=7days"
 ```
 
@@ -459,23 +583,59 @@ Common region codes:
 ```bash
 acloud storage blockstorage create \
   --name "test-volume" \
-  --zone "ITBG-3" \
   --size 10
 ```
 
-Required: `--name`, `--zone`, `--size`
+Required: `--name`, `--size`
+Optional: `--zone`, `--region`, `--type`, `--billing-period`
 
 ### Volume shows empty zone
 
-**Issue:** Some older volumes may not have a zone assigned.
+**Issue:** Volumes created without a zone parameter have an empty zone field.
 
-**Solution:** This is expected for volumes created before zone assignment was enforced. New volumes will always have a zone.
+**Solution:** This is expected behavior. Zone is optional when creating block storage. You can:
+- Create new volumes without specifying a zone (region-wide)
+- Create new volumes with a specific zone (e.g., `--zone "ITBG-3"`)
 
-### "panic: unimplemented" when updating
+### "Cannot update block storage with status 'InCreation'"
 
-**Issue:** The SDK's update method is not yet implemented for block storage.
+**Issue:** Attempting to update a block storage while it's being provisioned.
 
-**Solution:** Size and type updates are not currently supported. Only name and tags can be updated through the console or API directly.
+**Solution:** Wait for the volume to reach `Used` or `NotUsed` status before updating:
+```bash
+# Check current status
+acloud storage blockstorage get VOLUME_ID
+
+# Wait until Status is "Used" or "NotUsed", then update
+acloud storage blockstorage update VOLUME_ID --name "new-name"
+```
+
+Block storage can only be updated when status is `Used` or `NotUsed`.
+
+### "Location Value: IT BG not found" during update
+
+**Issue:** The API doesn't accept the space-separated region format.
+
+**Solution:** The CLI automatically converts `IT BG` to `ITBG-Bergamo` during updates. If you still see this error, ensure you're using the latest version of the CLI.
+
+### Getting the correct volume URI for snapshots
+
+**Issue:** Not sure what format the volume-uri should be.
+
+**Solution:** Use the `blockstorage get` command to get the full URI:
+```bash
+# Get volume details including URI
+acloud storage blockstorage get 69442fe38f4a09c12b5ded74
+
+# Look for the URI field in the output:
+# URI: /projects/PROJECT_ID/providers/Aruba.Storage/blockStorages/VOLUME_ID
+
+# Use this exact URI in snapshot create
+acloud storage snapshot create \
+  --name "my-snapshot" \
+  --region "ITBG-Bergamo" \
+  --volume-uri "/projects/PROJECT_ID/providers/Aruba.Storage/blockStorages/VOLUME_ID"
+```
 
 ### Using verbose mode for debugging
 
@@ -483,13 +643,27 @@ If you encounter issues, use the `--verbose` flag to see the full API response:
 
 ```bash
 acloud storage blockstorage list --verbose
+acloud storage snapshot list --verbose
 ```
 
 This will show:
 - HTTP status codes
-- Full volume details
-- All metadata and properties
-- Exact field values from the API
+- Full API response
+- Error details with field-level validation messages
+- Raw response body for detailed debugging
+
+### API Error Response Decoding
+
+When an operation fails, the CLI automatically decodes and displays the error:
+```bash
+$ acloud storage blockstorage update VOLUME_ID --name "test"
+API Error (Status 400):
+  Title: One or more validation errors occurred.
+  Extensions: map[errors:[map[errorMessage:invalid datacenter field:DataCenter]]]
+  Raw Response: {"title":"...","status":400,"errors":[...]}
+```
+
+Use this information to identify and fix the issue.
 
 ## Next Steps
 

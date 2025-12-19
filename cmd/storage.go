@@ -50,10 +50,6 @@ var blockstorageCreateCmd = &cobra.Command{
 			fmt.Println("Error: --region is required")
 			return
 		}
-		if zone == "" {
-			fmt.Println("Error: --zone is required")
-			return
-		}
 		if size <= 0 {
 			fmt.Println("Error: --size must be greater than 0")
 			return
@@ -80,16 +76,22 @@ var blockstorageCreateCmd = &cobra.Command{
 			Properties: types.BlockStoragePropertiesRequest{
 				SizeGB:        size,
 				BillingPeriod: billingPeriod,
-				Zone:          zone,
 				Type:          types.BlockStorageType(volumeType),
 			},
+		}
+
+		// Add zone only if provided
+		if zone != "" {
+			createRequest.Properties.Zone = &zone
 		}
 
 		// Debug: print request
 		fmt.Printf("\nCreating block storage with:\n")
 		fmt.Printf("  Name: %s\n", name)
 		fmt.Printf("  Region: %s\n", region)
-		fmt.Printf("  Zone: %s\n", zone)
+		if zone != "" {
+			fmt.Printf("  Zone: %s\n", zone)
+		}
 		fmt.Printf("  Size: %d GB\n", size)
 		fmt.Printf("  Type: %s\n", volumeType)
 		fmt.Printf("  Billing Period: %s\n", billingPeriod)
@@ -181,6 +183,10 @@ var blockstorageGetCmd = &cobra.Command{
 				fmt.Printf("ID:              %s\n", *volume.Metadata.ID)
 			}
 
+			if volume.Metadata.URI != nil {
+				fmt.Printf("URI:             %s\n", *volume.Metadata.URI)
+			}
+
 			if volume.Metadata.Name != nil {
 				fmt.Printf("Name:            %s\n", *volume.Metadata.Name)
 			}
@@ -222,7 +228,7 @@ var blockstorageGetCmd = &cobra.Command{
 
 var blockstorageUpdateCmd = &cobra.Command{
 	Use:   "update [volume-id]",
-	Short: "Update block storage (name and/or tags only)",
+	Short: "Update block storage (name and/or tags)",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		volumeID := args[0]
@@ -267,6 +273,28 @@ var blockstorageUpdateCmd = &cobra.Command{
 
 		currentVolume := getResponse.Data
 
+		// Check if the volume status allows updates
+		if currentVolume.Status.State != nil {
+			status := *currentVolume.Status.State
+			if status != "Used" && status != "NotUsed" {
+				fmt.Printf("Error: Cannot update block storage with status '%s'\n", status)
+				fmt.Println("Block storage can only be updated when status is 'Used' or 'NotUsed'")
+				return
+			}
+		}
+
+		// Fix region code format (IT BG -> ITBG-Bergamo)
+		regionCode := currentVolume.Metadata.LocationResponse.Code
+		if regionCode == "IT BG" {
+			regionCode = "ITBG-Bergamo"
+		}
+
+		// Handle zone - if empty, set to nil
+		var zone *string
+		if currentVolume.Properties.Zone != "" {
+			zone = &currentVolume.Properties.Zone
+		}
+
 		// Build the update request with current values as defaults
 		updateRequest := types.BlockStorageRequest{
 			Metadata: types.RegionalResourceMetadataRequest{
@@ -275,13 +303,13 @@ var blockstorageUpdateCmd = &cobra.Command{
 					Tags: currentVolume.Metadata.Tags,
 				},
 				Location: types.LocationRequest{
-					Value: currentVolume.Metadata.LocationResponse.Code,
+					Value: regionCode,
 				},
 			},
 			Properties: types.BlockStoragePropertiesRequest{
 				SizeGB:        currentVolume.Properties.SizeGB,
 				BillingPeriod: "Hour",
-				Zone:          currentVolume.Properties.Zone,
+				Zone:          zone,
 				Type:          currentVolume.Properties.Type,
 			},
 		}
@@ -302,6 +330,27 @@ var blockstorageUpdateCmd = &cobra.Command{
 			return
 		}
 
+		// Check if the response indicates an error
+		if response.StatusCode >= 400 {
+			fmt.Printf("API Error (Status %d):\n", response.StatusCode)
+			if response.Error != nil {
+				if response.Error.Title != nil {
+					fmt.Printf("  Title: %s\n", *response.Error.Title)
+				}
+				if response.Error.Detail != nil {
+					fmt.Printf("  Detail: %s\n", *response.Error.Detail)
+				}
+				if response.Error.Extensions != nil {
+					fmt.Printf("  Extensions: %+v\n", response.Error.Extensions)
+				}
+			}
+			// Decode RawBody to see the actual error
+			if len(response.RawBody) > 0 {
+				fmt.Printf("  Raw Response: %s\n", string(response.RawBody))
+			}
+			return
+		}
+
 		if response != nil && response.Data != nil {
 			fmt.Println("\nBlock storage updated successfully!")
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
@@ -311,6 +360,8 @@ var blockstorageUpdateCmd = &cobra.Command{
 			}
 			fmt.Printf("Size (GB):       %d\n", response.Data.Properties.SizeGB)
 			fmt.Printf("Type:            %s\n", response.Data.Properties.Type)
+		} else {
+			fmt.Println("Warning: Update may have succeeded but response is empty")
 		}
 	},
 }
@@ -535,6 +586,13 @@ var snapshotCreateCmd = &cobra.Command{
 			},
 		}
 
+		fmt.Println("Creating snapshot with the following parameters:")
+		fmt.Printf("  Name:       %s\n", name)
+		fmt.Printf("  Region:     %s\n", region)
+		fmt.Printf("  Volume URI: %s\n", volumeURI)
+		fmt.Printf("  Tags:       %v\n", tags)
+		fmt.Println()
+
 		// Create the snapshot using the SDK
 		ctx := context.Background()
 		response, err := client.FromStorage().Snapshots().Create(ctx, projectID, createRequest, nil)
@@ -547,10 +605,11 @@ var snapshotCreateCmd = &cobra.Command{
 			fmt.Println("\nSnapshot created successfully!")
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
-			fmt.Printf("Size (GB):       %d\n", response.Data.Properties.SizeGB)
 			if !response.Data.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", response.Data.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
 			}
+		} else {
+			fmt.Println("Warning: Snapshot may have been created but response is empty")
 		}
 	},
 }
@@ -595,6 +654,10 @@ var snapshotGetCmd = &cobra.Command{
 				fmt.Printf("ID:              %s\n", *snapshot.Metadata.ID)
 			}
 
+			if snapshot.Metadata.URI != nil {
+				fmt.Printf("URI:             %s\n", *snapshot.Metadata.URI)
+			}
+
 			if snapshot.Metadata.Name != nil {
 				fmt.Printf("Name:            %s\n", *snapshot.Metadata.Name)
 			}
@@ -609,7 +672,11 @@ var snapshotGetCmd = &cobra.Command{
 				fmt.Printf("Region:          %s\n", snapshot.Metadata.LocationResponse.Code)
 			}
 
-			fmt.Printf("Status:          %v\n", snapshot.Status)
+			status := ""
+			if snapshot.Status.State != nil {
+				status = *snapshot.Status.State
+			}
+			fmt.Printf("Status:          %s\n", status)
 
 			if !snapshot.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", snapshot.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
@@ -676,6 +743,12 @@ var snapshotUpdateCmd = &cobra.Command{
 
 		currentSnapshot := getResponse.Data
 
+		// Fix region code format (IT BG -> ITBG-Bergamo)
+		regionCode := currentSnapshot.Metadata.LocationResponse.Code
+		if regionCode == "IT BG" {
+			regionCode = "ITBG-Bergamo"
+		}
+
 		// Build the update request with current values as defaults
 		volumeURI := ""
 		if currentSnapshot.Properties.Volume != nil && currentSnapshot.Properties.Volume.URI != nil {
@@ -689,7 +762,7 @@ var snapshotUpdateCmd = &cobra.Command{
 					Tags: currentSnapshot.Metadata.Tags,
 				},
 				Location: types.LocationRequest{
-					Value: currentSnapshot.Metadata.LocationResponse.Code,
+					Value: regionCode,
 				},
 			},
 			Properties: types.SnapshotPropertiesRequest{
@@ -715,6 +788,27 @@ var snapshotUpdateCmd = &cobra.Command{
 			return
 		}
 
+		// Check if the response indicates an error
+		if response.StatusCode >= 400 {
+			fmt.Printf("API Error (Status %d):\n", response.StatusCode)
+			if response.Error != nil {
+				if response.Error.Title != nil {
+					fmt.Printf("  Title: %s\n", *response.Error.Title)
+				}
+				if response.Error.Detail != nil {
+					fmt.Printf("  Detail: %s\n", *response.Error.Detail)
+				}
+				if response.Error.Extensions != nil {
+					fmt.Printf("  Extensions: %+v\n", response.Error.Extensions)
+				}
+			}
+			// Decode RawBody to see the actual error
+			if len(response.RawBody) > 0 {
+				fmt.Printf("  Raw Response: %s\n", string(response.RawBody))
+			}
+			return
+		}
+
 		if response != nil && response.Data != nil {
 			fmt.Println("\nSnapshot updated successfully!")
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
@@ -722,6 +816,8 @@ var snapshotUpdateCmd = &cobra.Command{
 			if len(response.Data.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", response.Data.Metadata.Tags)
 			}
+		} else {
+			fmt.Println("Warning: Update may have succeeded but response is empty")
 		}
 	},
 }
@@ -775,15 +871,8 @@ var snapshotDeleteCmd = &cobra.Command{
 
 var snapshotListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all snapshots",
+	Short: "List snapshots for a block storage volume",
 	Run: func(cmd *cobra.Command, args []string) {
-		// Get SDK client
-		client, err := GetArubaClient()
-		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
-		}
-
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
@@ -791,7 +880,22 @@ var snapshotListCmd = &cobra.Command{
 			return
 		}
 
-		// List snapshots using the SDK
+		// Get block storage URI flag
+		volumeURI, _ := cmd.Flags().GetString("volume-uri")
+		if volumeURI == "" {
+			fmt.Println("Error: --volume-uri is required")
+			fmt.Println("Use: acloud storage snapshot list --volume-uri <block-storage-uri>")
+			return
+		}
+
+		// Get SDK client
+		client, err := GetArubaClient()
+		if err != nil {
+			fmt.Printf("Error initializing client: %v\n", err)
+			return
+		}
+
+		// List snapshots using the SDK (filter by volume URI on client side)
 		ctx := context.Background()
 		response, err := client.FromStorage().Snapshots().List(ctx, projectID, nil)
 		if err != nil {
@@ -799,33 +903,56 @@ var snapshotListCmd = &cobra.Command{
 			return
 		}
 
+		// Check verbose flag
+		verbose, _ := cmd.Flags().GetBool("verbose")
+		if verbose {
+			fmt.Println("=== Full API Response ===")
+			fmt.Printf("%+v\n\n", response)
+		}
+
 		if response != nil && response.Data != nil && len(response.Data.Values) > 0 {
+			// Filter snapshots by volume URI
+			var filteredSnapshots []types.SnapshotResponse
+			for _, snapshot := range response.Data.Values {
+				if snapshot.Properties.Volume != nil && snapshot.Properties.Volume.URI != nil && *snapshot.Properties.Volume.URI == volumeURI {
+					filteredSnapshots = append(filteredSnapshots, snapshot)
+				}
+			}
+
+			if len(filteredSnapshots) == 0 {
+				fmt.Printf("No snapshots found for volume: %s\n", volumeURI)
+				return
+			}
+
 			// Define table columns
 			headers := []TableColumn{
 				{Header: "NAME", Width: 30},
+				{Header: "ID", Width: 26},
 				{Header: "SIZE(GB)", Width: 12},
-				{Header: "SOURCE", Width: 30},
 				{Header: "STATUS", Width: 15},
 			}
 
 			// Build rows
 			var rows [][]string
-			for _, snapshot := range response.Data.Values {
+			for _, snapshot := range filteredSnapshots {
 				name := ""
 				if snapshot.Metadata.Name != nil && *snapshot.Metadata.Name != "" {
 					name = *snapshot.Metadata.Name
 				}
 
-				size := fmt.Sprintf("%d", snapshot.Properties.SizeGB)
-
-				source := ""
-				if snapshot.Properties.Volume != nil && snapshot.Properties.Volume.URI != nil && *snapshot.Properties.Volume.URI != "" {
-					source = *snapshot.Properties.Volume.URI
+				id := ""
+				if snapshot.Metadata.ID != nil && *snapshot.Metadata.ID != "" {
+					id = *snapshot.Metadata.ID
 				}
 
-				status := fmt.Sprintf("%v", snapshot.Status)
+				size := fmt.Sprintf("%d", snapshot.Properties.SizeGB)
 
-				rows = append(rows, []string{name, size, source, status})
+				status := ""
+				if snapshot.Status.State != nil {
+					status = *snapshot.Status.State
+				}
+
+				rows = append(rows, []string{name, id, size, status})
 			}
 
 			// Print the table
@@ -849,13 +976,12 @@ func init() {
 	blockstorageCreateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	blockstorageCreateCmd.Flags().String("name", "", "Name for the block storage (required)")
 	blockstorageCreateCmd.Flags().String("region", "ITBG-Bergamo", "Region code")
-	blockstorageCreateCmd.Flags().String("zone", "", "Zone/datacenter (required)")
+	blockstorageCreateCmd.Flags().String("zone", "", "Zone/datacenter (optional)")
 	blockstorageCreateCmd.Flags().Int("size", 0, "Size in GB (required)")
 	blockstorageCreateCmd.Flags().String("type", "Standard", "Type: Standard or Performance")
 	blockstorageCreateCmd.Flags().String("billing-period", "Hour", "Billing period: Hour, Month, Year")
 	blockstorageCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
 	blockstorageCreateCmd.MarkFlagRequired("name")
-	blockstorageCreateCmd.MarkFlagRequired("zone")
 	blockstorageCreateCmd.MarkFlagRequired("size")
 
 	blockstorageGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
@@ -897,4 +1023,7 @@ func init() {
 	snapshotDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	snapshotListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	snapshotListCmd.Flags().String("volume-uri", "", "Block storage volume URI (required)")
+	snapshotListCmd.Flags().BoolP("verbose", "v", false, "Show detailed debug information")
+	snapshotListCmd.MarkFlagRequired("volume-uri")
 }
