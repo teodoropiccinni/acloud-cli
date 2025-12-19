@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -149,7 +150,62 @@ var vpcListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all VPCs",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("VPC list (stub)")
+		// Get SDK client
+		client, err := GetArubaClient()
+		if err != nil {
+			fmt.Printf("Error initializing client: %v\n", err)
+			return
+		}
+
+		// Get projectID from flag
+		projectID, _ := cmd.Flags().GetString("project-id")
+		if projectID == "" {
+			fmt.Println("Error: --project-id is required")
+			return
+		}
+
+		// List VPCs using the SDK
+		ctx := context.Background()
+		response, err := client.FromNetwork().VPCs().List(ctx, projectID, nil)
+		if err != nil {
+			fmt.Printf("Error listing VPCs: %v\n", err)
+			return
+		}
+
+		if response != nil && response.Data != nil && len(response.Data.Values) > 0 {
+			// Define table columns
+			headers := []TableColumn{
+				{Header: "NAME", Width: 40},
+				{Header: "DEFAULT", Width: 10},
+				{Header: "SUBNETS", Width: 10},
+				{Header: "STATUS", Width: 15},
+			}
+
+			// Build rows
+			var rows [][]string
+			for _, vpc := range response.Data.Values {
+				name := ""
+				if vpc.Metadata.Name != nil && *vpc.Metadata.Name != "" {
+					name = *vpc.Metadata.Name
+				}
+
+				defaultVpc := "no"
+				if vpc.Properties.Default {
+					defaultVpc = "yes"
+				}
+
+				subnets := fmt.Sprintf("%d", len(vpc.Properties.LinkedResources))
+
+				status := fmt.Sprintf("%v", vpc.Status)
+
+				rows = append(rows, []string{name, defaultVpc, subnets, status})
+			}
+
+			// Print the table
+			PrintTable(headers, rows)
+		} else {
+			fmt.Println("No VPCs found")
+		}
 	},
 }
 
@@ -505,6 +561,11 @@ func init() {
 	vpcCmd.AddCommand(vpcUpdateCmd)
 	vpcCmd.AddCommand(vpcDeleteCmd)
 	vpcCmd.AddCommand(vpcListCmd)
+
+	// Add flags for vpc commands
+	vpcListCmd.Flags().String("project-id", "", "Project ID (required)")
+	vpcListCmd.MarkFlagRequired("project-id")
+
 	// Subnet
 	vpcCmd.AddCommand(subnetCmd)
 	subnetCmd.AddCommand(subnetCreateCmd)

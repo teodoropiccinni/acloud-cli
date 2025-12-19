@@ -1,6 +1,10 @@
 # acloud-cli
 
+[![GitHub release](https://img.shields.io/github/tag/Arubacloud/acloud-cli.svg?label=release)](https://github.com/Arubacloud/acloud-cli/releases/latest)
+
 ArubaCloud Command Line Interface - A CLI tool for interacting with Aruba Cloud APIs.
+
+> **⚠️ Development Status**: This CLI is currently under active development and is **not production-ready yet**. 
 
 ## Installation
 
@@ -58,6 +62,66 @@ acloud config show
 ```
 
 Configuration is stored in `~/.acloud.yaml` with secure file permissions.
+
+## Quick Start
+
+### 1. Configure Credentials
+
+```bash
+acloud config set --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET
+```
+
+### 2. Set up a Context (Optional but Recommended)
+
+Contexts allow you to work with a specific project without repeatedly passing `--project-id`:
+
+```bash
+# Create a context with your project ID
+acloud context set my-prod --project-id "66a10244f62b99c686572a9f"
+
+# Switch to that context
+acloud context use my-prod
+
+# Now commands use the context project ID automatically
+acloud storage blockstorage list
+```
+
+### 3. Explore Resources
+
+```bash
+# List projects
+acloud management project list
+
+# List block storage volumes
+acloud storage blockstorage list
+
+# List snapshots
+acloud storage snapshot list
+```
+
+## Context Management
+
+Manage multiple project contexts to simplify your workflow:
+
+```bash
+# Set contexts for different environments
+acloud context set prod --project-id "prod-project-id"
+acloud context set dev --project-id "dev-project-id"
+acloud context set staging --project-id "staging-project-id"
+
+# Switch between contexts
+acloud context use prod
+acloud context use dev
+
+# View current context
+acloud context current
+
+# List all contexts
+acloud context list
+
+# Delete a context
+acloud context delete staging
+```
 
 ## Usage
 

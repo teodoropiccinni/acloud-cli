@@ -1,11 +1,10 @@
-/*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
+	"fmt"
 	"os"
 
+	"github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/spf13/cobra"
 )
 
@@ -40,4 +39,77 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+// GetArubaClient creates and returns an Aruba Cloud SDK client using stored credentials
+func GetArubaClient() (aruba.Client, error) {
+	config, err := LoadConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load configuration: %w. Please run 'acloud config set' to configure credentials", err)
+	}
+
+	if config.ClientID == "" || config.ClientSecret == "" {
+		return nil, fmt.Errorf("client ID or client secret not configured. Please run 'acloud config set'")
+	}
+
+	// Create SDK client with credentials using DefaultOptions
+	options := aruba.DefaultOptions(config.ClientID, config.ClientSecret)
+
+	client, err := aruba.NewClient(options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Aruba Cloud client: %w", err)
+	}
+
+	return client, nil
+}
+
+// GetProjectID returns the project ID from the flag or current context
+func GetProjectID(cmd *cobra.Command) (string, error) {
+	// Try to get from flag first
+	projectID, _ := cmd.Flags().GetString("project-id")
+	if projectID != "" {
+		return projectID, nil
+	}
+
+	// Try to get from context
+	projectID, err := GetCurrentProjectID()
+	if err != nil {
+		return "", fmt.Errorf("project ID not specified. Use --project-id flag or set a context with 'acloud context use <name>'")
+	}
+
+	return projectID, nil
+}
+
+// TableColumn represents a column definition for the table printer
+type TableColumn struct {
+	Header string // Column header name
+	Width  int    // Column width for formatting
+}
+
+// PrintTable prints data in a formatted table with headers
+// headers: slice of TableColumn defining each column
+// rows: slice of string slices, each inner slice represents a row
+func PrintTable(headers []TableColumn, rows [][]string) {
+	// Print header row
+	formatStr := ""
+	headerValues := make([]interface{}, len(headers))
+	for i, col := range headers {
+		formatStr += fmt.Sprintf("%%-%ds ", col.Width)
+		headerValues[i] = col.Header
+	}
+	formatStr += "\n"
+	fmt.Printf(formatStr, headerValues...)
+
+	// Print data rows
+	for _, row := range rows {
+		rowValues := make([]interface{}, len(row))
+		for i, val := range row {
+			// Truncate if value is too long
+			if len(headers) > i && len(val) > headers[i].Width {
+				val = val[:headers[i].Width-3] + "..."
+			}
+			rowValues[i] = val
+		}
+		fmt.Printf(formatStr, rowValues...)
+	}
 }
