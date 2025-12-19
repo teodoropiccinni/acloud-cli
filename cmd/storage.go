@@ -614,7 +614,7 @@ var blockstorageListCmd = &cobra.Command{
 					}
 				}
 			}
-			fmt.Println("\n=== End Debug ===\n")
+			fmt.Println("\n=== End Debug ===")
 		}
 
 		if response != nil && response.Data != nil && len(response.Data.Values) > 0 {
