@@ -1,53 +1,351 @@
-# Storage Resources
+# Storage Resources# Storage Resources
 
-This guide covers managing storage resources in Aruba Cloud, including block storage volumes and snapshots.
 
-## Overview
 
-Storage resources in Aruba Cloud include:
-- **Block Storage**: Persistent volumes that can be attached to cloud servers
-- **Snapshots**: Point-in-time copies of block storage volumes
+The `storage` category provides commands for managing storage resources in Aruba Cloud.The `storage` category provides commands for managing storage resources in Aruba Cloud.
 
-## Prerequisites
 
-- Configured CLI credentials (see [Getting Started](../getting-started.md))
-- A project ID (or set up a [context](../getting-started.md#context-management))
 
-## Block Storage
+## Available Resources## Available Resources
 
-Block storage volumes provide persistent storage for your cloud infrastructure.
 
-### List Block Storage Volumes
 
-```bash
-# Using context
-acloud storage blockstorage list
+### [Block Storage](storage/blockstorage.md)### [Block Storage](storage/blockstorage.md)
 
-# With explicit project ID
-acloud storage blockstorage list --project-id "66a10244f62b99c686572a9f"
 
-# With verbose debug output
-acloud storage blockstorage list --verbose
-```
 
-**Output:**
-```
-NAME                           ID                         SIZE(GB)     REGION          ZONE            TYPE            STATUS          
-test-volume                    69442fe38f4a09c12b5ded74   10           IT BG           ITBG-3          Standard        NotUsed         
-my-volume                      69087e12cc4c7793b9e4d2eb   100          IT BG           ITBG-3          Standard        Available 
-data-volume                    6901cafe42360f3845c1324c   500          IT BG           ITBG-3          Standard        In-use    
-backup-volume                  6901c6b98b5ab53f0516c397   250          IT BG           ITBG-3          Standard        Available 
-```
+Block storage volumes are persistent storage devices that can be attached to virtual machines.Block storage volumes are persistent storage devices that can be attached to virtual machines.
 
-**Flags:**
-- `--project-id` - Project ID (optional if context is set)
-- `-v, --verbose` - Show detailed debug information including raw API response
 
-### Get Block Storage Details
 
-```bash
-acloud storage blockstorage get <volume-id>
-```
+**Quick Commands:****Quick Commands:**
+
+```bash```bash
+
+# List all block storage volumes# List all block storage volumes
+
+acloud storage blockstorage listacloud storage blockstorage list
+
+
+
+# Get volume details# Get volume details
+
+acloud storage blockstorage get <volume-id>acloud storage blockstorage get <volume-id>
+
+
+
+# Create a volume# Create a volume
+
+acloud storage blockstorage create --name "my-volume" --size 50acloud storage blockstorage create --name "my-volume" --size 50
+
+
+
+# Update a volume# Update a volume
+
+acloud storage blockstorage update <volume-id> --name "new-name"acloud storage blockstorage update <volume-id> --name "new-name"
+
+
+
+# Delete a volume# Delete a volume
+
+acloud storage blockstorage delete <volume-id>acloud storage blockstorage delete <volume-id>
+
+``````
+
+
+
+### [Snapshots](storage/snapshot.md)### [Snapshots](storage/snapshot.md)
+
+
+
+Snapshots are point-in-time copies of block storage volumes for quick backups and cloning.Snapshots are point-in-time copies of block storage volumes for quick backups and cloning.
+
+
+
+**Quick Commands:****Quick Commands:**
+
+```bash```bash
+
+# List snapshots for a volume# List snapshots for a volume
+
+acloud storage snapshot list --volume-uri <volume-uri>acloud storage snapshot list --volume-uri <volume-uri>
+
+
+
+# Get snapshot details# Get snapshot details
+
+acloud storage snapshot get <snapshot-id>acloud storage snapshot get <snapshot-id>
+
+
+
+# Create a snapshot# Create a snapshot
+
+acloud storage snapshot create --name "backup" --region "ITBG-Bergamo" --volume-uri <uri>acloud storage snapshot create --name "backup" --region "ITBG-Bergamo" --volume-uri <uri>
+
+
+
+# Update a snapshot# Update a snapshot
+
+acloud storage snapshot update <snapshot-id> --tags "important"acloud storage snapshot update <snapshot-id> --tags "important"
+
+
+
+# Delete a snapshot# Delete a snapshot
+
+acloud storage snapshot delete <snapshot-id>acloud storage snapshot delete <snapshot-id>
+
+``````
+
+
+
+### [Backups](storage/backup.md)### [Backups](storage/backup.md)
+
+
+
+Backups provide advanced data protection with full/incremental backup types and retention policies.Backups provide advanced data protection with full/incremental backup types and retention policies.
+
+
+
+**Quick Commands:****Quick Commands:**
+
+```bash```bash
+
+# List all backups# List all backups
+
+acloud storage backup listacloud storage backup list
+
+
+
+# Get backup details# Get backup details
+
+acloud storage backup get <backup-id>acloud storage backup get <backup-id>
+
+
+
+# Create a backup# Create a backup
+
+acloud storage backup <volume-id> --name "weekly-backup" --type "Full" --retention-days 7acloud storage backup <volume-id> --name "weekly-backup" --type "Full" --retention-days 7
+
+
+
+# Update a backup# Update a backup
+
+acloud storage backup update <backup-id> --tags "production"acloud storage backup update <backup-id> --tags "production"
+
+
+
+# Delete a backup# Delete a backup
+
+acloud storage backup delete <backup-id>acloud storage backup delete <backup-id>
+
+``````
+
+
+
+### [Restore Operations](storage/restore.md)### [Restore Operations](storage/restore.md)
+
+
+
+Restore operations allow you to restore block storage volumes from backups.Restore operations allow you to restore block storage volumes from backups.
+
+
+
+**Quick Commands:****Quick Commands:**
+
+```bash```bash
+
+# List restore operations for a backup# List restore operations for a backup
+
+acloud storage restore list <backup-id>acloud storage restore list <backup-id>
+
+
+
+# Get restore details# Get restore details
+
+acloud storage restore get <backup-id> <restore-id>acloud storage restore get <backup-id> <restore-id>
+
+
+
+# Create a restore operation# Create a restore operation
+
+acloud storage restore <backup-id> <volume-id> --name "restore-op" --region "ITBG-Bergamo"acloud storage restore <backup-id> <volume-id> --name "restore-op" --region "ITBG-Bergamo"
+
+
+
+# Update a restore operation# Update a restore operation
+
+acloud storage restore update <backup-id> <restore-id> --name "new-name"acloud storage restore update <backup-id> <restore-id> --name "new-name"
+
+
+
+# Delete a restore operation# Delete a restore operation
+
+acloud storage restore delete <backup-id> <restore-id>acloud storage restore delete <backup-id> <restore-id>
+
+``````
+
+
+
+## Command Structure## Command Structure
+
+
+
+All storage commands follow this structure:All storage commands follow this structure:
+
+
+
+``````
+
+acloud storage <resource> <action> [arguments] [flags]acloud storage <resource> <action> [arguments] [flags]
+
+``````
+
+
+
+Where:Where:
+
+- `<resource>`: The type of resource (e.g., `blockstorage`, `snapshot`, `backup`, `restore`)- `<resource>`: The type of resource (e.g., `blockstorage`, `snapshot`, `backup`, `restore`)
+
+- `<action>`: The operation to perform (e.g., `list`, `get`, `create`, `update`, `delete`)- `<action>`: The operation to perform (e.g., `list`, `get`, `create`, `update`, `delete`)
+
+- `[arguments]`: Required arguments (e.g., resource IDs)- `[arguments]`: Required arguments (e.g., resource IDs)
+
+- `[flags]`: Optional flags (e.g., `--name`, `--size`, `--type`)- `[flags]`: Optional flags (e.g., `--name`, `--size`, `--type`)
+
+
+
+## Common Patterns## Common Patterns
+
+
+
+### Listing Resources### Listing Resources
+
+
+
+```bash```bash
+
+acloud storage <resource> list [arguments]acloud storage <resource> list [arguments]
+
+``````
+
+
+
+Lists all resources of the specified type with key information displayed in a table format.Lists all resources of the specified type with key information displayed in a table format.
+
+
+
+### Getting Resource Details### Getting Resource Details
+
+
+
+```bash```bash
+
+acloud storage <resource> get <resource-id> [arguments]acloud storage <resource> get <resource-id> [arguments]
+
+``````
+
+
+
+Displays detailed information about a specific resource.Displays detailed information about a specific resource.
+
+
+
+### Creating Resources### Creating Resources
+
+
+
+```bash```bash
+
+acloud storage <resource> <arguments> --flag1 value1 --flag2 value2acloud storage <resource> <arguments> --flag1 value1 --flag2 value2
+
+``````
+
+
+
+Creates a new resource with the specified properties.Creates a new resource with the specified properties.
+
+
+
+### Updating Resources### Updating Resources
+
+
+
+```bash```bash
+
+acloud storage <resource> update <resource-id> [arguments] --flag1 value1acloud storage <resource> update <resource-id> [arguments] --flag1 value1
+
+``````
+
+
+
+Updates an existing resource. Only provided fields are modified.Updates an existing resource. Only provided fields are modified.
+
+
+
+### Deleting Resources### Deleting Resources
+
+
+
+```bash```bash
+
+acloud storage <resource> delete <resource-id> [arguments]acloud storage <resource> delete <resource-id> [arguments]
+
+``````
+
+
+
+Deletes the specified resource. May prompt for confirmation.Deletes the specified resource. May prompt for confirmation.
+
+
+
+## Storage Architecture## Storage Architecture
+
+
+
+Storage resources are organized hierarchically:Storage resources are organized hierarchically:
+
+
+
+``````
+
+ProjectProject
+
+├── Block Storage Volumes├── Block Storage Volumes
+
+│   ├── Snapshots (point-in-time copies)│   ├── Snapshots (point-in-time copies)
+
+│   └── Backups (with retention policies)│   └── Backups (with retention policies)
+
+│       └── Restore Operations (nested under backups)│       └── Restore Operations (nested under backups)
+
+``````
+
+
+
+## Resource Relationships## Resource Relationships
+
+
+
+- **Block Storage** → **Snapshots**: One-to-many (a volume can have multiple snapshots)- **Block Storage** → **Snapshots**: One-to-many (a volume can have multiple snapshots)
+
+- **Block Storage** → **Backups**: One-to-many (a volume can have multiple backups)- **Block Storage** → **Backups**: One-to-many (a volume can have multiple backups)
+
+- **Backups** → **Restore Operations**: One-to-many (a backup can have multiple restore operations)- **Backups** → **Restore Operations**: One-to-many (a backup can have multiple restore operations)
+
+
+
+## Next Steps## Next Steps
+
+
+
+- [Block Storage Management Guide](storage/blockstorage.md)- [Block Storage Management Guide](storage/blockstorage.md)
+
+- [Snapshot Management Guide](storage/snapshot.md)- [Snapshot Management Guide](storage/snapshot.md)
+
+- [Backup Management Guide](storage/backup.md)- [Backup Management Guide](storage/backup.md)
+
+- [Restore Operations Guide](storage/restore.md)- [Restore Operations Guide](storage/restore.md)
+
 
 **Example:**
 ```bash

@@ -4,7 +4,7 @@ The `management` category provides commands for managing organization-level reso
 
 ## Available Resources
 
-### [Projects](management/projects.md)
+### [Projects](management/project.md)
 
 Projects are organizational units that group related resources together. They provide a way to organize and manage your cloud resources.
 
@@ -94,4 +94,4 @@ This will show available project IDs with their names.
 
 ## Next Steps
 
-- [Project Management Guide](management/projects.md)
+- [Project Management Guide](management/project.md)

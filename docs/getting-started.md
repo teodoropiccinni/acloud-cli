@@ -248,6 +248,8 @@ The auto-completion system provides:
    ```
 
 3. **Resource ID completion**: Tab-complete resource IDs with descriptions
+
+   **Management Resources:**
    ```bash
    acloud management project get <TAB>
    # Shows:
@@ -255,6 +257,42 @@ The auto-completion system provides:
    # 66a10244f62b99c686572a9f    develop
    # ...
    ```
+
+   **Storage Resources:**
+   ```bash
+   # Block Storage
+   acloud storage blockstorage get <TAB>
+   # Shows:
+   # 6965a6c3ffc0fd1ef8ba5612    MyVolume
+   # 6965a6c3ffc0fd1ef8ba5613    DataVolume
+   # ...
+
+   # Snapshots
+   acloud storage snapshot get <TAB>
+   # Shows:
+   # 696c9edce63c1af07d60d0c7    MySnapshot
+   # 696c9edce63c1af07d60d0c8    BackupSnapshot
+   # ...
+
+   # Backups
+   acloud storage backup get <TAB>
+   # Shows:
+   # 67649dac8c7bb1c5d7c80631    MyBackup
+   # 67649dac8c7bb1c5d7c80632    DailyBackup
+   # ...
+
+   # Restores (hierarchical: backup-id then restore-id)
+   acloud storage restore get <TAB>
+   # First shows backup IDs:
+   # 67649dac8c7bb1c5d7c80631    MyBackup
+   # ...
+   acloud storage restore get 67649dac8c7bb1c5d7c80631 <TAB>
+   # Then shows restore IDs for that backup:
+   # 67664dde0aca19a92c2c48bb    RestoreOperation1
+   # ...
+   ```
+
+   Auto-completion works with `get`, `update`, and `delete` commands for all resources.
 
 ## Verifying Installation
 
@@ -273,8 +311,9 @@ acloud management project list
 
 ## Next Steps
 
-- Learn about [Project Management](resources/management/projects.md)
-- Explore other [Resources](resources/management.md)
+- Learn about [Project Management](resources/management/project.md)
+- Explore [Management Resources](resources/management.md)
+- Explore [Storage Resources](resources/storage.md)
 - Read the [Command Reference](command-reference.md)
 
 ## Troubleshooting

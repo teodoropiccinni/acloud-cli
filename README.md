@@ -1,6 +1,10 @@
 # acloud-cli
 
+[![GitHub release](https://img.shields.io/github/tag/Arubacloud/acloud-cli.svg?label=release)](https://github.com/Arubacloud/acloud-cli/releases/latest)
+
 ArubaCloud Command Line Interface - A CLI tool for interacting with Aruba Cloud APIs.
+
+> **⚠️ Development Status**: This CLI is currently under active development and is **not production-ready yet**. 
 
 ## Installation
 

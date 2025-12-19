@@ -11,10 +11,12 @@ Welcome to the Aruba Cloud CLI (`acloud`) documentation. This CLI provides a pow
   - [Auto-completion](getting-started.md#auto-completion)
 - [Resources](resources/)
   - [Management](resources/management.md)
-    - [Projects](resources/management/projects.md)
+    - [Projects](resources/management/project.md)
   - [Storage](resources/storage.md)
-    - Block Storage
-    - Snapshots
+    - [Block Storage](resources/storage/blockstorage.md)
+    - [Snapshots](resources/storage/snapshot.md)
+    - [Backups](resources/storage/backup.md)
+    - [Restore Operations](resources/storage/restore.md)
 
 ## Quick Start
 
