@@ -17,6 +17,10 @@ Welcome to the Aruba Cloud CLI (`acloud`) documentation. This CLI provides a pow
     - [Snapshots](resources/storage/snapshot.md)
     - [Backups](resources/storage/backup.md)
     - [Restore Operations](resources/storage/restore.md)
+  - [Network](resources/network.md)
+    - [VPC](resources/network/vpc.md)
+    - [Elastic IP](resources/network/elasticip.md)
+    - [Load Balancer](resources/network/loadbalancer.md)
 
 ## Quick Start
 
@@ -34,6 +38,11 @@ acloud management project list
 # List storage resources (uses context)
 acloud storage blockstorage list
 acloud storage snapshot list
+
+# List network resources
+acloud network vpc list
+acloud network elasticip list
+acloud network loadbalancer list
 ```
 
 ## Getting Help
