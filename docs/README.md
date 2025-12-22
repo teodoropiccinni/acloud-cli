@@ -18,10 +18,16 @@ Welcome to the Aruba Cloud CLI (`acloud`) documentation. This CLI provides a pow
     - [Backups](resources/storage/backup.md)
     - [Restore Operations](resources/storage/restore.md)
   - [Network](resources/network.md)
-  - [VPC](resources/network/vpc.md)
-  - [VPN Tunnel](resources/network/vpntunnel.md)
-  - [Elastic IP](resources/network/elasticip.md)
-  - [Load Balancer](resources/network/loadbalancer.md)
+    - [VPC](resources/network/vpc.md)
+    - [Subnet](resources/network/subnet.md)
+    - [SecurityGroup](resources/network/securitygroup.md)
+    - [Elastic IP](resources/network/elasticip.md)
+    - [Load Balancer](resources/network/loadbalancer.md)
+    - [VPC Peering](resources/network/vpcpeering.md)
+    - [VPC Peering Route](resources/network/vpcpeeringroute.md)
+    - [VPN Tunnel](resources/network/vpntunnel.md)
+    - [VPN Route](resources/network/vpnroute.md)
+
 
 ## Quick Start
 
