@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/spf13/cobra"
@@ -41,9 +42,7 @@ func init() {
 // Completion functions for network resources
 
 func completeElasticIPID(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
+	// Allow completion even if args exist - user might be completing a partial ID
 
 	projectID, err := GetProjectID(cmd)
 	if err != nil {
@@ -65,7 +64,11 @@ func completeElasticIPID(cmd *cobra.Command, args []string, toComplete string) (
 	if response != nil && response.Data != nil {
 		for _, eip := range response.Data.Values {
 			if eip.Metadata.ID != nil && eip.Metadata.Name != nil {
-				completions = append(completions, fmt.Sprintf("%s\t%s", *eip.Metadata.ID, *eip.Metadata.Name))
+				id := *eip.Metadata.ID
+				// Filter by partial input - use HasPrefix for more reliable matching
+				if toComplete == "" || strings.HasPrefix(id, toComplete) {
+					completions = append(completions, fmt.Sprintf("%s\t%s", id, *eip.Metadata.Name))
+				}
 			}
 		}
 	}
@@ -141,7 +144,7 @@ var elasticipCreateCmd = &cobra.Command{
 			return
 		}
 
-		if response != nil && !response.IsSuccess() {
+		if response != nil && response.IsError() && response.Error != nil {
 			fmt.Printf("Failed to create Elastic IP - Status: %d\n", response.StatusCode)
 			if response.Error.Title != nil {
 				fmt.Printf("Error: %s\n", *response.Error.Title)

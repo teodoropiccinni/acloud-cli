@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/spf13/cobra"
@@ -13,6 +14,7 @@ func init() {
 	// VPC
 	networkCmd.AddCommand(vpcCmd)
 	vpcCmd.AddCommand(vpcCreateCmd)
+	vpcCmd.AddCommand(vpcGetCmd)
 	vpcCmd.AddCommand(vpcUpdateCmd)
 	vpcCmd.AddCommand(vpcDeleteCmd)
 	vpcCmd.AddCommand(vpcListCmd)
@@ -22,6 +24,7 @@ func init() {
 	vpcCreateCmd.Flags().String("name", "", "Name for the VPC")
 	vpcCreateCmd.Flags().String("region", "", "Region code (e.g., IT-BG)")
 	vpcCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
+	vpcGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	vpcUpdateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	vpcUpdateCmd.Flags().String("name", "", "New name for the VPC")
 	vpcUpdateCmd.Flags().StringSlice("tags", []string{}, "New tags (comma-separated)")
@@ -30,6 +33,7 @@ func init() {
 	vpcListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 
 	// Set up auto-completion for resource IDs
+	vpcGetCmd.ValidArgsFunction = completeVPCID
 	vpcUpdateCmd.ValidArgsFunction = completeVPCID
 	vpcDeleteCmd.ValidArgsFunction = completeVPCID
 }
@@ -37,9 +41,7 @@ func init() {
 // Completion functions for network resources
 
 func completeVPCID(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
+	// Allow completion even if args exist - user might be completing a partial ID
 
 	projectID, err := GetProjectID(cmd)
 	if err != nil {
@@ -61,7 +63,11 @@ func completeVPCID(cmd *cobra.Command, args []string, toComplete string) ([]stri
 	if response != nil && response.Data != nil {
 		for _, vpc := range response.Data.Values {
 			if vpc.Metadata.ID != nil && vpc.Metadata.Name != nil {
-				completions = append(completions, fmt.Sprintf("%s\t%s", *vpc.Metadata.ID, *vpc.Metadata.Name))
+				id := *vpc.Metadata.ID
+				// Filter by partial input - use HasPrefix for more reliable matching
+				if toComplete == "" || strings.HasPrefix(id, toComplete) {
+					completions = append(completions, fmt.Sprintf("%s\t%s", id, *vpc.Metadata.Name))
+				}
 			}
 		}
 	}
@@ -164,6 +170,88 @@ var vpcCreateCmd = &cobra.Command{
 			}
 		} else {
 			fmt.Println("VPC creation initiated. Use 'list' or 'get' to check status.")
+		}
+	},
+}
+
+var vpcGetCmd = &cobra.Command{
+	Use:   "get <vpc-id>",
+	Short: "Get VPC details",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		vpcID := args[0]
+
+		// Get project ID from flag or context
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+
+		// Get SDK client
+		client, err := GetArubaClient()
+		if err != nil {
+			fmt.Printf("Error initializing client: %v\n", err)
+			return
+		}
+
+		// Get VPC details using the SDK
+		ctx := context.Background()
+		response, err := client.FromNetwork().VPCs().Get(ctx, projectID, vpcID, nil)
+		if err != nil {
+			fmt.Printf("Error getting VPC details: %v\n", err)
+			return
+		}
+
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to get VPC - Status: %d\n", response.StatusCode)
+			if response.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *response.Error.Title)
+			}
+			if response.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
+			}
+			return
+		}
+
+		if response != nil && response.Data != nil {
+			vpc := response.Data
+
+			// Display VPC details
+			fmt.Println("\nVPC Details:")
+			fmt.Println("============")
+
+			if vpc.Metadata.ID != nil {
+				fmt.Printf("ID:              %s\n", *vpc.Metadata.ID)
+			}
+			if vpc.Metadata.URI != nil {
+				fmt.Printf("URI:             %s\n", *vpc.Metadata.URI)
+			}
+			if vpc.Metadata.Name != nil {
+				fmt.Printf("Name:            %s\n", *vpc.Metadata.Name)
+			}
+			if vpc.Metadata.LocationResponse.Code != "" {
+				fmt.Printf("Region:          %s\n", vpc.Metadata.LocationResponse.Code)
+			}
+			fmt.Printf("Default:         %t\n", vpc.Properties.Default)
+			fmt.Printf("Linked Resources: %d\n", len(vpc.Properties.LinkedResources))
+
+			if vpc.Metadata.CreationDate != nil {
+				fmt.Printf("Creation Date:   %s\n", vpc.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+			}
+			if vpc.Metadata.CreatedBy != nil {
+				fmt.Printf("Created By:      %s\n", *vpc.Metadata.CreatedBy)
+			}
+
+			if len(vpc.Metadata.Tags) > 0 {
+				fmt.Printf("Tags:            %v\n", vpc.Metadata.Tags)
+			}
+
+			if vpc.Status.State != nil {
+				fmt.Printf("Status:          %s\n", *vpc.Status.State)
+			}
+		} else {
+			fmt.Println("VPC not found or no data returned.")
 		}
 	},
 }

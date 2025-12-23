@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/spf13/cobra"
@@ -23,6 +24,7 @@ func init() {
 	snapshotCreateCmd.Flags().String("region", "", "Region code (required)")
 	snapshotCreateCmd.Flags().String("volume-uri", "", "Source volume URI (required)")
 	snapshotCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
+	snapshotCreateCmd.Flags().BoolP("verbose", "v", false, "Show detailed debug information")
 	snapshotCreateCmd.MarkFlagRequired("name")
 	snapshotCreateCmd.MarkFlagRequired("region")
 	snapshotCreateCmd.MarkFlagRequired("volume-uri")
@@ -50,9 +52,7 @@ func init() {
 // Completion functions for storage resources
 
 func completeSnapshotID(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
+	// Allow completion even if args exist - user might be completing a partial ID
 
 	projectID, err := GetProjectID(cmd)
 	if err != nil {
@@ -74,7 +74,11 @@ func completeSnapshotID(cmd *cobra.Command, args []string, toComplete string) ([
 	if response != nil && response.Data != nil {
 		for _, snapshot := range response.Data.Values {
 			if snapshot.Metadata.ID != nil && snapshot.Metadata.Name != nil {
-				completions = append(completions, fmt.Sprintf("%s\t%s", *snapshot.Metadata.ID, *snapshot.Metadata.Name))
+				id := *snapshot.Metadata.ID
+				// Filter by partial input - use HasPrefix for more reliable matching
+				if toComplete == "" || strings.HasPrefix(id, toComplete) {
+					completions = append(completions, fmt.Sprintf("%s\t%s", id, *snapshot.Metadata.Name))
+				}
 			}
 		}
 	}
@@ -145,12 +149,18 @@ var snapshotCreateCmd = &cobra.Command{
 			},
 		}
 
-		fmt.Println("Creating snapshot with the following parameters:")
-		fmt.Printf("  Name:       %s\n", name)
-		fmt.Printf("  Region:     %s\n", region)
-		fmt.Printf("  Volume URI: %s\n", volumeURI)
-		fmt.Printf("  Tags:       %v\n", tags)
-		fmt.Println()
+		// Get verbose flag
+		verbose, _ := cmd.Flags().GetBool("verbose")
+
+		// Debug output if verbose
+		if verbose {
+			fmt.Println("Creating snapshot with the following parameters:")
+			fmt.Printf("  Name:       %s\n", name)
+			fmt.Printf("  Region:     %s\n", region)
+			fmt.Printf("  Volume URI: %s\n", volumeURI)
+			fmt.Printf("  Tags:       %v\n", tags)
+			fmt.Println()
+		}
 
 		// Create the snapshot using the SDK
 		ctx := context.Background()
@@ -347,23 +357,13 @@ var snapshotUpdateCmd = &cobra.Command{
 			return
 		}
 
-		// Check if the response indicates an error
-		if response.StatusCode >= 400 {
-			fmt.Printf("API Error (Status %d):\n", response.StatusCode)
-			if response.Error != nil {
-				if response.Error.Title != nil {
-					fmt.Printf("  Title: %s\n", *response.Error.Title)
-				}
-				if response.Error.Detail != nil {
-					fmt.Printf("  Detail: %s\n", *response.Error.Detail)
-				}
-				if response.Error.Extensions != nil {
-					fmt.Printf("  Extensions: %+v\n", response.Error.Extensions)
-				}
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to update snapshot - Status: %d\n", response.StatusCode)
+			if response.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *response.Error.Title)
 			}
-			// Decode RawBody to see the actual error
-			if len(response.RawBody) > 0 {
-				fmt.Printf("  Raw Response: %s\n", string(response.RawBody))
+			if response.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
 			}
 			return
 		}
