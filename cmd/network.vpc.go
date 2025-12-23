@@ -245,6 +245,8 @@ var vpcGetCmd = &cobra.Command{
 
 			if len(vpc.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", vpc.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 
 			if vpc.Status.State != nil {
@@ -307,9 +309,16 @@ var vpcUpdateCmd = &cobra.Command{
 		}
 
 		// Fix region code format (IT BG -> ITBG-Bergamo)
-		regionCode := getResponse.Data.Metadata.LocationResponse.Code
+		regionCode := ""
+		if getResponse.Data.Metadata.LocationResponse != nil {
+			regionCode = getResponse.Data.Metadata.LocationResponse.Code
+		}
 		if regionCode == "IT BG" {
 			regionCode = "ITBG-Bergamo"
+		}
+		if regionCode == "" {
+			fmt.Println("Error: Unable to determine region code for VPC")
+			return
 		}
 
 		// Build the update request, preserving existing values

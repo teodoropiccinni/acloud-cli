@@ -292,6 +292,8 @@ var blockstorageGetCmd = &cobra.Command{
 
 			if len(volume.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", volume.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 
 			fmt.Println()
@@ -359,9 +361,16 @@ var blockstorageUpdateCmd = &cobra.Command{
 		}
 
 		// Fix region code format (IT BG -> ITBG-Bergamo)
-		regionCode := currentVolume.Metadata.LocationResponse.Code
+		regionCode := ""
+		if currentVolume.Metadata.LocationResponse != nil {
+			regionCode = currentVolume.Metadata.LocationResponse.Code
+		}
 		if regionCode == "IT BG" {
 			regionCode = "ITBG-Bergamo"
+		}
+		if regionCode == "" {
+			fmt.Println("Error: Unable to determine region code for block storage")
+			return
 		}
 
 		// Handle zone - if empty, set to nil

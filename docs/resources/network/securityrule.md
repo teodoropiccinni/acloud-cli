@@ -151,7 +151,9 @@ allow-http      1234567890abcdef123456   Ingress      TCP         80      Active
 
 ### Update Security Rule
 
-Update an existing security rule's properties.
+Update an existing security rule's name or tags.
+
+**Important:** Security rules can only be updated by changing the name or tags. Properties such as direction, protocol, port, and target cannot be modified. To change these properties, you must delete and recreate the security rule.
 
 ```bash
 acloud network securityrule update <vpc-id> <securitygroup-id> <securityrule-id> [flags]
@@ -165,14 +167,9 @@ acloud network securityrule update <vpc-id> <securitygroup-id> <securityrule-id>
 **Flags:**
 - `--name string` - New name for the security rule
 - `--tags strings` - New tags for the security rule (comma-separated)
-- `--direction string` - Direction: Ingress or Egress
-- `--protocol string` - Protocol: ANY, TCP, UDP, ICMP
-- `--port string` - Port: a single numeric port, a port range or *
-- `--target-kind string` - Target Kind: Ip or SecurityGroup
-- `--target-value string` - Target Value
 - `--project-id string` - Project ID (uses context if not specified)
 
-**Note:** At least one field must be provided for update.
+**Note:** At least one field (--name or --tags) must be provided for update.
 
 **Examples:**
 ```bash
@@ -180,18 +177,13 @@ acloud network securityrule update <vpc-id> <securitygroup-id> <securityrule-id>
 acloud network securityrule update 689307f4745108d3c6343b5a 1234567890abcdef 1234567890abcdef123456 \
   --name "allow-http-updated"
 
-# Update port range
+# Update tags
 acloud network securityrule update 689307f4745108d3c6343b5a 1234567890abcdef 1234567890abcdef123456 \
-  --port "8080-8090"
+  --tags "web,https,secure"
 
-# Update target to allow from different network
-acloud network securityrule update 689307f4745108d3c6343b5a 1234567890abcdef 1234567890abcdef123456 \
-  --target-value "192.168.0.0/16"
-
-# Update multiple fields
+# Update both name and tags
 acloud network securityrule update 689307f4745108d3c6343b5a 1234567890abcdef 1234567890abcdef123456 \
   --name "allow-https" \
-  --port 443 \
   --tags "web,https,secure"
 ```
 
@@ -204,6 +196,7 @@ allow-https     1234567890abcdef123456   Ingress      TCP         443     Active
 **Restrictions:**
 - Cannot update security rules in **InCreation** state
 - Wait for the security rule to reach **Active** state before updating
+- Only name and tags can be updated; properties (direction, protocol, port, target) cannot be changed
 
 ### Delete Security Rule
 

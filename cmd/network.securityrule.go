@@ -36,11 +36,6 @@ func init() {
 	securityruleUpdateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	securityruleUpdateCmd.Flags().String("name", "", "New name for the security rule")
 	securityruleUpdateCmd.Flags().StringSlice("tags", []string{}, "New tags (comma-separated)")
-	securityruleUpdateCmd.Flags().String("direction", "", "Direction: Ingress or Egress")
-	securityruleUpdateCmd.Flags().String("protocol", "", "Protocol: ANY, TCP, UDP, ICMP")
-	securityruleUpdateCmd.Flags().String("port", "", "Port: a single numeric port, a port range or *")
-	securityruleUpdateCmd.Flags().String("target-kind", "", "Target Kind: Ip or SecurityGroup")
-	securityruleUpdateCmd.Flags().String("target-value", "", "Target Value")
 
 	securityruleDeleteCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	securityruleDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
@@ -315,6 +310,8 @@ var securityruleGetCmd = &cobra.Command{
 			}
 			if len(rule.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", rule.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 			if rule.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *rule.Status.State)
@@ -414,15 +411,10 @@ var securityruleUpdateCmd = &cobra.Command{
 
 		name, _ := cmd.Flags().GetString("name")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
-		direction, _ := cmd.Flags().GetString("direction")
-		protocol, _ := cmd.Flags().GetString("protocol")
-		port, _ := cmd.Flags().GetString("port")
-		targetKind, _ := cmd.Flags().GetString("target-kind")
-		targetValue, _ := cmd.Flags().GetString("target-value")
 
 		// At least one field must be provided
-		if name == "" && !cmd.Flags().Changed("tags") && direction == "" && protocol == "" && port == "" && targetKind == "" && targetValue == "" {
-			fmt.Println("Error: at least one field must be provided for update")
+		if name == "" && !cmd.Flags().Changed("tags") {
+			fmt.Println("Error: at least one field (--name or --tags) must be provided for update")
 			return
 		}
 
@@ -442,8 +434,29 @@ var securityruleUpdateCmd = &cobra.Command{
 
 		// Fetch current security rule details
 		getResp, err := client.FromNetwork().SecurityGroupRules().Get(ctx, projectID, vpcID, securityGroupID, securityRuleID, nil)
-		if err != nil || getResp == nil || getResp.Data == nil {
+		if err != nil {
 			fmt.Printf("Error fetching current security rule: %v\n", err)
+			return
+		}
+
+		if getResp == nil {
+			fmt.Println("Error: No response received when fetching security rule")
+			return
+		}
+
+		if getResp.IsError() && getResp.Error != nil {
+			fmt.Printf("Failed to fetch security rule - Status: %d\n", getResp.StatusCode)
+			if getResp.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *getResp.Error.Title)
+			}
+			if getResp.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *getResp.Error.Detail)
+			}
+			return
+		}
+
+		if getResp.Data == nil {
+			fmt.Println("Error: Security rule not found or no data returned")
 			return
 		}
 
@@ -455,13 +468,35 @@ var securityruleUpdateCmd = &cobra.Command{
 			return
 		}
 
+		// Get region code from current rule, or fetch from VPC if not available
+		regionCode := ""
+		if current.Metadata.LocationResponse != nil {
+			regionCode = current.Metadata.LocationResponse.Code
+		}
+		
+		// If region code is not available from the rule, try to get it from the VPC
+		if regionCode == "" {
+			vpcResp, err := client.FromNetwork().VPCs().Get(ctx, projectID, vpcID, nil)
+			if err == nil && vpcResp != nil && !vpcResp.IsError() && vpcResp.Data != nil {
+				if vpcResp.Data.Metadata.LocationResponse != nil {
+					regionCode = vpcResp.Data.Metadata.LocationResponse.Code
+				}
+			}
+		}
+		
 		// Normalize region code if needed
-		regionCode := current.Metadata.LocationResponse.Code
 		if regionCode == "IT BG" {
 			regionCode = "ITBG-Bergamo"
 		}
+		
+		// If still no region code, we cannot proceed
+		if regionCode == "" {
+			fmt.Println("Error: Unable to determine region code for security rule. Please ensure the VPC has a valid region.")
+			return
+		}
 
-		// Build update request by merging user input with current values
+		// Build update request - only name and tags can be updated
+		// Properties (direction, protocol, port, target) must remain unchanged
 		req := types.SecurityRuleRequest{
 			Metadata: types.RegionalResourceMetadataRequest{
 				ResourceMetadataRequest: types.ResourceMetadataRequest{
@@ -489,49 +524,11 @@ var securityruleUpdateCmd = &cobra.Command{
 				},
 			},
 			Properties: types.SecurityRulePropertiesRequest{
-				Direction: func() types.RuleDirection {
-					if direction != "" {
-						return types.RuleDirection(direction)
-					}
-					return current.Properties.Direction
-				}(),
-				Protocol: func() string {
-					if protocol != "" {
-						return protocol
-					}
-					return current.Properties.Protocol
-				}(),
-				Port: func() string {
-					if port != "" {
-						return port
-					}
-					return current.Properties.Port
-				}(),
-				Target: func() *types.RuleTarget {
-					if targetKind != "" || targetValue != "" {
-						return &types.RuleTarget{
-							Kind: func() types.EndpointTypeDto {
-								if targetKind != "" {
-									return types.EndpointTypeDto(targetKind)
-								}
-								if current.Properties.Target != nil {
-									return current.Properties.Target.Kind
-								}
-								return ""
-							}(),
-							Value: func() string {
-								if targetValue != "" {
-									return targetValue
-								}
-								if current.Properties.Target != nil {
-									return current.Properties.Target.Value
-								}
-								return ""
-							}(),
-						}
-					}
-					return current.Properties.Target
-				}(),
+				// Properties cannot be updated - use current values
+				Direction: current.Properties.Direction,
+				Protocol:  current.Properties.Protocol,
+				Port:      current.Properties.Port,
+				Target:    current.Properties.Target,
 			},
 		}
 

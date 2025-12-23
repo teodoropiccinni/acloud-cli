@@ -276,6 +276,8 @@ var vpnrouteGetCmd = &cobra.Command{
 			}
 			if len(route.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", route.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 			if route.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *route.Status.State)
@@ -405,9 +407,16 @@ var vpnrouteUpdateCmd = &cobra.Command{
 		}
 
 		// Normalize region code if needed
-		regionCode := current.Metadata.LocationResponse.Code
+		regionCode := ""
+		if current.Metadata.LocationResponse != nil {
+			regionCode = current.Metadata.LocationResponse.Code
+		}
 		if regionCode == "IT BG" {
 			regionCode = "ITBG-Bergamo"
+		}
+		if regionCode == "" {
+			fmt.Println("Error: Unable to determine region code for VPN route")
+			return
 		}
 
 		// Build update request by merging user input with current values

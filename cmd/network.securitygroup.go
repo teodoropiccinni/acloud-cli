@@ -158,6 +158,8 @@ var securitygroupGetCmd = &cobra.Command{
 			}
 			if len(sg.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", sg.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 			if sg.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *sg.Status.State)
@@ -271,9 +273,16 @@ var securitygroupUpdateCmd = &cobra.Command{
 			return
 		}
 		// Normalize region code if needed
-		regionCode := current.Metadata.LocationResponse.Code
+		regionCode := ""
+		if current.Metadata.LocationResponse != nil {
+			regionCode = current.Metadata.LocationResponse.Code
+		}
 		if regionCode == "IT BG" {
 			regionCode = "ITBG-Bergamo"
+		}
+		if regionCode == "" {
+			fmt.Println("Error: Unable to determine region code for security group")
+			return
 		}
 		// Build update request by merging user input with all current valid fields
 		req := types.SecurityGroupRequest{

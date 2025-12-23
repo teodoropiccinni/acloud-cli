@@ -173,6 +173,8 @@ var vpcpeeringGetCmd = &cobra.Command{
 			}
 			if len(peering.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", peering.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 			if peering.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *peering.Status.State)

@@ -202,6 +202,8 @@ var loadbalancerGetCmd = &cobra.Command{
 
 			if len(lb.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", lb.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 
 			if lb.Status.State != nil {
