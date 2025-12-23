@@ -311,6 +311,8 @@ var elasticipGetCmd = &cobra.Command{
 
 			if len(eip.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", eip.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 
 			if eip.Status.State != nil {
@@ -371,9 +373,16 @@ var elasticipUpdateCmd = &cobra.Command{
 		}
 
 		// Fix region code format (IT BG -> ITBG-Bergamo)
-		regionCode := getResponse.Data.Metadata.LocationResponse.Code
+		regionCode := ""
+		if getResponse.Data.Metadata.LocationResponse != nil {
+			regionCode = getResponse.Data.Metadata.LocationResponse.Code
+		}
 		if regionCode == "IT BG" {
 			regionCode = "ITBG-Bergamo"
+		}
+		if regionCode == "" {
+			fmt.Println("Error: Unable to determine region code for Elastic IP")
+			return
 		}
 
 		// Build the update request, preserving existing values

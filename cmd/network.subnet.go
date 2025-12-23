@@ -178,6 +178,8 @@ var subnetGetCmd = &cobra.Command{
 			}
 			if len(subnet.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", subnet.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 			if subnet.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *subnet.Status.State)
@@ -299,9 +301,16 @@ var subnetUpdateCmd = &cobra.Command{
 		}
 
 		// Normalize region code if needed (e.g., IT BG -> ITBG-Bergamo)
-		regionCode := current.Metadata.LocationResponse.Code
+		regionCode := ""
+		if current.Metadata.LocationResponse != nil {
+			regionCode = current.Metadata.LocationResponse.Code
+		}
 		if regionCode == "IT BG" {
 			regionCode = "ITBG-Bergamo"
+		}
+		if regionCode == "" {
+			fmt.Println("Error: Unable to determine region code for subnet")
+			return
 		}
 
 		// Build update request by merging user input with all current valid fields

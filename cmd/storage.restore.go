@@ -356,6 +356,8 @@ var storageRestoreGetCmd = &cobra.Command{
 
 			if len(restore.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", restore.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 		} else {
 			fmt.Println("Restore operation not found")
@@ -410,9 +412,16 @@ var storageRestoreUpdateCmd = &cobra.Command{
 		currentRestore := getResponse.Data
 
 		// Fix region code format (IT BG -> ITBG-Bergamo)
-		regionCode := currentRestore.Metadata.LocationResponse.Code
+		regionCode := ""
+		if currentRestore.Metadata.LocationResponse != nil {
+			regionCode = currentRestore.Metadata.LocationResponse.Code
+		}
 		if regionCode == "IT BG" {
 			regionCode = "ITBG-Bergamo"
+		}
+		if regionCode == "" {
+			fmt.Println("Error: Unable to determine region code for restore operation")
+			return
 		}
 
 		// Build the update request with current values as defaults

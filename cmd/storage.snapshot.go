@@ -257,6 +257,8 @@ var snapshotGetCmd = &cobra.Command{
 
 			if len(snapshot.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", snapshot.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 
 			fmt.Println()
@@ -313,9 +315,16 @@ var snapshotUpdateCmd = &cobra.Command{
 		currentSnapshot := getResponse.Data
 
 		// Fix region code format (IT BG -> ITBG-Bergamo)
-		regionCode := currentSnapshot.Metadata.LocationResponse.Code
+		regionCode := ""
+		if currentSnapshot.Metadata.LocationResponse != nil {
+			regionCode = currentSnapshot.Metadata.LocationResponse.Code
+		}
 		if regionCode == "IT BG" {
 			regionCode = "ITBG-Bergamo"
+		}
+		if regionCode == "" {
+			fmt.Println("Error: Unable to determine region code for snapshot")
+			return
 		}
 
 		// Build the update request with current values as defaults

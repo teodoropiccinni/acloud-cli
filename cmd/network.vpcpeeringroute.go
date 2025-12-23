@@ -254,6 +254,8 @@ var vpcpeeringrouteGetCmd = &cobra.Command{
 			}
 			if len(route.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", route.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 			if route.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *route.Status.State)

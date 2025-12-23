@@ -358,6 +358,8 @@ var storageBackupGetCmd = &cobra.Command{
 
 			if len(backup.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", backup.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 		} else {
 			fmt.Println("Backup not found")
@@ -411,9 +413,16 @@ var storageBackupUpdateCmd = &cobra.Command{
 		currentBackup := getResponse.Data
 
 		// Fix region code format (IT BG -> ITBG-Bergamo)
-		regionCode := currentBackup.Metadata.LocationResponse.Code
+		regionCode := ""
+		if currentBackup.Metadata.LocationResponse != nil {
+			regionCode = currentBackup.Metadata.LocationResponse.Code
+		}
 		if regionCode == "IT BG" {
 			regionCode = "ITBG-Bergamo"
+		}
+		if regionCode == "" {
+			fmt.Println("Error: Unable to determine region code for backup")
+			return
 		}
 
 		// Build the update request with current values as defaults

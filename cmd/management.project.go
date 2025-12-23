@@ -259,6 +259,8 @@ var projectGetCmd = &cobra.Command{
 
 			if len(project.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", project.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 
 			fmt.Println()

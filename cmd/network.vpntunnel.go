@@ -264,6 +264,12 @@ var vpntunnelGetCmd = &cobra.Command{
 				fmt.Printf("Created By:      %s\n", *vpn.Metadata.CreatedBy)
 			}
 
+			if len(vpn.Metadata.Tags) > 0 {
+				fmt.Printf("Tags:            %v\n", vpn.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
+			}
+
 			if vpn.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *vpn.Status.State)
 			}
@@ -560,9 +566,16 @@ var vpntunnelUpdateCmd = &cobra.Command{
 		}
 
 		// Get region code and normalize it
-		regionCode := getResp.Data.Metadata.LocationResponse.Code
+		regionCode := ""
+		if getResp.Data.Metadata.LocationResponse != nil {
+			regionCode = getResp.Data.Metadata.LocationResponse.Code
+		}
 		if regionCode == "IT BG" {
 			regionCode = "ITBG-Bergamo"
+		}
+		if regionCode == "" {
+			fmt.Println("Error: Unable to determine region code for VPN tunnel")
+			return
 		}
 
 		// Build update request, preserving current values
