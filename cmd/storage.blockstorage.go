@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/spf13/cobra"
@@ -26,6 +27,7 @@ func init() {
 	blockstorageCreateCmd.Flags().String("type", "Standard", "Type: Standard or Performance")
 	blockstorageCreateCmd.Flags().String("billing-period", "Hour", "Billing period: Hour, Month, Year")
 	blockstorageCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
+	blockstorageCreateCmd.Flags().BoolP("verbose", "v", false, "Show detailed debug information")
 	blockstorageCreateCmd.MarkFlagRequired("name")
 	blockstorageCreateCmd.MarkFlagRequired("size")
 
@@ -51,9 +53,7 @@ func init() {
 // Completion functions for storage resources
 
 func completeBlockStorageID(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
+	// Allow completion even if args exist - user might be completing a partial ID
 
 	projectID, err := GetProjectID(cmd)
 	if err != nil {
@@ -75,7 +75,11 @@ func completeBlockStorageID(cmd *cobra.Command, args []string, toComplete string
 	if response != nil && response.Data != nil {
 		for _, volume := range response.Data.Values {
 			if volume.Metadata.ID != nil && volume.Metadata.Name != nil {
-				completions = append(completions, fmt.Sprintf("%s\t%s", *volume.Metadata.ID, *volume.Metadata.Name))
+				id := *volume.Metadata.ID
+				// Filter by partial input - use HasPrefix for more reliable matching
+				if toComplete == "" || strings.HasPrefix(id, toComplete) {
+					completions = append(completions, fmt.Sprintf("%s\t%s", id, *volume.Metadata.Name))
+				}
 			}
 		}
 	}
@@ -154,17 +158,23 @@ var blockstorageCreateCmd = &cobra.Command{
 			createRequest.Properties.Zone = &zone
 		}
 
-		// Debug: print request
-		fmt.Printf("\nCreating block storage with:\n")
-		fmt.Printf("  Name: %s\n", name)
-		fmt.Printf("  Region: %s\n", region)
-		if zone != "" {
-			fmt.Printf("  Zone: %s\n", zone)
+		// Get verbose flag
+		verbose, _ := cmd.Flags().GetBool("verbose")
+
+		// Debug output if verbose
+		if verbose {
+			fmt.Println("\nCreating block storage with the following parameters:")
+			fmt.Printf("  Name:           %s\n", name)
+			fmt.Printf("  Region:         %s\n", region)
+			if zone != "" {
+				fmt.Printf("  Zone:           %s\n", zone)
+			}
+			fmt.Printf("  Size:           %d GB\n", size)
+			fmt.Printf("  Type:           %s\n", volumeType)
+			fmt.Printf("  Billing Period: %s\n", billingPeriod)
+			fmt.Printf("  Project ID:     %s\n", projectID)
+			fmt.Println()
 		}
-		fmt.Printf("  Size: %d GB\n", size)
-		fmt.Printf("  Type: %s\n", volumeType)
-		fmt.Printf("  Billing Period: %s\n", billingPeriod)
-		fmt.Printf("  Project ID: %s\n", projectID)
 
 		// Create the block storage using the SDK
 		ctx := context.Background()
@@ -174,21 +184,17 @@ var blockstorageCreateCmd = &cobra.Command{
 			return
 		}
 
-		if response == nil {
-			fmt.Println("Error: received nil response from API")
-			return
-		}
-
-		if !response.IsSuccess() {
-			fmt.Printf("Error: failed to create block storage - Status: %d\n", response.StatusCode)
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to create block storage - Status: %d\n", response.StatusCode)
 			if response.Error.Title != nil {
-				fmt.Printf("Error Title: %s\n", *response.Error.Title)
+				fmt.Printf("Error: %s\n", *response.Error.Title)
 			}
 			if response.Error.Detail != nil {
-				fmt.Printf("Error Detail: %s\n", *response.Error.Detail)
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
 			}
-			// Print full error response for debugging
-			fmt.Printf("Full Error Response: %+v\n", response.Error)
+			if verbose {
+				fmt.Printf("Full Error Response: %+v\n", response.Error)
+			}
 			return
 		}
 
@@ -399,23 +405,13 @@ var blockstorageUpdateCmd = &cobra.Command{
 			return
 		}
 
-		// Check if the response indicates an error
-		if response.StatusCode >= 400 {
-			fmt.Printf("API Error (Status %d):\n", response.StatusCode)
-			if response.Error != nil {
-				if response.Error.Title != nil {
-					fmt.Printf("  Title: %s\n", *response.Error.Title)
-				}
-				if response.Error.Detail != nil {
-					fmt.Printf("  Detail: %s\n", *response.Error.Detail)
-				}
-				if response.Error.Extensions != nil {
-					fmt.Printf("  Extensions: %+v\n", response.Error.Extensions)
-				}
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to update block storage - Status: %d\n", response.StatusCode)
+			if response.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *response.Error.Title)
 			}
-			// Decode RawBody to see the actual error
-			if len(response.RawBody) > 0 {
-				fmt.Printf("  Raw Response: %s\n", string(response.RawBody))
+			if response.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
 			}
 			return
 		}

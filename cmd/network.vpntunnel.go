@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/spf13/cobra"
@@ -66,9 +66,7 @@ func init() {
 // Completion functions for network resources
 
 func completeVPNTunnelID(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
+	// Allow completion even if args exist - user might be completing a partial ID
 
 	projectID, err := GetProjectID(cmd)
 	if err != nil {
@@ -90,7 +88,11 @@ func completeVPNTunnelID(cmd *cobra.Command, args []string, toComplete string) (
 	if response != nil && response.Data != nil {
 		for _, vpn := range response.Data.Values {
 			if vpn.Metadata.ID != nil && vpn.Metadata.Name != nil {
-				completions = append(completions, fmt.Sprintf("%s\t%s", *vpn.Metadata.ID, *vpn.Metadata.Name))
+				id := *vpn.Metadata.ID
+				// Filter by partial input - use HasPrefix for more reliable matching
+				if toComplete == "" || strings.HasPrefix(id, toComplete) {
+					completions = append(completions, fmt.Sprintf("%s\t%s", id, *vpn.Metadata.Name))
+				}
 			}
 		}
 	}
@@ -451,36 +453,11 @@ var vpntunnelCreateCmd = &cobra.Command{
 			},
 		}
 
-		// Debug: Print request body
-		fmt.Println("\n=== DEBUG: Create Request ===")
-		requestJSON, _ := json.MarshalIndent(createRequest, "", "  ")
-		fmt.Println(string(requestJSON))
-		fmt.Println("=== End Debug ===")
-
 		// Create the VPN tunnel using the SDK
-		// Note: SDK v0.1.2 types don't match the API, so we marshal/unmarshal to convert
 		ctx := context.Background()
-		requestBody, err := json.Marshal(createRequest)
-		if err != nil {
-			fmt.Printf("Error marshaling request: %v\n", err)
-			return
-		}
-
-		// Convert our custom request to SDK request type
-		var sdkRequest types.VPNTunnelRequest
-		if err := json.Unmarshal(requestBody, &sdkRequest); err != nil {
-			fmt.Printf("Error converting request: %v\n", err)
-			return
-		}
-
-		response, err := client.FromNetwork().VPNTunnels().Create(ctx, projectID, sdkRequest, nil)
+		response, err := client.FromNetwork().VPNTunnels().Create(ctx, projectID, createRequest, nil)
 		if err != nil {
 			fmt.Printf("Error creating VPN tunnel: %v\n", err)
-			if response != nil && response.RawBody != nil {
-				fmt.Println("--- HTTP Response Body ---")
-				fmt.Println(string(response.RawBody))
-				fmt.Println("--------------------------")
-			}
 			return
 		}
 
@@ -491,11 +468,6 @@ var vpntunnelCreateCmd = &cobra.Command{
 			}
 			if response.Error.Detail != nil {
 				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			if response.RawBody != nil {
-				fmt.Println("--- HTTP Response Body ---")
-				fmt.Println(string(response.RawBody))
-				fmt.Println("--------------------------")
 			}
 			return
 		}
@@ -693,19 +665,11 @@ var vpntunnelDeleteCmd = &cobra.Command{
 			return
 		}
 
-		// Debug output
-		fmt.Printf("[DEBUG] Project ID: %s\n", projectID)
-		fmt.Printf("[DEBUG] VPN Tunnel ID: %s\n", vpnTunnelID)
-
 		// Delete the VPN tunnel using the SDK
 		ctx := context.Background()
 		response, err := client.FromNetwork().VPNTunnels().Delete(ctx, projectID, vpnTunnelID, nil)
 		if err != nil {
 			fmt.Printf("Error deleting VPN tunnel: %v\n", err)
-			// Print full error if possible
-			if response != nil {
-				fmt.Printf("[DEBUG] Full response: %+v\n", response)
-			}
 			return
 		}
 
@@ -717,8 +681,6 @@ var vpntunnelDeleteCmd = &cobra.Command{
 			if response.Error.Detail != nil {
 				fmt.Printf("Detail: %s\n", *response.Error.Detail)
 			}
-			// Print full error for debugging
-			fmt.Printf("[DEBUG] Full error: %+v\n", response.Error)
 			return
 		}
 
