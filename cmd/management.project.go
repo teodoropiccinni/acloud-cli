@@ -8,16 +8,32 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var managementCmd = &cobra.Command{
-	Use:   "management",
-	Short: "Manage organization resources",
-	Long:  `Manage organization resources in Aruba Cloud, like projects.`,
-}
+func init() {
+	managementCmd.AddCommand(projectCmd)
+	projectCmd.AddCommand(projectCreateCmd)
+	projectCmd.AddCommand(projectGetCmd)
+	projectCmd.AddCommand(projectUpdateCmd)
+	projectCmd.AddCommand(projectDeleteCmd)
+	projectCmd.AddCommand(projectListCmd)
 
-var projectCmd = &cobra.Command{
-	Use:   "project",
-	Short: "Manage projects",
-	Long:  `Perform CRUD operations on projects in Aruba Cloud.`,
+	// Add completion for project IDs
+	projectGetCmd.ValidArgsFunction = completeProjectID
+	projectUpdateCmd.ValidArgsFunction = completeProjectID
+	projectDeleteCmd.ValidArgsFunction = completeProjectID
+
+	// Add flags for project create command
+	projectCreateCmd.Flags().String("name", "", "Name for the project (required)")
+	projectCreateCmd.Flags().String("description", "", "Description for the project")
+	projectCreateCmd.Flags().StringSlice("tags", []string{}, "Tags for the project (comma-separated)")
+	projectCreateCmd.Flags().Bool("default", false, "Set as default project")
+	projectCreateCmd.MarkFlagRequired("name")
+
+	// Add flags for project delete command
+	projectDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
+
+	// Add flags for project update command
+	projectUpdateCmd.Flags().String("description", "", "New description for the project")
+	projectUpdateCmd.Flags().StringSlice("tags", []string{}, "Tags for the project (comma-separated)")
 }
 
 // completeProjectID provides completion for project IDs
@@ -50,6 +66,12 @@ func completeProjectID(cmd *cobra.Command, args []string, toComplete string) ([]
 	}
 
 	return completions, cobra.ShellCompDirectiveNoFileComp
+}
+
+var projectCmd = &cobra.Command{
+	Use:   "project",
+	Short: "Manage projects",
+	Long:  `Perform CRUD operations on projects in Aruba Cloud.`,
 }
 
 var projectCreateCmd = &cobra.Command{
@@ -367,33 +389,4 @@ var projectListCmd = &cobra.Command{
 			fmt.Println("No projects found")
 		}
 	},
-}
-
-func init() {
-	rootCmd.AddCommand(managementCmd)
-	managementCmd.AddCommand(projectCmd)
-	projectCmd.AddCommand(projectCreateCmd)
-	projectCmd.AddCommand(projectGetCmd)
-	projectCmd.AddCommand(projectUpdateCmd)
-	projectCmd.AddCommand(projectDeleteCmd)
-	projectCmd.AddCommand(projectListCmd)
-
-	// Add completion for project IDs
-	projectGetCmd.ValidArgsFunction = completeProjectID
-	projectUpdateCmd.ValidArgsFunction = completeProjectID
-	projectDeleteCmd.ValidArgsFunction = completeProjectID
-
-	// Add flags for project create command
-	projectCreateCmd.Flags().String("name", "", "Name for the project (required)")
-	projectCreateCmd.Flags().String("description", "", "Description for the project")
-	projectCreateCmd.Flags().StringSlice("tags", []string{}, "Tags for the project (comma-separated)")
-	projectCreateCmd.Flags().Bool("default", false, "Set as default project")
-	projectCreateCmd.MarkFlagRequired("name")
-
-	// Add flags for project delete command
-	projectDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
-
-	// Add flags for project update command
-	projectUpdateCmd.Flags().String("description", "", "New description for the project")
-	projectUpdateCmd.Flags().StringSlice("tags", []string{}, "Tags for the project (comma-separated)")
 }
