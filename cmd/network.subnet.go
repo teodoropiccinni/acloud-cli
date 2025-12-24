@@ -19,7 +19,7 @@ func init() {
 	subnetCmd.AddCommand(subnetListCmd)
 
 	subnetCreateCmd.Flags().String("name", "", "Subnet name (required)")
-	subnetCreateCmd.Flags().String("cidr", "", "Subnet CIDR (required)")
+	subnetCreateCmd.Flags().String("cidr", "", "Subnet CIDR (optional, if provided subnet type will be Advanced, otherwise Basic)")
 	subnetCreateCmd.Flags().String("region", "", "Region for the subnet (required)")
 	subnetCreateCmd.Flags().StringSlice("tags", []string{}, "Subnet tags (optional)")
 	subnetUpdateCmd.Flags().String("name", "", "Subnet name (optional)")
@@ -47,8 +47,8 @@ var subnetCreateCmd = &cobra.Command{
 		cidr, _ := cmd.Flags().GetString("cidr")
 		region, _ := cmd.Flags().GetString("region")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
-		if name == "" || cidr == "" || region == "" {
-			fmt.Println("Error: --name, --cidr, and --region are required")
+		if name == "" || region == "" {
+			fmt.Println("Error: --name and --region are required")
 			return
 		}
 		projectID, err := GetProjectID(cmd)
@@ -62,6 +62,13 @@ var subnetCreateCmd = &cobra.Command{
 			return
 		}
 		ctx := context.Background()
+
+		// Determine SubnetType: Advanced if CIDR is provided, Basic otherwise
+		var subnetType types.SubnetType = types.SubnetTypeBasic
+		if cidr != "" {
+			subnetType = types.SubnetTypeAdvanced
+		}
+
 		req := types.SubnetRequest{
 			Metadata: types.RegionalResourceMetadataRequest{
 				ResourceMetadataRequest: types.ResourceMetadataRequest{
@@ -73,9 +80,15 @@ var subnetCreateCmd = &cobra.Command{
 				},
 			},
 			Properties: types.SubnetPropertiesRequest{
-				Network: &types.SubnetNetwork{
-					Address: cidr,
-				},
+				Type: subnetType,
+				Network: func() *types.SubnetNetwork {
+					if cidr != "" {
+						return &types.SubnetNetwork{
+							Address: cidr,
+						}
+					}
+					return nil
+				}(),
 			},
 		}
 		resp, err := client.FromNetwork().Subnets().Create(ctx, projectID, vpcID, req, nil)
@@ -101,11 +114,20 @@ var subnetCreateCmd = &cobra.Command{
 				{Header: "CIDR", Width: 18},
 				{Header: "STATUS", Width: 15},
 			}
+			// Get CIDR from response or use provided value
+			displayCIDR := cidr
+			if resp.Data.Properties.Network != nil && resp.Data.Properties.Network.Address != "" {
+				displayCIDR = resp.Data.Properties.Network.Address
+			}
+			if displayCIDR == "" {
+				displayCIDR = "N/A (Basic)"
+			}
+
 			row := []string{
 				name,
 				*resp.Data.Metadata.ID,
 				resp.Data.Metadata.LocationResponse.Value,
-				cidr,
+				displayCIDR,
 				func() string {
 					if resp.Data.Status.State != nil {
 						return *resp.Data.Status.State
