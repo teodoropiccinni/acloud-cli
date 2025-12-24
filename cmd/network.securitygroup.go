@@ -21,6 +21,7 @@ func init() {
 	securitygroupCreateCmd.Flags().String("name", "", "Security group name (required)")
 	securitygroupCreateCmd.Flags().String("region", "", "Region code (required)")
 	securitygroupCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
+	securitygroupDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 }
 
 // SecurityGroup subcommands
@@ -85,7 +86,7 @@ var securitygroupCreateCmd = &cobra.Command{
 			row := []string{
 				name,
 				*resp.Data.Metadata.ID,
-				resp.Data.Metadata.LocationResponse.Code,
+				resp.Data.Metadata.LocationResponse.Value,
 				func() string {
 					if resp.Data.Status.State != nil {
 						return *resp.Data.Status.State
@@ -148,7 +149,7 @@ var securitygroupGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *sg.Metadata.Name)
 			}
 			if sg.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", sg.Metadata.LocationResponse.Code)
+				fmt.Printf("Region:          %s\n", sg.Metadata.LocationResponse.Value)
 			}
 			if sg.Metadata.CreationDate != nil {
 				fmt.Printf("Creation Date:   %s\n", sg.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
@@ -158,6 +159,8 @@ var securitygroupGetCmd = &cobra.Command{
 			}
 			if len(sg.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", sg.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 			if sg.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *sg.Status.State)
@@ -219,7 +222,7 @@ var securitygroupListCmd = &cobra.Command{
 				}
 				region := ""
 				if sg.Metadata.LocationResponse != nil {
-					region = sg.Metadata.LocationResponse.Code
+					region = sg.Metadata.LocationResponse.Value
 				}
 				status := ""
 				if sg.Status.State != nil {
@@ -270,10 +273,14 @@ var securitygroupUpdateCmd = &cobra.Command{
 			fmt.Println("Error: Cannot update security group while it is in 'InCreation' state. Please wait until the security group is fully created.")
 			return
 		}
-		// Normalize region code if needed
-		regionCode := current.Metadata.LocationResponse.Code
-		if regionCode == "IT BG" {
-			regionCode = "ITBG-Bergamo"
+		// Get region value
+		regionValue := ""
+		if current.Metadata.LocationResponse != nil {
+			regionValue = current.Metadata.LocationResponse.Value
+		}
+		if regionValue == "" {
+			fmt.Println("Error: Unable to determine region value for security group")
+			return
 		}
 		// Build update request by merging user input with all current valid fields
 		req := types.SecurityGroupRequest{
@@ -333,7 +340,7 @@ var securitygroupUpdateCmd = &cobra.Command{
 					}
 					return ""
 				}(),
-				resp.Data.Metadata.LocationResponse.Code,
+				resp.Data.Metadata.LocationResponse.Value,
 				func() string {
 					if resp.Data.Status.State != nil {
 						return *resp.Data.Status.State
@@ -355,6 +362,22 @@ var securitygroupDeleteCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		vpcID := args[0]
 		sgID := args[1]
+
+		// Get skip confirmation flag
+		skipConfirm, _ := cmd.Flags().GetBool("yes")
+
+		// Prompt for confirmation unless --yes flag is used
+		if !skipConfirm {
+			fmt.Printf("Are you sure you want to delete security group %s? This action cannot be undone.\n", sgID)
+			fmt.Print("Type 'yes' to confirm: ")
+			var response string
+			fmt.Scanln(&response)
+			if response != "yes" && response != "y" {
+				fmt.Println("Delete cancelled")
+				return
+			}
+		}
+
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)

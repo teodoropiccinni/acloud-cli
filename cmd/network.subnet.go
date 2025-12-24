@@ -18,14 +18,15 @@ func init() {
 	subnetCmd.AddCommand(subnetDeleteCmd)
 	subnetCmd.AddCommand(subnetListCmd)
 
-	subnetCreateCmd.Flags().String("vpc-id", "", "Parent VPC ID (required)")
 	subnetCreateCmd.Flags().String("name", "", "Subnet name (required)")
-	subnetCreateCmd.Flags().String("cidr", "", "Subnet CIDR (required)")
+	subnetCreateCmd.Flags().String("cidr", "", "Subnet CIDR (optional, if provided subnet type will be Advanced, otherwise Basic)")
 	subnetCreateCmd.Flags().String("region", "", "Region for the subnet (required)")
+	subnetCreateCmd.Flags().StringSlice("tags", []string{}, "Subnet tags (optional)")
 	subnetUpdateCmd.Flags().String("name", "", "Subnet name (optional)")
 	subnetUpdateCmd.Flags().String("cidr", "", "Subnet CIDR (optional)")
 	subnetUpdateCmd.Flags().StringSlice("tags", []string{}, "Subnet tags (optional)")
 	subnetListCmd.Flags().String("vpc-id", "", "Parent VPC ID (required)")
+	subnetDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 }
 
 // Subnet subcommands
@@ -45,8 +46,9 @@ var subnetCreateCmd = &cobra.Command{
 		name, _ := cmd.Flags().GetString("name")
 		cidr, _ := cmd.Flags().GetString("cidr")
 		region, _ := cmd.Flags().GetString("region")
-		if name == "" || cidr == "" || region == "" {
-			fmt.Println("Error: --name, --cidr, and --region are required")
+		tags, _ := cmd.Flags().GetStringSlice("tags")
+		if name == "" || region == "" {
+			fmt.Println("Error: --name and --region are required")
 			return
 		}
 		projectID, err := GetProjectID(cmd)
@@ -60,19 +62,33 @@ var subnetCreateCmd = &cobra.Command{
 			return
 		}
 		ctx := context.Background()
+
+		// Determine SubnetType: Advanced if CIDR is provided, Basic otherwise
+		var subnetType types.SubnetType = types.SubnetTypeBasic
+		if cidr != "" {
+			subnetType = types.SubnetTypeAdvanced
+		}
+
 		req := types.SubnetRequest{
 			Metadata: types.RegionalResourceMetadataRequest{
 				ResourceMetadataRequest: types.ResourceMetadataRequest{
 					Name: name,
+					Tags: tags,
 				},
 				Location: types.LocationRequest{
 					Value: region,
 				},
 			},
 			Properties: types.SubnetPropertiesRequest{
-				Network: &types.SubnetNetwork{
-					Address: cidr,
-				},
+				Type: subnetType,
+				Network: func() *types.SubnetNetwork {
+					if cidr != "" {
+						return &types.SubnetNetwork{
+							Address: cidr,
+						}
+					}
+					return nil
+				}(),
 			},
 		}
 		resp, err := client.FromNetwork().Subnets().Create(ctx, projectID, vpcID, req, nil)
@@ -98,11 +114,20 @@ var subnetCreateCmd = &cobra.Command{
 				{Header: "CIDR", Width: 18},
 				{Header: "STATUS", Width: 15},
 			}
+			// Get CIDR from response or use provided value
+			displayCIDR := cidr
+			if resp.Data.Properties.Network != nil && resp.Data.Properties.Network.Address != "" {
+				displayCIDR = resp.Data.Properties.Network.Address
+			}
+			if displayCIDR == "" {
+				displayCIDR = "N/A (Basic)"
+			}
+
 			row := []string{
 				name,
 				*resp.Data.Metadata.ID,
-				resp.Data.Metadata.LocationResponse.Code,
-				cidr,
+				resp.Data.Metadata.LocationResponse.Value,
+				displayCIDR,
 				func() string {
 					if resp.Data.Status.State != nil {
 						return *resp.Data.Status.State
@@ -164,8 +189,8 @@ var subnetGetCmd = &cobra.Command{
 			if subnet.Metadata.Name != nil {
 				fmt.Printf("Name:            %s\n", *subnet.Metadata.Name)
 			}
-			if subnet.Metadata.LocationResponse.Code != "" {
-				fmt.Printf("Region:          %s\n", subnet.Metadata.LocationResponse.Code)
+			if subnet.Metadata.LocationResponse != nil && subnet.Metadata.LocationResponse.Value != "" {
+				fmt.Printf("Region:          %s\n", subnet.Metadata.LocationResponse.Value)
 			}
 			if subnet.Properties.Network != nil {
 				fmt.Printf("CIDR:            %s\n", subnet.Properties.Network.Address)
@@ -178,6 +203,8 @@ var subnetGetCmd = &cobra.Command{
 			}
 			if len(subnet.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", subnet.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 			if subnet.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *subnet.Status.State)
@@ -238,7 +265,7 @@ var subnetListCmd = &cobra.Command{
 				if subnet.Metadata.ID != nil {
 					id = *subnet.Metadata.ID
 				}
-				region := subnet.Metadata.LocationResponse.Code
+				region := subnet.Metadata.LocationResponse.Value
 				cidr := ""
 				if subnet.Properties.Network != nil {
 					cidr = subnet.Properties.Network.Address
@@ -298,10 +325,14 @@ var subnetUpdateCmd = &cobra.Command{
 			return
 		}
 
-		// Normalize region code if needed (e.g., IT BG -> ITBG-Bergamo)
-		regionCode := current.Metadata.LocationResponse.Code
-		if regionCode == "IT BG" {
-			regionCode = "ITBG-Bergamo"
+		// Get region value
+		regionValue := ""
+		if current.Metadata.LocationResponse != nil {
+			regionValue = current.Metadata.LocationResponse.Value
+		}
+		if regionValue == "" {
+			fmt.Println("Error: Unable to determine region value for subnet")
+			return
 		}
 
 		// Build update request by merging user input with all current valid fields
@@ -328,7 +359,7 @@ var subnetUpdateCmd = &cobra.Command{
 					}(),
 				},
 				Location: types.LocationRequest{
-					Value: regionCode,
+					Value: regionValue,
 				},
 			},
 			Properties: types.SubnetPropertiesRequest{
@@ -398,6 +429,22 @@ var subnetDeleteCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		vpcID := args[0]
 		subnetID := args[1]
+
+		// Get skip confirmation flag
+		skipConfirm, _ := cmd.Flags().GetBool("yes")
+
+		// Prompt for confirmation unless --yes flag is used
+		if !skipConfirm {
+			fmt.Printf("Are you sure you want to delete subnet %s? This action cannot be undone.\n", subnetID)
+			fmt.Print("Type 'yes' to confirm: ")
+			var response string
+			fmt.Scanln(&response)
+			if response != "yes" && response != "y" {
+				fmt.Println("Delete cancelled")
+				return
+			}
+		}
+
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)

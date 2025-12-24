@@ -20,7 +20,8 @@ Welcome to the Aruba Cloud CLI (`acloud`) documentation. This CLI provides a pow
   - [Network](resources/network.md)
     - [VPC](resources/network/vpc.md)
     - [Subnet](resources/network/subnet.md)
-    - [SecurityGroup](resources/network/securitygroup.md)
+    - [Security Group](resources/network/securitygroup.md)
+    - [Security Rule](resources/network/securityrule.md)
     - [Elastic IP](resources/network/elasticip.md)
     - [Load Balancer](resources/network/loadbalancer.md)
     - [VPC Peering](resources/network/vpcpeering.md)
@@ -62,6 +63,10 @@ acloud management --help
 acloud management project --help
 acloud management project create --help
 ```
+
+## Debug Mode
+
+The CLI provides a global `--debug` (or `-d`) flag for troubleshooting. When enabled, it shows HTTP request/response details, request payloads, and full error information. See [Getting Started - Debug Mode](getting-started.md#debug-mode) for more details.
 
 ## Additional Resources
 

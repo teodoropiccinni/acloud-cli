@@ -167,7 +167,7 @@ ID:              6945953a8f4a09c12b5e0c71
 URI:             /projects/68398923fb2cb026400d4d31/providers/Aruba.Storage/backups/694594818f4a09c12b5e0c19/restores/6945953a8f4a09c12b5e0c71
 Name:            restore-after-failure
 Target Volume:   /projects/68398923fb2cb026400d4d31/providers/Aruba.Storage/blockStorages/69455aa70d0972656501d45d
-Region:          IT BG
+Region:          ITBG-Bergamo
 Status:          Active
 Creation Date:   19-12-2025 18:11:06
 Created By:      aru-297647

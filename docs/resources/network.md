@@ -48,6 +48,32 @@ acloud network elasticip update <eip-id> --name "new-name" --tags tag1,tag2
 acloud network elasticip delete <eip-id>
 ```
 
+### [Security Rule](network/securityrule.md)
+
+Security Rules define the firewall rules for Security Groups. They specify direction (Ingress/Egress), protocol, ports, and target (IP addresses or Security Groups).
+
+**Quick Commands:**
+```bash
+# List all security rules for a security group
+acloud network securityrule list <vpc-id> <securitygroup-id>
+
+# Get security rule details
+acloud network securityrule get <vpc-id> <securitygroup-id> <securityrule-id>
+
+# Create a security rule
+acloud network securityrule create <vpc-id> <securitygroup-id> \
+  --name "allow-http" --region ITBG-Bergamo \
+  --direction Ingress --protocol TCP --port 80 \
+  --target-kind Ip --target-value "0.0.0.0/0"
+
+# Update a security rule
+acloud network securityrule update <vpc-id> <securitygroup-id> <securityrule-id> \
+  --port 443
+
+# Delete a security rule
+acloud network securityrule delete <vpc-id> <securitygroup-id> <securityrule-id>
+```
+
 ### [Load Balancer](network/loadbalancer.md)
 
 Load Balancers distribute traffic across multiple resources. Note: Load Balancers are read-only via the CLI.
@@ -259,11 +285,12 @@ acloud network vpc list --project-id <project-id>
 
 - [VPC Documentation](network/vpc.md)
 - [Subnet Documentation](network/subnet.md)
+- [Security Group Documentation](network/securitygroup.md)
+- [Security Rule Documentation](network/securityrule.md)
+- [Elastic IP Documentation](network/elasticip.md)
+- [Load Balancer Documentation](network/loadbalancer.md)
 - [VPC Peering Documentation](network/vpcpeering.md)
 - [VPC Peering Route Documentation](network/vpcpeeringroute.md)
 - [VPN Tunnel Documentation](network/vpntunnel.md)
 - [VPN Tunnel Route Documentation](network/vpnroute.md)
-- [Security Group Documentation](network/securitygroup.md)
-- [Elastic IP Documentation](network/elasticip.md)
-- [Load Balancer Documentation](network/loadbalancer.md)
 - [Context Management](../context.md)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/spf13/cobra"
@@ -26,6 +27,7 @@ func init() {
 	storageBackupCmd.Flags().Int("retention-days", 0, "Number of days to retain the backup")
 	storageBackupCmd.Flags().String("billing-period", "", "Billing period: Hour, Month, Year")
 	storageBackupCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
+	storageBackupCmd.Flags().BoolP("verbose", "v", false, "Show detailed debug information")
 	storageBackupCmd.MarkFlagRequired("name")
 
 	storageBackupListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
@@ -44,9 +46,7 @@ func init() {
 // Completion functions for storage resources
 
 func completeBackupID(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
+	// Allow completion even if args exist - user might be completing a partial ID
 
 	projectID, err := GetProjectID(cmd)
 	if err != nil {
@@ -68,7 +68,11 @@ func completeBackupID(cmd *cobra.Command, args []string, toComplete string) ([]s
 	if response != nil && response.Data != nil {
 		for _, backup := range response.Data.Values {
 			if backup.Metadata.ID != nil && backup.Metadata.Name != nil {
-				completions = append(completions, fmt.Sprintf("%s\t%s", *backup.Metadata.ID, *backup.Metadata.Name))
+				id := *backup.Metadata.ID
+				// Filter by partial input - use HasPrefix for more reliable matching
+				if toComplete == "" || strings.HasPrefix(id, toComplete) {
+					completions = append(completions, fmt.Sprintf("%s\t%s", id, *backup.Metadata.Name))
+				}
 			}
 		}
 	}
@@ -159,22 +163,28 @@ var storageBackupCmd = &cobra.Command{
 			createRequest.Properties.BillingPeriod = &billingPeriod
 		}
 
-		fmt.Println("Creating storage backup with the following parameters:")
-		fmt.Printf("  Name:           %s\n", name)
-		fmt.Printf("  Type:           %s\n", backupType)
-		fmt.Printf("  Region:         %s\n", region)
-		fmt.Printf("  Volume ID:      %s\n", volumeID)
-		fmt.Printf("  Volume URI:     %s\n", volumeURI)
-		if retentionDays > 0 {
-			fmt.Printf("  Retention Days: %d\n", retentionDays)
+		// Get verbose flag
+		verbose, _ := cmd.Flags().GetBool("verbose")
+
+		// Debug output if verbose
+		if verbose {
+			fmt.Println("Creating storage backup with the following parameters:")
+			fmt.Printf("  Name:           %s\n", name)
+			fmt.Printf("  Type:           %s\n", backupType)
+			fmt.Printf("  Region:         %s\n", region)
+			fmt.Printf("  Volume ID:      %s\n", volumeID)
+			fmt.Printf("  Volume URI:     %s\n", volumeURI)
+			if retentionDays > 0 {
+				fmt.Printf("  Retention Days: %d\n", retentionDays)
+			}
+			if billingPeriod != "" {
+				fmt.Printf("  Billing Period: %s\n", billingPeriod)
+			}
+			if len(tags) > 0 {
+				fmt.Printf("  Tags:           %v\n", tags)
+			}
+			fmt.Println()
 		}
-		if billingPeriod != "" {
-			fmt.Printf("  Billing Period: %s\n", billingPeriod)
-		}
-		if len(tags) > 0 {
-			fmt.Printf("  Tags:           %v\n", tags)
-		}
-		fmt.Println()
 
 		// Create the backup using the SDK
 		response, err := client.FromStorage().Backups().Create(ctx, projectID, createRequest, nil)
@@ -183,24 +193,20 @@ var storageBackupCmd = &cobra.Command{
 			return
 		}
 
-		if response == nil {
-			fmt.Println("Error: received nil response from API")
-			return
-		}
-
-		if !response.IsSuccess() {
-			fmt.Printf("Error: failed to create backup - Status: %d\n", response.StatusCode)
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to create backup - Status: %d\n", response.StatusCode)
 			if response.Error.Title != nil {
-				fmt.Printf("Error Title: %s\n", *response.Error.Title)
+				fmt.Printf("Error: %s\n", *response.Error.Title)
 			}
 			if response.Error.Detail != nil {
-				fmt.Printf("Error Detail: %s\n", *response.Error.Detail)
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
 			}
-			// Try to decode RawBody for more details
-			if response.StatusCode >= 400 && response.RawBody != nil {
-				var errorDetail map[string]interface{}
-				if err := json.Unmarshal(response.RawBody, &errorDetail); err == nil {
-					fmt.Printf("Full Error Response: %+v\n", errorDetail)
+			if verbose {
+				if response.RawBody != nil {
+					var errorDetail map[string]interface{}
+					if err := json.Unmarshal(response.RawBody, &errorDetail); err == nil {
+						fmt.Printf("Full Error Response: %+v\n", errorDetail)
+					}
 				}
 			}
 			return
@@ -336,7 +342,7 @@ var storageBackupGetCmd = &cobra.Command{
 				fmt.Printf("Billing Period:  %s\n", *backup.Properties.BillingPeriod)
 			}
 
-			fmt.Printf("Region:          %s\n", backup.Metadata.LocationResponse.Code)
+			fmt.Printf("Region:          %s\n", backup.Metadata.LocationResponse.Value)
 
 			if backup.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *backup.Status.State)
@@ -352,6 +358,8 @@ var storageBackupGetCmd = &cobra.Command{
 
 			if len(backup.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", backup.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 		} else {
 			fmt.Println("Backup not found")
@@ -404,10 +412,14 @@ var storageBackupUpdateCmd = &cobra.Command{
 
 		currentBackup := getResponse.Data
 
-		// Fix region code format (IT BG -> ITBG-Bergamo)
-		regionCode := currentBackup.Metadata.LocationResponse.Code
-		if regionCode == "IT BG" {
-			regionCode = "ITBG-Bergamo"
+		// Get region value
+		regionValue := ""
+		if currentBackup.Metadata.LocationResponse != nil {
+			regionValue = currentBackup.Metadata.LocationResponse.Value
+		}
+		if regionValue == "" {
+			fmt.Println("Error: Unable to determine region value for backup")
+			return
 		}
 
 		// Build the update request with current values as defaults
@@ -418,7 +430,7 @@ var storageBackupUpdateCmd = &cobra.Command{
 					Tags: currentBackup.Metadata.Tags,
 				},
 				Location: types.LocationRequest{
-					Value: regionCode,
+					Value: regionValue,
 				},
 			},
 			Properties: types.StorageBackupPropertiesRequest{
@@ -453,18 +465,13 @@ var storageBackupUpdateCmd = &cobra.Command{
 			return
 		}
 
-		if response.StatusCode >= 400 {
-			fmt.Printf("API Error (Status %d):\n", response.StatusCode)
-			if response.Error != nil {
-				if response.Error.Title != nil {
-					fmt.Printf("  Title: %s\n", *response.Error.Title)
-				}
-				if response.Error.Detail != nil {
-					fmt.Printf("  Detail: %s\n", *response.Error.Detail)
-				}
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to update backup - Status: %d\n", response.StatusCode)
+			if response.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *response.Error.Title)
 			}
-			if len(response.RawBody) > 0 {
-				fmt.Printf("  Raw Response: %s\n", string(response.RawBody))
+			if response.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
 			}
 			return
 		}

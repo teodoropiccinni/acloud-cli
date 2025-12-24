@@ -2,10 +2,21 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"sync"
 
 	"github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/spf13/cobra"
+)
+
+var (
+	// Cached client and its configuration
+	clientCache     aruba.Client
+	clientCacheLock sync.Mutex
+	cachedClientID  string
+	cachedSecret    string
+	cachedDebug     bool
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -36,12 +47,13 @@ func init() {
 
 	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.acloud.yaml)")
 
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// Add global debug flag
+	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug logging (shows HTTP requests/responses)")
 }
 
 // GetArubaClient creates and returns an Aruba Cloud SDK client using stored credentials
+// It automatically checks for the --debug flag from the root command to enable verbose logging
+// The client is cached to avoid recreating it on every call, but is invalidated if credentials or debug flag change
 func GetArubaClient() (aruba.Client, error) {
 	config, err := LoadConfig()
 	if err != nil {
@@ -52,13 +64,48 @@ func GetArubaClient() (aruba.Client, error) {
 		return nil, fmt.Errorf("client ID or client secret not configured. Please run 'acloud config set'")
 	}
 
+	// Check if debug flag is set on root command
+	debugEnabled := false
+	if rootCmd != nil {
+		debugEnabled, _ = rootCmd.PersistentFlags().GetBool("debug")
+	}
+
+	// Check if we can reuse the cached client
+	clientCacheLock.Lock()
+	defer clientCacheLock.Unlock()
+
+	// Reuse cached client if credentials and debug flag haven't changed
+	if clientCache != nil &&
+		cachedClientID == config.ClientID &&
+		cachedSecret == config.ClientSecret &&
+		cachedDebug == debugEnabled {
+		return clientCache, nil
+	}
+
 	// Create SDK client with credentials using DefaultOptions
+	// Only enable native logger when debug is enabled
 	options := aruba.DefaultOptions(config.ClientID, config.ClientSecret)
+	if debugEnabled {
+		options = options.WithNativeLogger()
+		// Configure logger output for debug mode
+		log.SetOutput(os.Stderr)
+		log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+		log.SetPrefix("[ArubaSDK] ")
+	} else {
+		// Ensure logger is disabled when debug is off
+		options = options.WithDefaultLogger()
+	}
 
 	client, err := aruba.NewClient(options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Aruba Cloud client: %w", err)
 	}
+
+	// Cache the client and its configuration
+	clientCache = client
+	cachedClientID = config.ClientID
+	cachedSecret = config.ClientSecret
+	cachedDebug = debugEnabled
 
 	return client, nil
 }

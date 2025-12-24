@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/spf13/cobra"
@@ -22,6 +23,7 @@ func init() {
 	storageRestoreCmd.Flags().String("name", "", "Name for the restore operation (required)")
 	storageRestoreCmd.Flags().String("region", "ITBG-Bergamo", "Region code")
 	storageRestoreCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
+	storageRestoreCmd.Flags().BoolP("verbose", "v", false, "Show detailed debug information")
 	storageRestoreCmd.MarkFlagRequired("name")
 
 	storageRestoreListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
@@ -72,7 +74,11 @@ func completeRestoreID(cmd *cobra.Command, args []string, toComplete string) ([]
 	if response != nil && response.Data != nil {
 		for _, restore := range response.Data.Values {
 			if restore.Metadata.ID != nil && restore.Metadata.Name != nil {
-				completions = append(completions, fmt.Sprintf("%s\t%s", *restore.Metadata.ID, *restore.Metadata.Name))
+				id := *restore.Metadata.ID
+				// Filter by partial input - use HasPrefix for more reliable matching
+				if toComplete == "" || strings.HasPrefix(id, toComplete) {
+					completions = append(completions, fmt.Sprintf("%s\t%s", id, *restore.Metadata.Name))
+				}
 			}
 		}
 	}
@@ -167,17 +173,23 @@ var storageRestoreCmd = &cobra.Command{
 			},
 		}
 
-		fmt.Println("Creating restore operation with the following parameters:")
-		fmt.Printf("  Name:       %s\n", name)
-		fmt.Printf("  Region:     %s\n", region)
-		fmt.Printf("  Backup ID:  %s\n", backupID)
-		fmt.Printf("  Backup URI: %s\n", backupURI)
-		fmt.Printf("  Volume ID:  %s\n", volumeID)
-		fmt.Printf("  Volume URI: %s\n", volumeURI)
-		if len(tags) > 0 {
-			fmt.Printf("  Tags:       %v\n", tags)
+		// Get verbose flag
+		verbose, _ := cmd.Flags().GetBool("verbose")
+
+		// Debug output if verbose
+		if verbose {
+			fmt.Println("Creating restore operation with the following parameters:")
+			fmt.Printf("  Name:       %s\n", name)
+			fmt.Printf("  Region:     %s\n", region)
+			fmt.Printf("  Backup ID:  %s\n", backupID)
+			fmt.Printf("  Backup URI: %s\n", backupURI)
+			fmt.Printf("  Volume ID:  %s\n", volumeID)
+			fmt.Printf("  Volume URI: %s\n", volumeURI)
+			if len(tags) > 0 {
+				fmt.Printf("  Tags:       %v\n", tags)
+			}
+			fmt.Println()
 		}
-		fmt.Println()
 
 		// Create the restore using the SDK
 		response, err := client.FromStorage().Restores().Create(ctx, projectID, backupID, createRequest, nil)
@@ -186,24 +198,20 @@ var storageRestoreCmd = &cobra.Command{
 			return
 		}
 
-		if response == nil {
-			fmt.Println("Error: received nil response from API")
-			return
-		}
-
-		if !response.IsSuccess() {
-			fmt.Printf("Error: failed to create restore - Status: %d\n", response.StatusCode)
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to create restore - Status: %d\n", response.StatusCode)
 			if response.Error.Title != nil {
-				fmt.Printf("Error Title: %s\n", *response.Error.Title)
+				fmt.Printf("Error: %s\n", *response.Error.Title)
 			}
 			if response.Error.Detail != nil {
-				fmt.Printf("Error Detail: %s\n", *response.Error.Detail)
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
 			}
-			// Try to decode RawBody for more details
-			if response.StatusCode >= 400 && response.RawBody != nil {
-				var errorDetail map[string]interface{}
-				if err := json.Unmarshal(response.RawBody, &errorDetail); err == nil {
-					fmt.Printf("Full Error Response: %+v\n", errorDetail)
+			if verbose {
+				if response.RawBody != nil {
+					var errorDetail map[string]interface{}
+					if err := json.Unmarshal(response.RawBody, &errorDetail); err == nil {
+						fmt.Printf("Full Error Response: %+v\n", errorDetail)
+					}
 				}
 			}
 			return
@@ -332,7 +340,7 @@ var storageRestoreGetCmd = &cobra.Command{
 				fmt.Printf("Target Volume:   %s\n", restore.Properties.Destination.URI)
 			}
 
-			fmt.Printf("Region:          %s\n", restore.Metadata.LocationResponse.Code)
+			fmt.Printf("Region:          %s\n", restore.Metadata.LocationResponse.Value)
 
 			if restore.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *restore.Status.State)
@@ -348,6 +356,8 @@ var storageRestoreGetCmd = &cobra.Command{
 
 			if len(restore.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", restore.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 		} else {
 			fmt.Println("Restore operation not found")
@@ -401,10 +411,14 @@ var storageRestoreUpdateCmd = &cobra.Command{
 
 		currentRestore := getResponse.Data
 
-		// Fix region code format (IT BG -> ITBG-Bergamo)
-		regionCode := currentRestore.Metadata.LocationResponse.Code
-		if regionCode == "IT BG" {
-			regionCode = "ITBG-Bergamo"
+		// Get region value
+		regionValue := ""
+		if currentRestore.Metadata.LocationResponse != nil {
+			regionValue = currentRestore.Metadata.LocationResponse.Value
+		}
+		if regionValue == "" {
+			fmt.Println("Error: Unable to determine region value for restore operation")
+			return
 		}
 
 		// Build the update request with current values as defaults
@@ -415,7 +429,7 @@ var storageRestoreUpdateCmd = &cobra.Command{
 					Tags: currentRestore.Metadata.Tags,
 				},
 				Location: types.LocationRequest{
-					Value: regionCode,
+					Value: regionValue,
 				},
 			},
 			Properties: types.RestorePropertiesRequest{
@@ -441,18 +455,13 @@ var storageRestoreUpdateCmd = &cobra.Command{
 			return
 		}
 
-		if response.StatusCode >= 400 {
-			fmt.Printf("API Error (Status %d):\n", response.StatusCode)
-			if response.Error != nil {
-				if response.Error.Title != nil {
-					fmt.Printf("  Title: %s\n", *response.Error.Title)
-				}
-				if response.Error.Detail != nil {
-					fmt.Printf("  Detail: %s\n", *response.Error.Detail)
-				}
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to update restore - Status: %d\n", response.StatusCode)
+			if response.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *response.Error.Title)
 			}
-			if len(response.RawBody) > 0 {
-				fmt.Printf("  Raw Response: %s\n", string(response.RawBody))
+			if response.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
 			}
 			return
 		}

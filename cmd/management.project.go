@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/spf13/cobra"
@@ -26,6 +27,7 @@ func init() {
 	projectCreateCmd.Flags().String("description", "", "Description for the project")
 	projectCreateCmd.Flags().StringSlice("tags", []string{}, "Tags for the project (comma-separated)")
 	projectCreateCmd.Flags().Bool("default", false, "Set as default project")
+	projectCreateCmd.Flags().BoolP("verbose", "v", false, "Show detailed debug information")
 	projectCreateCmd.MarkFlagRequired("name")
 
 	// Add flags for project delete command
@@ -38,9 +40,7 @@ func init() {
 
 // completeProjectID provides completion for project IDs
 func completeProjectID(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
+	// Allow completion even if args exist - user might be completing a partial ID
 
 	// Get SDK client
 	client, err := GetArubaClient()
@@ -59,8 +59,12 @@ func completeProjectID(cmd *cobra.Command, args []string, toComplete string) ([]
 	if response != nil && response.Data != nil {
 		for _, project := range response.Data.Values {
 			if project.Metadata.ID != nil && project.Metadata.Name != nil {
-				// Format: "id\tname" - the tab separates the completion from the description
-				completions = append(completions, fmt.Sprintf("%s\t%s", *project.Metadata.ID, *project.Metadata.Name))
+				id := *project.Metadata.ID
+				// Filter by partial input - use HasPrefix for more reliable matching
+				if toComplete == "" || strings.HasPrefix(id, toComplete) {
+					// Format: "id\tname" - the tab separates the completion from the description
+					completions = append(completions, fmt.Sprintf("%s\t%s", id, *project.Metadata.Name))
+				}
 			}
 		}
 	}
@@ -83,6 +87,7 @@ var projectCreateCmd = &cobra.Command{
 		description, _ := cmd.Flags().GetString("description")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 		setDefault, _ := cmd.Flags().GetBool("default")
+		verbose, _ := cmd.Flags().GetBool("verbose")
 
 		// Name is required
 		if name == "" {
@@ -113,6 +118,20 @@ var projectCreateCmd = &cobra.Command{
 			createRequest.Properties.Description = &description
 		}
 
+		// Debug output if verbose
+		if verbose {
+			fmt.Println("Creating project with the following parameters:")
+			fmt.Printf("  Name:        %s\n", name)
+			if description != "" {
+				fmt.Printf("  Description: %s\n", description)
+			}
+			fmt.Printf("  Default:     %t\n", setDefault)
+			if len(tags) > 0 {
+				fmt.Printf("  Tags:        %v\n", tags)
+			}
+			fmt.Println()
+		}
+
 		// Create the project using the SDK
 		ctx := context.Background()
 		response, err := client.FromProject().Create(ctx, createRequest, nil)
@@ -121,20 +140,48 @@ var projectCreateCmd = &cobra.Command{
 			return
 		}
 
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to create project - Status: %d\n", response.StatusCode)
+			if response.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *response.Error.Title)
+			}
+			if response.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
+			}
+			return
+		}
+
 		if response != nil && response.Data != nil {
-			fmt.Println("\nProject created successfully!")
-			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
-			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
-			if response.Data.Properties.Description != nil {
-				fmt.Printf("Description:     %s\n", *response.Data.Properties.Description)
+			headers := []TableColumn{
+				{Header: "ID", Width: 30},
+				{Header: "NAME", Width: 40},
+				{Header: "DEFAULT", Width: 10},
+				{Header: "RESOURCES", Width: 12},
 			}
-			if len(response.Data.Metadata.Tags) > 0 {
-				fmt.Printf("Tags:            %v\n", response.Data.Metadata.Tags)
+			row := []string{
+				func() string {
+					if response.Data.Metadata.ID != nil {
+						return *response.Data.Metadata.ID
+					}
+					return ""
+				}(),
+				func() string {
+					if response.Data.Metadata.Name != nil {
+						return *response.Data.Metadata.Name
+					}
+					return ""
+				}(),
+				func() string {
+					if response.Data.Properties.Default {
+						return "Yes"
+					}
+					return "No"
+				}(),
+				fmt.Sprintf("%d", response.Data.Properties.ResourcesNumber),
 			}
-			fmt.Printf("Default:         %t\n", response.Data.Properties.Default)
-			if !response.Data.Metadata.CreationDate.IsZero() {
-				fmt.Printf("Creation Date:   %s\n", response.Data.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
-			}
+			PrintTable(headers, [][]string{row})
+		} else {
+			fmt.Println("Project created, but no data returned.")
 		}
 	},
 }
@@ -157,7 +204,18 @@ var projectGetCmd = &cobra.Command{
 		ctx := context.Background()
 		response, err := client.FromProject().Get(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error getting project details: %v\n", err)
+			fmt.Printf("Error getting project: %v\n", err)
+			return
+		}
+
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to get project - Status: %d\n", response.StatusCode)
+			if response.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *response.Error.Title)
+			}
+			if response.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
+			}
 			return
 		}
 
@@ -201,6 +259,8 @@ var projectGetCmd = &cobra.Command{
 
 			if len(project.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", project.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 
 			fmt.Println()
@@ -238,12 +298,23 @@ var projectUpdateCmd = &cobra.Command{
 		ctx := context.Background()
 		getResponse, err := client.FromProject().Get(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error getting project details: %v\n", err)
+			fmt.Printf("Error fetching current project: %v\n", err)
+			return
+		}
+
+		if getResponse != nil && getResponse.IsError() && getResponse.Error != nil {
+			fmt.Printf("Failed to get project - Status: %d\n", getResponse.StatusCode)
+			if getResponse.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *getResponse.Error.Title)
+			}
+			if getResponse.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *getResponse.Error.Detail)
+			}
 			return
 		}
 
 		if getResponse == nil || getResponse.Data == nil {
-			fmt.Println("Project not found")
+			fmt.Println("Project not found or no data returned.")
 			return
 		}
 
@@ -279,17 +350,48 @@ var projectUpdateCmd = &cobra.Command{
 			return
 		}
 
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to update project - Status: %d\n", response.StatusCode)
+			if response.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *response.Error.Title)
+			}
+			if response.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
+			}
+			return
+		}
+
 		if response != nil && response.Data != nil {
-			fmt.Println("\nProject updated successfully!")
-			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
-			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
-			if response.Data.Properties.Description != nil {
-				fmt.Printf("Description:     %s\n", *response.Data.Properties.Description)
+			headers := []TableColumn{
+				{Header: "ID", Width: 30},
+				{Header: "NAME", Width: 40},
+				{Header: "DEFAULT", Width: 10},
+				{Header: "RESOURCES", Width: 12},
 			}
-			if len(response.Data.Metadata.Tags) > 0 {
-				fmt.Printf("Tags:            %v\n", response.Data.Metadata.Tags)
+			row := []string{
+				func() string {
+					if response.Data.Metadata.ID != nil {
+						return *response.Data.Metadata.ID
+					}
+					return ""
+				}(),
+				func() string {
+					if response.Data.Metadata.Name != nil {
+						return *response.Data.Metadata.Name
+					}
+					return ""
+				}(),
+				func() string {
+					if response.Data.Properties.Default {
+						return "Yes"
+					}
+					return "No"
+				}(),
+				fmt.Sprintf("%d", response.Data.Properties.ResourcesNumber),
 			}
-			fmt.Printf("Default:         %t\n", response.Data.Properties.Default)
+			PrintTable(headers, [][]string{row})
+		} else {
+			fmt.Printf("Project '%s' updated.\n", projectID)
 		}
 	},
 }
@@ -306,7 +408,8 @@ var projectDeleteCmd = &cobra.Command{
 
 		// If not confirmed, ask for confirmation
 		if !confirm {
-			fmt.Printf("Are you sure you want to delete project %s? (yes/no): ", projectID)
+			fmt.Printf("Are you sure you want to delete project %s? This action cannot be undone.\n", projectID)
+			fmt.Print("Type 'yes' to confirm: ")
 			var response string
 			fmt.Scanln(&response)
 			if response != "yes" && response != "y" {
@@ -324,13 +427,29 @@ var projectDeleteCmd = &cobra.Command{
 
 		// Delete the project using the SDK
 		ctx := context.Background()
-		_, err = client.FromProject().Delete(ctx, projectID, nil)
+		resp, err := client.FromProject().Delete(ctx, projectID, nil)
 		if err != nil {
 			fmt.Printf("Error deleting project: %v\n", err)
 			return
 		}
 
-		fmt.Printf("\nProject %s deleted successfully!\n", projectID)
+		if resp != nil && resp.IsError() && resp.Error != nil {
+			fmt.Printf("Failed to delete project - Status: %d\n", resp.StatusCode)
+			if resp.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *resp.Error.Title)
+			}
+			if resp.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
+			}
+			return
+		}
+
+		headers := []TableColumn{
+			{Header: "ID", Width: 30},
+			{Header: "STATUS", Width: 15},
+		}
+		status := "deleted"
+		PrintTable(headers, [][]string{{projectID, status}})
 	},
 }
 
@@ -353,25 +472,36 @@ var projectListCmd = &cobra.Command{
 			return
 		}
 
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to list projects - Status: %d\n", response.StatusCode)
+			if response.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *response.Error.Title)
+			}
+			if response.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
+			}
+			return
+		}
+
 		if response != nil && response.Data != nil && len(response.Data.Values) > 0 {
 			// Define table columns
 			headers := []TableColumn{
-				{Header: "ID", Width: 30},
 				{Header: "NAME", Width: 40},
+				{Header: "ID", Width: 30},
 				{Header: "CREATION DATE", Width: 15},
 			}
 
 			// Build rows
 			var rows [][]string
 			for _, project := range response.Data.Values {
-				id := ""
-				if project.Metadata.ID != nil && *project.Metadata.ID != "" {
-					id = *project.Metadata.ID
-				}
-
 				name := ""
 				if project.Metadata.Name != nil && *project.Metadata.Name != "" {
 					name = *project.Metadata.Name
+				}
+
+				id := ""
+				if project.Metadata.ID != nil && *project.Metadata.ID != "" {
+					id = *project.Metadata.ID
 				}
 
 				// Format creation date as dd-mm-yyyy
@@ -380,7 +510,7 @@ var projectListCmd = &cobra.Command{
 					creationDate = project.Metadata.CreationDate.Format("02-01-2006")
 				}
 
-				rows = append(rows, []string{id, name, creationDate})
+				rows = append(rows, []string{name, id, creationDate})
 			}
 
 			// Print the table

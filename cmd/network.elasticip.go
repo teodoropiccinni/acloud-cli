@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/spf13/cobra"
@@ -41,9 +42,7 @@ func init() {
 // Completion functions for network resources
 
 func completeElasticIPID(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
+	// Allow completion even if args exist - user might be completing a partial ID
 
 	projectID, err := GetProjectID(cmd)
 	if err != nil {
@@ -65,7 +64,11 @@ func completeElasticIPID(cmd *cobra.Command, args []string, toComplete string) (
 	if response != nil && response.Data != nil {
 		for _, eip := range response.Data.Values {
 			if eip.Metadata.ID != nil && eip.Metadata.Name != nil {
-				completions = append(completions, fmt.Sprintf("%s\t%s", *eip.Metadata.ID, *eip.Metadata.Name))
+				id := *eip.Metadata.ID
+				// Filter by partial input - use HasPrefix for more reliable matching
+				if toComplete == "" || strings.HasPrefix(id, toComplete) {
+					completions = append(completions, fmt.Sprintf("%s\t%s", id, *eip.Metadata.Name))
+				}
 			}
 		}
 	}
@@ -141,7 +144,7 @@ var elasticipCreateCmd = &cobra.Command{
 			return
 		}
 
-		if response != nil && !response.IsSuccess() {
+		if response != nil && response.IsError() && response.Error != nil {
 			fmt.Printf("Failed to create Elastic IP - Status: %d\n", response.StatusCode)
 			if response.Error.Title != nil {
 				fmt.Printf("Error: %s\n", *response.Error.Title)
@@ -221,7 +224,7 @@ var elasticipListCmd = &cobra.Command{
 					id = *eip.Metadata.ID
 				}
 
-				region := eip.Metadata.LocationResponse.Code
+				region := eip.Metadata.LocationResponse.Value
 
 				address := ""
 				if eip.Properties.Address != nil {
@@ -289,8 +292,8 @@ var elasticipGetCmd = &cobra.Command{
 			if eip.Metadata.Name != nil {
 				fmt.Printf("Name:            %s\n", *eip.Metadata.Name)
 			}
-			if eip.Metadata.LocationResponse.Code != "" {
-				fmt.Printf("Region:          %s\n", eip.Metadata.LocationResponse.Code)
+			if eip.Metadata.LocationResponse != nil && eip.Metadata.LocationResponse.Value != "" {
+				fmt.Printf("Region:          %s\n", eip.Metadata.LocationResponse.Value)
 			}
 			if eip.Properties.Address != nil {
 				fmt.Printf("Address:         %s\n", *eip.Properties.Address)
@@ -308,6 +311,8 @@ var elasticipGetCmd = &cobra.Command{
 
 			if len(eip.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", eip.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 
 			if eip.Status.State != nil {
@@ -367,10 +372,14 @@ var elasticipUpdateCmd = &cobra.Command{
 			return
 		}
 
-		// Fix region code format (IT BG -> ITBG-Bergamo)
-		regionCode := getResponse.Data.Metadata.LocationResponse.Code
-		if regionCode == "IT BG" {
-			regionCode = "ITBG-Bergamo"
+		// Get region value
+		regionValue := ""
+		if getResponse.Data.Metadata.LocationResponse != nil {
+			regionValue = getResponse.Data.Metadata.LocationResponse.Value
+		}
+		if regionValue == "" {
+			fmt.Println("Error: Unable to determine region value for Elastic IP")
+			return
 		}
 
 		// Build the update request, preserving existing values
@@ -381,7 +390,7 @@ var elasticipUpdateCmd = &cobra.Command{
 					Tags: getResponse.Data.Metadata.Tags,
 				},
 				Location: types.LocationRequest{
-					Value: regionCode,
+					Value: regionValue,
 				},
 			},
 			Properties: types.ElasticIPPropertiesRequest{

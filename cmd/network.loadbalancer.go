@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -25,9 +26,7 @@ func init() {
 
 // Completion functions for network resources
 func completeLoadBalancerID(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
+	// Allow completion even if args exist - user might be completing a partial ID
 
 	projectID, err := GetProjectID(cmd)
 	if err != nil {
@@ -49,7 +48,11 @@ func completeLoadBalancerID(cmd *cobra.Command, args []string, toComplete string
 	if response != nil && response.Data != nil {
 		for _, lb := range response.Data.Values {
 			if lb.Metadata.ID != nil && lb.Metadata.Name != nil {
-				completions = append(completions, fmt.Sprintf("%s\t%s", *lb.Metadata.ID, *lb.Metadata.Name))
+				id := *lb.Metadata.ID
+				// Filter by partial input - use HasPrefix for more reliable matching
+				if toComplete == "" || strings.HasPrefix(id, toComplete) {
+					completions = append(completions, fmt.Sprintf("%s\t%s", id, *lb.Metadata.Name))
+				}
 			}
 		}
 	}
@@ -113,7 +116,7 @@ var loadbalancerListCmd = &cobra.Command{
 					id = *lb.Metadata.ID
 				}
 
-				region := lb.Metadata.LocationResponse.Code
+				region := lb.Metadata.LocationResponse.Value
 
 				address := ""
 				if lb.Properties.Address != nil {
@@ -199,6 +202,8 @@ var loadbalancerGetCmd = &cobra.Command{
 
 			if len(lb.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", lb.Metadata.Tags)
+			} else {
+				fmt.Printf("Tags:            []\n")
 			}
 
 			if lb.Status.State != nil {
