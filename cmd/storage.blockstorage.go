@@ -205,7 +205,7 @@ var blockstorageCreateCmd = &cobra.Command{
 			fmt.Printf("Size (GB):       %d\n", response.Data.Properties.SizeGB)
 			fmt.Printf("Type:            %s\n", response.Data.Properties.Type)
 			fmt.Printf("Zone:            %s\n", response.Data.Properties.Zone)
-			fmt.Printf("Region:          %s\n", response.Data.Metadata.LocationResponse.Code)
+			fmt.Printf("Region:          %s\n", response.Data.Metadata.LocationResponse.Value)
 			if response.Data.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *response.Data.Status.State)
 			}
@@ -271,7 +271,7 @@ var blockstorageGetCmd = &cobra.Command{
 			fmt.Printf("Zone:            %s\n", volume.Properties.Zone)
 
 			if volume.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", volume.Metadata.LocationResponse.Code)
+				fmt.Printf("Region:          %s\n", volume.Metadata.LocationResponse.Value)
 			}
 
 			if volume.Properties.Bootable != nil {
@@ -360,16 +360,13 @@ var blockstorageUpdateCmd = &cobra.Command{
 			}
 		}
 
-		// Fix region code format (IT BG -> ITBG-Bergamo)
-		regionCode := ""
+		// Get region value
+		regionValue := ""
 		if currentVolume.Metadata.LocationResponse != nil {
-			regionCode = currentVolume.Metadata.LocationResponse.Code
+			regionValue = currentVolume.Metadata.LocationResponse.Value
 		}
-		if regionCode == "IT BG" {
-			regionCode = "ITBG-Bergamo"
-		}
-		if regionCode == "" {
-			fmt.Println("Error: Unable to determine region code for block storage")
+		if regionValue == "" {
+			fmt.Println("Error: Unable to determine region value for block storage")
 			return
 		}
 
@@ -387,7 +384,7 @@ var blockstorageUpdateCmd = &cobra.Command{
 					Tags: currentVolume.Metadata.Tags,
 				},
 				Location: types.LocationRequest{
-					Value: regionCode,
+					Value: regionValue,
 				},
 			},
 			Properties: types.BlockStoragePropertiesRequest{
@@ -536,7 +533,7 @@ var blockstorageListCmd = &cobra.Command{
 						fmt.Printf("  Size: %d GB\n", vol.Properties.SizeGB)
 						fmt.Printf("  Type: %v\n", vol.Properties.Type)
 						fmt.Printf("  Zone: %s\n", vol.Properties.Zone)
-						fmt.Printf("  Region: %s\n", vol.Metadata.LocationResponse.Code)
+						fmt.Printf("  Region: %s\n", vol.Metadata.LocationResponse.Value)
 						if vol.Status.State != nil {
 							fmt.Printf("  Status State: %s\n", *vol.Status.State)
 						} else {
@@ -576,7 +573,7 @@ var blockstorageListCmd = &cobra.Command{
 
 				size := fmt.Sprintf("%d", volume.Properties.SizeGB)
 
-				region := volume.Metadata.LocationResponse.Code
+				region := volume.Metadata.LocationResponse.Value
 				zone := volume.Properties.Zone
 
 				volumeType := fmt.Sprintf("%v", volume.Properties.Type)

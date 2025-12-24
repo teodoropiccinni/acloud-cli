@@ -123,7 +123,7 @@ URI:             /projects/68398923fb2cb026400d4d31/providers/Aruba.Storage/snap
 Name:            backup-before-upgrade
 Size (GB):       50
 Source Volume:   /projects/68398923fb2cb026400d4d31/providers/Aruba.Storage/blockStorages/69455aa70d0972656501d45d
-Region:          IT BG
+Region:          ITBG-Bergamo
 Status:          Available
 Creation Date:   18-12-2025 17:23:50
 Created By:      aru-297647

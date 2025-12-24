@@ -17,6 +17,24 @@ func init() {
 	vpcpeeringCmd.AddCommand(vpcpeeringUpdateCmd)
 	vpcpeeringCmd.AddCommand(vpcpeeringDeleteCmd)
 	vpcpeeringCmd.AddCommand(vpcpeeringListCmd)
+
+	// VPC Peering flags
+	vpcpeeringCreateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	vpcpeeringCreateCmd.Flags().String("name", "", "VPC Peering name (required)")
+	vpcpeeringCreateCmd.Flags().String("peer-vpc-id", "", "Peer VPC ID or URI (required)")
+	vpcpeeringCreateCmd.Flags().String("region", "", "Region code (e.g., ITBG-Bergamo) (required)")
+	vpcpeeringCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
+
+	vpcpeeringGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+
+	vpcpeeringUpdateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	vpcpeeringUpdateCmd.Flags().String("name", "", "New name for the VPC peering")
+	vpcpeeringUpdateCmd.Flags().StringSlice("tags", []string{}, "New tags (comma-separated)")
+
+	vpcpeeringDeleteCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	vpcpeeringDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
+
+	vpcpeeringListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 }
 
 // Peering subcommands
@@ -97,7 +115,7 @@ var vpcpeeringCreateCmd = &cobra.Command{
 				}(),
 				func() string {
 					if resp.Data.Metadata.LocationResponse != nil {
-						return resp.Data.Metadata.LocationResponse.Code
+						return resp.Data.Metadata.LocationResponse.Value
 					}
 					return ""
 				}(),
@@ -163,7 +181,7 @@ var vpcpeeringGetCmd = &cobra.Command{
 				fmt.Printf("Peer VPC:        %s\n", peering.Properties.RemoteVPC.URI)
 			}
 			if peering.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", peering.Metadata.LocationResponse.Code)
+				fmt.Printf("Region:          %s\n", peering.Metadata.LocationResponse.Value)
 			}
 			if peering.Metadata.CreationDate != nil {
 				fmt.Printf("Creation Date:   %s\n", peering.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
@@ -241,7 +259,7 @@ var vpcpeeringListCmd = &cobra.Command{
 				}
 				region := ""
 				if peering.Metadata.LocationResponse != nil {
-					region = peering.Metadata.LocationResponse.Code
+					region = peering.Metadata.LocationResponse.Value
 				}
 				status := ""
 				if peering.Status.State != nil {
@@ -318,7 +336,7 @@ var vpcpeeringUpdateCmd = &cobra.Command{
 				Location: types.LocationRequest{
 					Value: func() string {
 						if current.Metadata.LocationResponse != nil {
-							return current.Metadata.LocationResponse.Code
+							return current.Metadata.LocationResponse.Value
 						}
 						return ""
 					}(),
@@ -372,7 +390,7 @@ var vpcpeeringUpdateCmd = &cobra.Command{
 				}(),
 				func() string {
 					if resp.Data.Metadata.LocationResponse != nil {
-						return resp.Data.Metadata.LocationResponse.Code
+						return resp.Data.Metadata.LocationResponse.Value
 					}
 					return ""
 				}(),

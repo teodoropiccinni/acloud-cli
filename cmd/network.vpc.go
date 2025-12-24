@@ -230,8 +230,8 @@ var vpcGetCmd = &cobra.Command{
 			if vpc.Metadata.Name != nil {
 				fmt.Printf("Name:            %s\n", *vpc.Metadata.Name)
 			}
-			if vpc.Metadata.LocationResponse.Code != "" {
-				fmt.Printf("Region:          %s\n", vpc.Metadata.LocationResponse.Code)
+			if vpc.Metadata.LocationResponse != nil && vpc.Metadata.LocationResponse.Value != "" {
+				fmt.Printf("Region:          %s\n", vpc.Metadata.LocationResponse.Value)
 			}
 			fmt.Printf("Default:         %t\n", vpc.Properties.Default)
 			fmt.Printf("Linked Resources: %d\n", len(vpc.Properties.LinkedResources))
@@ -308,16 +308,13 @@ var vpcUpdateCmd = &cobra.Command{
 			return
 		}
 
-		// Fix region code format (IT BG -> ITBG-Bergamo)
-		regionCode := ""
+		// Get region value
+		regionValue := ""
 		if getResponse.Data.Metadata.LocationResponse != nil {
-			regionCode = getResponse.Data.Metadata.LocationResponse.Code
+			regionValue = getResponse.Data.Metadata.LocationResponse.Value
 		}
-		if regionCode == "IT BG" {
-			regionCode = "ITBG-Bergamo"
-		}
-		if regionCode == "" {
-			fmt.Println("Error: Unable to determine region code for VPC")
+		if regionValue == "" {
+			fmt.Println("Error: Unable to determine region value for VPC")
 			return
 		}
 
@@ -329,7 +326,7 @@ var vpcUpdateCmd = &cobra.Command{
 					Tags: getResponse.Data.Metadata.Tags,
 				},
 				Location: types.LocationRequest{
-					Value: regionCode,
+					Value: regionValue,
 				},
 			},
 			Properties: types.VPCPropertiesRequest{
@@ -468,7 +465,7 @@ var vpcListCmd = &cobra.Command{
 					id = *vpc.Metadata.ID
 				}
 
-				region := vpc.Metadata.LocationResponse.Code
+				region := vpc.Metadata.LocationResponse.Value
 
 				subnets := fmt.Sprintf("%d", len(vpc.Properties.LinkedResources))
 

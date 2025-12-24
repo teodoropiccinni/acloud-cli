@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/Arubacloud/sdk-go/pkg/types"
@@ -293,7 +295,7 @@ var securityruleGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *rule.Metadata.Name)
 			}
 			if rule.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", rule.Metadata.LocationResponse.Code)
+				fmt.Printf("Region:          %s\n", rule.Metadata.LocationResponse.Value)
 			}
 			fmt.Printf("Direction:       %s\n", rule.Properties.Direction)
 			fmt.Printf("Protocol:        %s\n", rule.Properties.Protocol)
@@ -468,30 +470,25 @@ var securityruleUpdateCmd = &cobra.Command{
 			return
 		}
 
-		// Get region code from current rule, or fetch from VPC if not available
-		regionCode := ""
+		// Get region value from current rule, or fetch from VPC if not available
+		regionValue := ""
 		if current.Metadata.LocationResponse != nil {
-			regionCode = current.Metadata.LocationResponse.Code
+			regionValue = current.Metadata.LocationResponse.Value
 		}
 		
-		// If region code is not available from the rule, try to get it from the VPC
-		if regionCode == "" {
+		// If region value is not available from the rule, try to get it from the VPC
+		if regionValue == "" {
 			vpcResp, err := client.FromNetwork().VPCs().Get(ctx, projectID, vpcID, nil)
 			if err == nil && vpcResp != nil && !vpcResp.IsError() && vpcResp.Data != nil {
 				if vpcResp.Data.Metadata.LocationResponse != nil {
-					regionCode = vpcResp.Data.Metadata.LocationResponse.Code
+					regionValue = vpcResp.Data.Metadata.LocationResponse.Value
 				}
 			}
 		}
-		
-		// Normalize region code if needed
-		if regionCode == "IT BG" {
-			regionCode = "ITBG-Bergamo"
-		}
-		
-		// If still no region code, we cannot proceed
-		if regionCode == "" {
-			fmt.Println("Error: Unable to determine region code for security rule. Please ensure the VPC has a valid region.")
+
+		// If still no region value, we cannot proceed
+		if regionValue == "" {
+			fmt.Println("Error: Unable to determine region value for security rule. Please ensure the VPC has a valid region.")
 			return
 		}
 
@@ -520,7 +517,7 @@ var securityruleUpdateCmd = &cobra.Command{
 					}(),
 				},
 				Location: types.LocationRequest{
-					Value: regionCode,
+					Value: regionValue,
 				},
 			},
 			Properties: types.SecurityRulePropertiesRequest{
@@ -530,6 +527,20 @@ var securityruleUpdateCmd = &cobra.Command{
 				Port:      current.Properties.Port,
 				Target:    current.Properties.Target,
 			},
+		}
+
+		// Check if debug flag is enabled
+		debugEnabled, _ := rootCmd.PersistentFlags().GetBool("debug")
+		if debugEnabled {
+			fmt.Fprintf(os.Stderr, "\n=== DEBUG: Security Rule Update Request ===\n")
+			fmt.Fprintf(os.Stderr, "VPC ID: %s\n", vpcID)
+			fmt.Fprintf(os.Stderr, "Security Group ID: %s\n", securityGroupID)
+			fmt.Fprintf(os.Stderr, "Security Rule ID: %s\n", securityRuleID)
+			fmt.Fprintf(os.Stderr, "Request Payload:\n")
+			if reqJSON, err := json.MarshalIndent(req, "", "  "); err == nil {
+				fmt.Fprintf(os.Stderr, "%s\n", reqJSON)
+			}
+			fmt.Fprintf(os.Stderr, "==========================================\n\n")
 		}
 
 		resp, err := client.FromNetwork().SecurityGroupRules().Update(ctx, projectID, vpcID, securityGroupID, securityRuleID, req, nil)
@@ -545,6 +556,14 @@ var securityruleUpdateCmd = &cobra.Command{
 			}
 			if resp.Error.Detail != nil {
 				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
+			}
+			if debugEnabled {
+				fmt.Fprintf(os.Stderr, "\n=== DEBUG: Error Response ===\n")
+				if resp.RawBody != nil {
+					fmt.Fprintf(os.Stderr, "Raw Response Body:\n%s\n", string(resp.RawBody))
+				}
+				fmt.Fprintf(os.Stderr, "Status Code: %d\n", resp.StatusCode)
+				fmt.Fprintf(os.Stderr, "===========================\n\n")
 			}
 			return
 		}
@@ -650,3 +669,4 @@ var securityruleDeleteCmd = &cobra.Command{
 		PrintTable(headers, [][]string{{securityRuleID, status}})
 	},
 }
+

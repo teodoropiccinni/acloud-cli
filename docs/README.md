@@ -64,6 +64,10 @@ acloud management project --help
 acloud management project create --help
 ```
 
+## Debug Mode
+
+The CLI provides a global `--debug` (or `-d`) flag for troubleshooting. When enabled, it shows HTTP request/response details, request payloads, and full error information. See [Getting Started - Debug Mode](getting-started.md#debug-mode) for more details.
+
 ## Additional Resources
 
 - [GitHub Repository](https://github.com/Arubacloud/acloud-cli)
