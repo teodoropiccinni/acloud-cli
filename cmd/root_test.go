@@ -157,4 +157,3 @@ func TestGetArubaClient_DebugFlagChange(t *testing.T) {
 		t.Error("GetArubaClient() should return new client when debug flag changes")
 	}
 }
-

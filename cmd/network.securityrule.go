@@ -475,7 +475,7 @@ var securityruleUpdateCmd = &cobra.Command{
 		if current.Metadata.LocationResponse != nil {
 			regionValue = current.Metadata.LocationResponse.Value
 		}
-		
+
 		// If region value is not available from the rule, try to get it from the VPC
 		if regionValue == "" {
 			vpcResp, err := client.FromNetwork().VPCs().Get(ctx, projectID, vpcID, nil)
@@ -669,4 +669,3 @@ var securityruleDeleteCmd = &cobra.Command{
 		PrintTable(headers, [][]string{{securityRuleID, status}})
 	},
 }
-
