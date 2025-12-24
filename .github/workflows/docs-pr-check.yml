@@ -58,11 +58,12 @@ jobs:
       - name: Build and validate documentation
         working-directory: docs/website
         run: |
-          echo "Building documentation (current version only)..."
+          echo "Building documentation (versioning disabled for PR check)..."
           npm run build
           echo "✅ Documentation build successful!"
         env:
           NODE_ENV: production
+          DISABLE_VERSIONING: 'true'
 
       - name: Comment PR on failure
         if: failure()
