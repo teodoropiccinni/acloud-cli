@@ -1,0 +1,74 @@
+/**
+ * Creating a sidebar enables you to:
+ - create an ordered group of docs
+ - render a sidebar for each doc of that group
+ - provide next/previous navigation
+
+ The sidebars can be generated from the filesystem, or explicitly defined here.
+
+ Create as many sidebars as you'd like.
+ */
+
+// @ts-check
+
+/** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
+const sidebars = {
+  // By default, Docusaurus generates a sidebar from the docs folder structure
+  tutorialSidebar: [
+    {
+      type: 'doc',
+      id: 'intro',
+      label: 'Introduction',
+    },
+    {
+      type: 'doc',
+      id: 'getting-started',
+      label: 'Getting Started',
+    },
+    {
+      type: 'category',
+      label: 'Resources',
+      items: [
+        {
+          type: 'category',
+          label: 'Management',
+          items: [
+            'resources/management',
+            'resources/management/project',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Storage',
+          items: [
+            'resources/storage',
+            'resources/storage/blockstorage',
+            'resources/storage/snapshot',
+            'resources/storage/backup',
+            'resources/storage/restore',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Network',
+          items: [
+            'resources/network',
+            'resources/network/vpc',
+            'resources/network/subnet',
+            'resources/network/securitygroup',
+            'resources/network/securityrule',
+            'resources/network/elasticip',
+            'resources/network/loadbalancer',
+            'resources/network/vpcpeering',
+            'resources/network/vpcpeeringroute',
+            'resources/network/vpntunnel',
+            'resources/network/vpnroute',
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+module.exports = sidebars;
+

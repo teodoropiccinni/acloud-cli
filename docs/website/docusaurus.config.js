@@ -1,0 +1,140 @@
+// @ts-check
+// Note: type annotations allow type checking and IDEs autocompletion
+
+const lightCodeTheme = require('prism-react-renderer').themes.github;
+const darkCodeTheme = require('prism-react-renderer').themes.dracula;
+
+/** @type {import('@docusaurus/types').Config} */
+const config = {
+  title: 'Aruba Cloud CLI',
+  tagline: 'Command-line interface for Aruba Cloud APIs',
+  favicon: 'img/favicon.ico',
+
+  // Set the production url of your site here
+  url: 'https://arubacloud.github.io',
+  // Set the /<baseUrl>/ path of your site
+  // For GitHub pages, it's often '/<projectName>/'
+  baseUrl: '/acloud-cli/',
+
+  // GitHub pages deployment config
+  organizationName: 'Arubacloud',
+  projectName: 'acloud-cli',
+  trailingSlash: false,
+
+  onBrokenLinks: 'throw',
+  onBrokenMarkdownLinks: 'warn',
+
+  // Even if you don't use internalization, you can use this field to set useful
+  // metadata like html lang. For example, if your site is Chinese, you may want
+  // to replace "en" with "zh-Hans".
+  i18n: {
+    defaultLocale: 'en',
+    locales: ['en'],
+  },
+
+  presets: [
+    [
+      'classic',
+      /** @type {import('@docusaurus/preset-classic').Options} */
+      ({
+        docs: {
+          sidebarPath: require.resolve('./sidebars.js'),
+          // Enable versioning
+          versions: {
+            current: {
+              label: 'Next 🚧',
+              path: 'next',
+            },
+          },
+          // Show last update time
+          showLastUpdateTime: true,
+          showLastUpdateAuthor: true,
+        },
+        blog: false,
+        theme: {
+          customCss: require.resolve('./src/css/custom.css'),
+        },
+      }),
+    ],
+  ],
+
+  themeConfig:
+    /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
+    ({
+      // Replace with your project's social card
+      image: 'img/docusaurus-social-card.jpg',
+      navbar: {
+        title: 'Aruba Cloud CLI',
+        logo: {
+          alt: 'Aruba Cloud CLI Logo',
+          src: 'img/logo.svg',
+        },
+        items: [
+          {
+            type: 'docSidebar',
+            sidebarId: 'tutorialSidebar',
+            position: 'left',
+            label: 'Documentation',
+          },
+          {
+            type: 'docsVersionDropdown',
+            position: 'right',
+          },
+          {
+            href: 'https://github.com/Arubacloud/acloud-cli',
+            label: 'GitHub',
+            position: 'right',
+          },
+        ],
+      },
+      footer: {
+        style: 'dark',
+        links: [
+          {
+            title: 'Documentation',
+            items: [
+              {
+                label: 'Getting Started',
+                to: '/docs/getting-started',
+              },
+              {
+                label: 'Resources',
+                to: '/docs/resources',
+              },
+            ],
+          },
+          {
+            title: 'Community',
+            items: [
+              {
+                label: 'GitHub',
+                href: 'https://github.com/Arubacloud/acloud-cli',
+              },
+              {
+                label: 'Issues',
+                href: 'https://github.com/Arubacloud/acloud-cli/issues',
+              },
+            ],
+          },
+          {
+            title: 'More',
+            items: [
+              {
+                label: 'Aruba Cloud',
+                href: 'https://www.arubacloud.com',
+              },
+            ],
+          },
+        ],
+        copyright: `Copyright © ${new Date().getFullYear()} Aruba Cloud. Built with Docusaurus.`,
+      },
+      prism: {
+        theme: lightCodeTheme,
+        darkTheme: darkCodeTheme,
+        additionalLanguages: ['bash', 'powershell', 'yaml'],
+      },
+    }),
+};
+
+module.exports = config;
+

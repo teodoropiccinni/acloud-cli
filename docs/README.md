@@ -9,25 +9,9 @@ Welcome to the Aruba Cloud CLI (`acloud`) documentation. This CLI provides a pow
   - [Authentication](getting-started.md#authentication)
   - [Context Management](getting-started.md#context-management)
   - [Auto-completion](getting-started.md#auto-completion)
-- [Resources](resources/)
-  - [Management](resources/management.md)
-    - [Projects](resources/management/project.md)
-  - [Storage](resources/storage.md)
-    - [Block Storage](resources/storage/blockstorage.md)
-    - [Snapshots](resources/storage/snapshot.md)
-    - [Backups](resources/storage/backup.md)
-    - [Restore Operations](resources/storage/restore.md)
-  - [Network](resources/network.md)
-    - [VPC](resources/network/vpc.md)
-    - [Subnet](resources/network/subnet.md)
-    - [Security Group](resources/network/securitygroup.md)
-    - [Security Rule](resources/network/securityrule.md)
-    - [Elastic IP](resources/network/elasticip.md)
-    - [Load Balancer](resources/network/loadbalancer.md)
-    - [VPC Peering](resources/network/vpcpeering.md)
-    - [VPC Peering Route](resources/network/vpcpeeringroute.md)
-    - [VPN Tunnel](resources/network/vpntunnel.md)
-    - [VPN Route](resources/network/vpnroute.md)
+- [Resources](https://arubacloud.github.io/acloud-cli/docs/resources)
+  - Full documentation is available on the [documentation website](https://arubacloud.github.io/acloud-cli/)
+  - For local development, see `docs/website/docs/resources/`
 
 
 ## Quick Start
