@@ -224,7 +224,7 @@ var elasticipListCmd = &cobra.Command{
 					id = *eip.Metadata.ID
 				}
 
-				region := eip.Metadata.LocationResponse.Code
+				region := eip.Metadata.LocationResponse.Value
 
 				address := ""
 				if eip.Properties.Address != nil {
@@ -292,8 +292,8 @@ var elasticipGetCmd = &cobra.Command{
 			if eip.Metadata.Name != nil {
 				fmt.Printf("Name:            %s\n", *eip.Metadata.Name)
 			}
-			if eip.Metadata.LocationResponse.Code != "" {
-				fmt.Printf("Region:          %s\n", eip.Metadata.LocationResponse.Code)
+			if eip.Metadata.LocationResponse != nil && eip.Metadata.LocationResponse.Value != "" {
+				fmt.Printf("Region:          %s\n", eip.Metadata.LocationResponse.Value)
 			}
 			if eip.Properties.Address != nil {
 				fmt.Printf("Address:         %s\n", *eip.Properties.Address)
@@ -372,16 +372,13 @@ var elasticipUpdateCmd = &cobra.Command{
 			return
 		}
 
-		// Fix region code format (IT BG -> ITBG-Bergamo)
-		regionCode := ""
+		// Get region value
+		regionValue := ""
 		if getResponse.Data.Metadata.LocationResponse != nil {
-			regionCode = getResponse.Data.Metadata.LocationResponse.Code
+			regionValue = getResponse.Data.Metadata.LocationResponse.Value
 		}
-		if regionCode == "IT BG" {
-			regionCode = "ITBG-Bergamo"
-		}
-		if regionCode == "" {
-			fmt.Println("Error: Unable to determine region code for Elastic IP")
+		if regionValue == "" {
+			fmt.Println("Error: Unable to determine region value for Elastic IP")
 			return
 		}
 
@@ -393,7 +390,7 @@ var elasticipUpdateCmd = &cobra.Command{
 					Tags: getResponse.Data.Metadata.Tags,
 				},
 				Location: types.LocationRequest{
-					Value: regionCode,
+					Value: regionValue,
 				},
 			},
 			Properties: types.ElasticIPPropertiesRequest{

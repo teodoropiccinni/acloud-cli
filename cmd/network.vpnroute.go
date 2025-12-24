@@ -264,7 +264,7 @@ var vpnrouteGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *route.Metadata.Name)
 			}
 			if route.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", route.Metadata.LocationResponse.Code)
+				fmt.Printf("Region:          %s\n", route.Metadata.LocationResponse.Value)
 			}
 			fmt.Printf("Cloud Subnet:    %s\n", route.Properties.CloudSubnet)
 			fmt.Printf("OnPrem Subnet:   %s\n", route.Properties.OnPremSubnet)
@@ -407,15 +407,12 @@ var vpnrouteUpdateCmd = &cobra.Command{
 		}
 
 		// Normalize region code if needed
-		regionCode := ""
+		regionValue := ""
 		if current.Metadata.LocationResponse != nil {
-			regionCode = current.Metadata.LocationResponse.Code
+			regionValue = current.Metadata.LocationResponse.Value
 		}
-		if regionCode == "IT BG" {
-			regionCode = "ITBG-Bergamo"
-		}
-		if regionCode == "" {
-			fmt.Println("Error: Unable to determine region code for VPN route")
+		if regionValue == "" {
+			fmt.Println("Error: Unable to determine region value for VPN route")
 			return
 		}
 
@@ -443,7 +440,7 @@ var vpnrouteUpdateCmd = &cobra.Command{
 					}(),
 				},
 				Location: types.LocationRequest{
-					Value: regionCode,
+					Value: regionValue,
 				},
 			},
 			Properties: types.VPNRoutePropertiesRequest{

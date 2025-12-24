@@ -60,7 +60,7 @@ Security Rule Details:
 ID:              1234567890abcdef123456
 URI:             /projects/.../securityrules/1234567890abcdef123456
 Name:            allow-http
-Region:          IT BG
+Region:          ITBG-Bergamo
 Direction:       Ingress
 Protocol:        TCP
 Port:            80
@@ -170,6 +170,14 @@ acloud network securityrule update <vpc-id> <securitygroup-id> <securityrule-id>
 - `--project-id string` - Project ID (uses context if not specified)
 
 **Note:** At least one field (--name or --tags) must be provided for update.
+
+**Debug Mode:** Use the global `--debug` flag to see detailed HTTP request/response information when troubleshooting update issues:
+
+```bash
+acloud --debug network securityrule update <vpc-id> <securitygroup-id> <securityrule-id> --tags test
+```
+
+This will show the request payload and full error details if the update fails.
 
 **Examples:**
 ```bash

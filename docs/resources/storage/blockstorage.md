@@ -64,7 +64,7 @@ Name:            my-data-volume
 Size (GB):       50
 Type:            Standard
 Zone:            DC-BG-IT-1
-Region:          IT BG
+Region:          ITBG-Bergamo
 Status:          NotUsed
 Creation Date:   18-12-2025 18:49:06
 ```
@@ -94,8 +94,8 @@ acloud storage blockstorage list
 
 ```
 NAME              ID                          SIZE(GB)  REGION  ZONE         TYPE       STATUS
-my-data-volume    69455aa70d0972656501d45d   50        IT BG   DC-BG-IT-1   Standard   NotUsed
-app-volume        69455bb80d0972656501d45e   100       IT BG   DC-BG-IT-1   Standard   Used
+my-data-volume    69455aa70d0972656501d45d   50        ITBG-Bergamo   DC-BG-IT-1   Standard   NotUsed
+app-volume        69455bb80d0972656501d45e   100       ITBG-Bergamo   DC-BG-IT-1   Standard   Used
 ```
 
 ## Get Block Storage Details
@@ -144,7 +144,7 @@ Name:            my-data-volume
 Size (GB):       50
 Type:            Standard
 Zone:            DC-BG-IT-1
-Region:          IT BG
+Region:          ITBG-Bergamo
 Bootable:        false
 Status:          NotUsed
 Creation Date:   18-12-2025 18:49:06

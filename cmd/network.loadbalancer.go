@@ -116,7 +116,7 @@ var loadbalancerListCmd = &cobra.Command{
 					id = *lb.Metadata.ID
 				}
 
-				region := lb.Metadata.LocationResponse.Code
+				region := lb.Metadata.LocationResponse.Value
 
 				address := ""
 				if lb.Properties.Address != nil {

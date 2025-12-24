@@ -340,7 +340,7 @@ var storageRestoreGetCmd = &cobra.Command{
 				fmt.Printf("Target Volume:   %s\n", restore.Properties.Destination.URI)
 			}
 
-			fmt.Printf("Region:          %s\n", restore.Metadata.LocationResponse.Code)
+			fmt.Printf("Region:          %s\n", restore.Metadata.LocationResponse.Value)
 
 			if restore.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *restore.Status.State)
@@ -411,16 +411,13 @@ var storageRestoreUpdateCmd = &cobra.Command{
 
 		currentRestore := getResponse.Data
 
-		// Fix region code format (IT BG -> ITBG-Bergamo)
-		regionCode := ""
+		// Get region value
+		regionValue := ""
 		if currentRestore.Metadata.LocationResponse != nil {
-			regionCode = currentRestore.Metadata.LocationResponse.Code
+			regionValue = currentRestore.Metadata.LocationResponse.Value
 		}
-		if regionCode == "IT BG" {
-			regionCode = "ITBG-Bergamo"
-		}
-		if regionCode == "" {
-			fmt.Println("Error: Unable to determine region code for restore operation")
+		if regionValue == "" {
+			fmt.Println("Error: Unable to determine region value for restore operation")
 			return
 		}
 
@@ -432,7 +429,7 @@ var storageRestoreUpdateCmd = &cobra.Command{
 					Tags: currentRestore.Metadata.Tags,
 				},
 				Location: types.LocationRequest{
-					Value: regionCode,
+					Value: regionValue,
 				},
 			},
 			Properties: types.RestorePropertiesRequest{

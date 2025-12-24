@@ -85,7 +85,7 @@ var securitygroupCreateCmd = &cobra.Command{
 			row := []string{
 				name,
 				*resp.Data.Metadata.ID,
-				resp.Data.Metadata.LocationResponse.Code,
+				resp.Data.Metadata.LocationResponse.Value,
 				func() string {
 					if resp.Data.Status.State != nil {
 						return *resp.Data.Status.State
@@ -148,7 +148,7 @@ var securitygroupGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *sg.Metadata.Name)
 			}
 			if sg.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", sg.Metadata.LocationResponse.Code)
+				fmt.Printf("Region:          %s\n", sg.Metadata.LocationResponse.Value)
 			}
 			if sg.Metadata.CreationDate != nil {
 				fmt.Printf("Creation Date:   %s\n", sg.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
@@ -221,7 +221,7 @@ var securitygroupListCmd = &cobra.Command{
 				}
 				region := ""
 				if sg.Metadata.LocationResponse != nil {
-					region = sg.Metadata.LocationResponse.Code
+					region = sg.Metadata.LocationResponse.Value
 				}
 				status := ""
 				if sg.Status.State != nil {
@@ -272,16 +272,13 @@ var securitygroupUpdateCmd = &cobra.Command{
 			fmt.Println("Error: Cannot update security group while it is in 'InCreation' state. Please wait until the security group is fully created.")
 			return
 		}
-		// Normalize region code if needed
-		regionCode := ""
+		// Get region value
+		regionValue := ""
 		if current.Metadata.LocationResponse != nil {
-			regionCode = current.Metadata.LocationResponse.Code
+			regionValue = current.Metadata.LocationResponse.Value
 		}
-		if regionCode == "IT BG" {
-			regionCode = "ITBG-Bergamo"
-		}
-		if regionCode == "" {
-			fmt.Println("Error: Unable to determine region code for security group")
+		if regionValue == "" {
+			fmt.Println("Error: Unable to determine region value for security group")
 			return
 		}
 		// Build update request by merging user input with all current valid fields
@@ -342,7 +339,7 @@ var securitygroupUpdateCmd = &cobra.Command{
 					}
 					return ""
 				}(),
-				resp.Data.Metadata.LocationResponse.Code,
+				resp.Data.Metadata.LocationResponse.Value,
 				func() string {
 					if resp.Data.Status.State != nil {
 						return *resp.Data.Status.State

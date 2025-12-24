@@ -148,7 +148,7 @@ Name:            weekly-backup
 Type:            Full
 Source Volume:   /projects/68398923fb2cb026400d4d31/providers/Aruba.Storage/blockStorages/69455aa70d0972656501d45d
 Retention Days:  7
-Region:          IT BG
+Region:          ITBG-Bergamo
 Status:          Active
 Creation Date:   19-12-2025 18:08:01
 Created By:      aru-297647

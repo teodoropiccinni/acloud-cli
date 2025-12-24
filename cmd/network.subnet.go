@@ -18,10 +18,10 @@ func init() {
 	subnetCmd.AddCommand(subnetDeleteCmd)
 	subnetCmd.AddCommand(subnetListCmd)
 
-	subnetCreateCmd.Flags().String("vpc-id", "", "Parent VPC ID (required)")
 	subnetCreateCmd.Flags().String("name", "", "Subnet name (required)")
 	subnetCreateCmd.Flags().String("cidr", "", "Subnet CIDR (required)")
 	subnetCreateCmd.Flags().String("region", "", "Region for the subnet (required)")
+	subnetCreateCmd.Flags().StringSlice("tags", []string{}, "Subnet tags (optional)")
 	subnetUpdateCmd.Flags().String("name", "", "Subnet name (optional)")
 	subnetUpdateCmd.Flags().String("cidr", "", "Subnet CIDR (optional)")
 	subnetUpdateCmd.Flags().StringSlice("tags", []string{}, "Subnet tags (optional)")
@@ -45,6 +45,7 @@ var subnetCreateCmd = &cobra.Command{
 		name, _ := cmd.Flags().GetString("name")
 		cidr, _ := cmd.Flags().GetString("cidr")
 		region, _ := cmd.Flags().GetString("region")
+		tags, _ := cmd.Flags().GetStringSlice("tags")
 		if name == "" || cidr == "" || region == "" {
 			fmt.Println("Error: --name, --cidr, and --region are required")
 			return
@@ -64,6 +65,7 @@ var subnetCreateCmd = &cobra.Command{
 			Metadata: types.RegionalResourceMetadataRequest{
 				ResourceMetadataRequest: types.ResourceMetadataRequest{
 					Name: name,
+					Tags: tags,
 				},
 				Location: types.LocationRequest{
 					Value: region,
@@ -101,7 +103,7 @@ var subnetCreateCmd = &cobra.Command{
 			row := []string{
 				name,
 				*resp.Data.Metadata.ID,
-				resp.Data.Metadata.LocationResponse.Code,
+				resp.Data.Metadata.LocationResponse.Value,
 				cidr,
 				func() string {
 					if resp.Data.Status.State != nil {
@@ -164,8 +166,8 @@ var subnetGetCmd = &cobra.Command{
 			if subnet.Metadata.Name != nil {
 				fmt.Printf("Name:            %s\n", *subnet.Metadata.Name)
 			}
-			if subnet.Metadata.LocationResponse.Code != "" {
-				fmt.Printf("Region:          %s\n", subnet.Metadata.LocationResponse.Code)
+			if subnet.Metadata.LocationResponse != nil && subnet.Metadata.LocationResponse.Value != "" {
+				fmt.Printf("Region:          %s\n", subnet.Metadata.LocationResponse.Value)
 			}
 			if subnet.Properties.Network != nil {
 				fmt.Printf("CIDR:            %s\n", subnet.Properties.Network.Address)
@@ -240,7 +242,7 @@ var subnetListCmd = &cobra.Command{
 				if subnet.Metadata.ID != nil {
 					id = *subnet.Metadata.ID
 				}
-				region := subnet.Metadata.LocationResponse.Code
+				region := subnet.Metadata.LocationResponse.Value
 				cidr := ""
 				if subnet.Properties.Network != nil {
 					cidr = subnet.Properties.Network.Address
@@ -300,16 +302,13 @@ var subnetUpdateCmd = &cobra.Command{
 			return
 		}
 
-		// Normalize region code if needed (e.g., IT BG -> ITBG-Bergamo)
-		regionCode := ""
+		// Get region value
+		regionValue := ""
 		if current.Metadata.LocationResponse != nil {
-			regionCode = current.Metadata.LocationResponse.Code
+			regionValue = current.Metadata.LocationResponse.Value
 		}
-		if regionCode == "IT BG" {
-			regionCode = "ITBG-Bergamo"
-		}
-		if regionCode == "" {
-			fmt.Println("Error: Unable to determine region code for subnet")
+		if regionValue == "" {
+			fmt.Println("Error: Unable to determine region value for subnet")
 			return
 		}
 
@@ -337,7 +336,7 @@ var subnetUpdateCmd = &cobra.Command{
 					}(),
 				},
 				Location: types.LocationRequest{
-					Value: regionCode,
+					Value: regionValue,
 				},
 			},
 			Properties: types.SubnetPropertiesRequest{

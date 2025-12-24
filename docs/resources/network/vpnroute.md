@@ -57,7 +57,7 @@ VPN Route Details:
 ID:              1234567890abcdef123456
 URI:             /projects/.../vpnroutes/1234567890abcdef123456
 Name:            route-1
-Region:          IT BG
+Region:          ITBG-Bergamo
 Cloud Subnet:    10.0.1.0/24
 OnPrem Subnet:   192.168.1.0/24
 Creation Date:   06-08-2025 07:44:52

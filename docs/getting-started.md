@@ -316,6 +316,56 @@ acloud management project list
 - Explore [Storage Resources](resources/storage.md)
 - Read the [Command Reference](command-reference.md)
 
+## Debug Mode
+
+The CLI provides a global `--debug` (or `-d`) flag that enables verbose logging to help troubleshoot issues. When enabled, it shows:
+
+- **HTTP Request/Response details**: All HTTP requests and responses made by the SDK
+- **Request payloads**: JSON-formatted request bodies being sent to the API
+- **Error details**: Full error response bodies when requests fail
+
+### Usage
+
+Add the `--debug` flag to any command:
+
+```bash
+# Enable debug logging for a command
+acloud --debug network securityrule update <vpc-id> <securitygroup-id> <securityrule-id> --tags test
+
+# Short form
+acloud -d network vpc list
+```
+
+### Example Output
+
+When debug mode is enabled, you'll see additional output like:
+
+```
+[ArubaSDK] 2025-01-15 10:30:45.123456 HTTP Request: PUT https://api.arubacloud.com/...
+[ArubaSDK] 2025-01-15 10:30:45.234567 Request Headers: ...
+[ArubaSDK] 2025-01-15 10:30:45.345678 Request Body: {...}
+
+=== DEBUG: Security Rule Update Request ===
+VPC ID: 69495ef64d0cdc87949b71ec
+Security Group ID: 694b05ac4d0cdc87949b75f9
+Security Rule ID: 694b06564d0cdc87949b7608
+Request Payload:
+{
+  "metadata": {
+    "name": "my-rule",
+    "tags": ["test"],
+    ...
+  },
+  ...
+}
+==========================================
+
+[ArubaSDK] 2025-01-15 10:30:46.456789 HTTP Response: 200 OK
+[ArubaSDK] 2025-01-15 10:30:46.567890 Response Body: {...}
+```
+
+**Note**: Debug output is sent to `stderr`, so it won't interfere with normal command output and can be redirected separately if needed.
+
 ## Troubleshooting
 
 ### "Error initializing client"
@@ -328,6 +378,19 @@ acloud config set
 ### "No projects found"
 
 Ensure your credentials have the correct permissions and you have projects in your account.
+
+### Debugging API Errors
+
+If you encounter API errors (e.g., 500 Internal Server Error), use the `--debug` flag to see the full request and response:
+
+```bash
+acloud --debug network securityrule update <vpc-id> <securitygroup-id> <securityrule-id> --tags test
+```
+
+This will show:
+- The exact request payload being sent
+- The full HTTP response (including error details)
+- Any SDK-level logging
 
 ### Auto-completion not working
 

@@ -342,7 +342,7 @@ var storageBackupGetCmd = &cobra.Command{
 				fmt.Printf("Billing Period:  %s\n", *backup.Properties.BillingPeriod)
 			}
 
-			fmt.Printf("Region:          %s\n", backup.Metadata.LocationResponse.Code)
+			fmt.Printf("Region:          %s\n", backup.Metadata.LocationResponse.Value)
 
 			if backup.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *backup.Status.State)
@@ -412,16 +412,13 @@ var storageBackupUpdateCmd = &cobra.Command{
 
 		currentBackup := getResponse.Data
 
-		// Fix region code format (IT BG -> ITBG-Bergamo)
-		regionCode := ""
+		// Get region value
+		regionValue := ""
 		if currentBackup.Metadata.LocationResponse != nil {
-			regionCode = currentBackup.Metadata.LocationResponse.Code
+			regionValue = currentBackup.Metadata.LocationResponse.Value
 		}
-		if regionCode == "IT BG" {
-			regionCode = "ITBG-Bergamo"
-		}
-		if regionCode == "" {
-			fmt.Println("Error: Unable to determine region code for backup")
+		if regionValue == "" {
+			fmt.Println("Error: Unable to determine region value for backup")
 			return
 		}
 
@@ -433,7 +430,7 @@ var storageBackupUpdateCmd = &cobra.Command{
 					Tags: currentBackup.Metadata.Tags,
 				},
 				Location: types.LocationRequest{
-					Value: regionCode,
+					Value: regionValue,
 				},
 			},
 			Properties: types.StorageBackupPropertiesRequest{

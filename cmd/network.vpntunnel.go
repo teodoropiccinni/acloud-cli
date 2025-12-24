@@ -155,7 +155,7 @@ var vpntunnelListCmd = &cobra.Command{
 					id = *vpn.Metadata.ID
 				}
 
-				region := vpn.Metadata.LocationResponse.Code
+				region := vpn.Metadata.LocationResponse.Value
 
 				vpnType := ""
 				if vpn.Properties.VPNType != nil {
@@ -223,8 +223,8 @@ var vpntunnelGetCmd = &cobra.Command{
 			if vpn.Metadata.Name != nil {
 				fmt.Printf("Name:            %s\n", *vpn.Metadata.Name)
 			}
-			if vpn.Metadata.LocationResponse.Code != "" {
-				fmt.Printf("Region:          %s\n", vpn.Metadata.LocationResponse.Code)
+			if vpn.Metadata.LocationResponse != nil && vpn.Metadata.LocationResponse.Value != "" {
+				fmt.Printf("Region:          %s\n", vpn.Metadata.LocationResponse.Value)
 			}
 
 			if vpn.Properties.VPNType != nil {
@@ -565,16 +565,13 @@ var vpntunnelUpdateCmd = &cobra.Command{
 			return
 		}
 
-		// Get region code and normalize it
-		regionCode := ""
+		// Get region value
+		regionValue := ""
 		if getResp.Data.Metadata.LocationResponse != nil {
-			regionCode = getResp.Data.Metadata.LocationResponse.Code
+			regionValue = getResp.Data.Metadata.LocationResponse.Value
 		}
-		if regionCode == "IT BG" {
-			regionCode = "ITBG-Bergamo"
-		}
-		if regionCode == "" {
-			fmt.Println("Error: Unable to determine region code for VPN tunnel")
+		if regionValue == "" {
+			fmt.Println("Error: Unable to determine region value for VPN tunnel")
 			return
 		}
 
@@ -586,7 +583,7 @@ var vpntunnelUpdateCmd = &cobra.Command{
 					Tags: getResp.Data.Metadata.Tags,
 				},
 				Location: types.LocationRequest{
-					Value: regionCode,
+					Value: regionValue,
 				},
 			},
 			Properties: types.VPNTunnelPropertiesRequest{

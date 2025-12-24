@@ -362,7 +362,7 @@ Name:            my-volume
 Size (GB):       100
 Type:            Standard
 Zone:            ITBG-3
-Region:          IT BG
+Region:          ITBG-Bergamo
 Status:          NotUsed
 Creation Date:   18-12-2025 10:30:00
 Created By:      aru-123456
@@ -428,7 +428,7 @@ Name:            my-volume
 Size (GB):       100
 Type:            Standard
 Zone:            ITBG-3
-Region:          IT BG
+Region:          ITBG-Bergamo
 Status:          InCreation
 Creation Date:   18-12-2025 16:46:27
 ```
@@ -554,13 +554,13 @@ URI:             /projects/68398923fb2cb026400d4d31/providers/Aruba.Storage/snap
 Name:            daily-backup
 Size (GB):       100
 Source Volume:   /projects/68398923fb2cb026400d4d31/providers/Aruba.Storage/blockStorages/69442fe38f4a09c12b5ded74
-Region:          IT BG
+Region:          ITBG-Bergamo
 Status:          Active
 Creation Date:   19-12-2025 14:12:50
 Created By:      aru-297647
 ```
 
-**Note:** The Region field shows the format returned by the API (`IT BG`). When updating snapshots, the CLI automatically converts this to the required format (`ITBG-Bergamo`).
+**Note:** The Region field shows the region value (e.g., `ITBG-Bergamo`) as returned by the API.
 ### Create Snapshot
 
 To create a snapshot, you need the full URI of the source block storage volume. You can get this from the `blockstorage get` command.
@@ -646,8 +646,8 @@ Snapshot updated successfully!
 
 **Important Notes:**
 - Only name and tags can be updated
-- The CLI automatically converts region codes from API format (`IT BG`) to the required update format (`ITBG-Bergamo`)
-- This region conversion happens automatically - you don't need to specify the region during updates
+- The CLI uses the region value directly from the API (e.g., `ITBG-Bergamo`)
+- No region conversion is needed - the region value is used as-is during updates
 
 ### Delete Snapshot
 
@@ -704,7 +704,7 @@ Snapshot 69455d620d0972656501d477 deleted successfully!
 
 6. **Regional Placement**: Create volumes in the same region as your compute resources
    - Default region: `ITBG-Bergamo`
-   - Use proper region format: `ITBG-Bergamo` (not `IT BG`)
+   - Use proper region format: `ITBG-Bergamo`
 
 7. **Billing Period**: Choose based on usage duration
    - **Hour**: Short-term testing, development (default)
@@ -764,10 +764,10 @@ Snapshot 69455d620d0972656501d477 deleted successfully!
    acloud storage snapshot delete snap-old-123 --yes
    ```
 
-8. **Region Code Handling**: The CLI automatically handles region format conversions
-   - API returns region as `IT BG` in GET operations
-   - API requires region as `ITBG-Bergamo` in POST/PUT operations
-   - The CLI automatically converts formats during updates - no manual intervention needed
+8. **Region Value**: The CLI uses the region value directly from the API
+   - API returns region value (e.g., `ITBG-Bergamo`) in GET operations
+   - The same value format is used in POST/PUT operations
+   - No format conversion is needed - the region value is used as-is
 
 ## Common Workflows
 
@@ -867,7 +867,7 @@ acloud storage blockstorage list --project-id "your-project-id"
 # Correct format
 --region "ITBG-Bergamo"
 
-# Not: IT-BG, it-bg1, IT BG
+# Not: IT-BG, it-bg1
 ```
 
 Common region codes:
@@ -910,11 +910,11 @@ acloud storage blockstorage update VOLUME_ID --name "new-name"
 
 Block storage can only be updated when status is `Used` or `NotUsed`.
 
-### "Location Value: IT BG not found" during update
+### "Location Value not found" during update
 
-**Issue:** The API doesn't accept the space-separated region format.
+**Issue:** The API cannot determine the region value for the resource.
 
-**Solution:** The CLI automatically converts `IT BG` to `ITBG-Bergamo` during updates. If you still see this error, ensure you're using the latest version of the CLI.
+**Solution:** The CLI uses the region value directly from the API. If you see this error, ensure you're using the latest version of the CLI and that the resource has a valid region value.
 
 ### Getting the correct volume URI for snapshots
 
