@@ -314,7 +314,7 @@ acloud management project list
 - Learn about [Project Management](resources/management/project.md)
 - Explore [Management Resources](resources/management.md)
 - Explore [Storage Resources](resources/storage.md)
-- Explore the [Resource Documentation](resources/)
+- Explore the [Resource Documentation](resources/management.md)
 
 ## Debug Mode
 
