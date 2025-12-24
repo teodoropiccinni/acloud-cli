@@ -154,13 +154,24 @@ Debug output is sent to `stderr`, so it won't interfere with normal command outp
 
 ## Documentation
 
-For comprehensive documentation, including detailed guides, resource references, and examples, see the [Documentation](docs/) folder.
+## Documentation
+
+📚 **Full documentation is available at: [https://arubacloud.github.io/acloud-cli/](https://arubacloud.github.io/acloud-cli/)**
+
+The documentation website is built with Docusaurus and includes:
+- Versioned documentation for each CLI release
+- Interactive search and navigation
+- Code examples and tutorials
+- API reference for all resources
+
+### Local Documentation Files
+
+For the source markdown files, see the [Documentation](docs/) folder:
 
 - **[Getting Started Guide](docs/getting-started.md)** - Installation, authentication, and basic usage
-- **[Resource Documentation](docs/resources/)** - Detailed guides for all resource types:
-  - [Management Resources](docs/resources/management.md) - Projects
-  - [Storage Resources](docs/resources/storage.md) - Block Storage, Snapshots, Backups, Restores
-  - [Network Resources](docs/resources/network.md) - VPCs, Subnets, Security Groups, Elastic IPs, Load Balancers, VPN Tunnels, and more
+- **[Resource Documentation](https://arubacloud.github.io/acloud-cli/docs/resources)** - Detailed guides for all resource types:
+  - Full documentation is available on the [documentation website](https://arubacloud.github.io/acloud-cli/)
+  - For local development, see `docs/website/docs/resources/`
 
 ## Testing
 
