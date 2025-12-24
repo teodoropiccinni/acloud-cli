@@ -15,11 +15,11 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration - UPDATE THESE VALUES
-PROJECT_ID="${ACLOUD_PROJECT_ID:-68398923fb2cb026400d4d31}"
-VPC_ID="${ACLOUD_VPC_ID:-69495ef64d0cdc87949b71ec}"
-PEER_VPC_ID="${ACLOUD_PEER_VPC_ID:-689307f4745108d3c6343b5a}"
+PROJECT_ID="${ACLOUD_PROJECT_ID:-your-project-id}"
+VPC_ID="${ACLOUD_VPC_ID:-your-vpc-id}"
+PEER_VPC_ID="${ACLOUD_PEER_VPC_ID:-your-peer-vpc-id}"
 REGION="${ACLOUD_REGION:-ITBG-Bergamo}"
-ELASTIC_IP_URI="${ACLOUD_ELASTIC_IP_URI:-/projects/68398923fb2cb026400d4d31/providers/Aruba.Network/elasticIps/694914e94d0cdc87949b70f1}"
+ELASTIC_IP_URI="${ACLOUD_ELASTIC_IP_URI:-your-elasticip-uri}"
 
 # Determine acloud command path - try relative to script location first, then current dir, then PATH
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
