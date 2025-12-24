@@ -98,12 +98,14 @@ const config = {
             title: 'Documentation',
             items: [
               {
+                type: 'doc',
+                docId: 'getting-started',
                 label: 'Getting Started',
-                to: '/docs/getting-started',
               },
               {
+                type: 'doc',
+                docId: 'resources',
                 label: 'Resources',
-                to: '/docs/resources',
               },
             ],
           },

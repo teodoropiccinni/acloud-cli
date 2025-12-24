@@ -41,10 +41,24 @@ jobs:
         working-directory: docs/website
         run: npm ci
 
+      - name: Remove versioned docs for PR check
+        working-directory: docs/website
+        run: |
+          # Remove versioned docs to avoid false positives during PR checks
+          # Versioned docs are created during release, not during PR validation
+          if [ -d "versioned_docs" ]; then
+            echo "Removing versioned_docs for PR validation..."
+            rm -rf versioned_docs
+          fi
+          if [ -f "versions.json" ] && [ "$(cat versions.json)" != "[]" ]; then
+            echo "Clearing versions.json for PR validation..."
+            echo "[]" > versions.json
+          fi
+
       - name: Build and validate documentation
         working-directory: docs/website
         run: |
-          echo "Building documentation..."
+          echo "Building documentation (current version only)..."
           npm run build
           echo "✅ Documentation build successful!"
         env:
