@@ -26,6 +26,7 @@ func init() {
 	subnetUpdateCmd.Flags().String("cidr", "", "Subnet CIDR (optional)")
 	subnetUpdateCmd.Flags().StringSlice("tags", []string{}, "Subnet tags (optional)")
 	subnetListCmd.Flags().String("vpc-id", "", "Parent VPC ID (required)")
+	subnetDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 }
 
 // Subnet subcommands
@@ -406,6 +407,22 @@ var subnetDeleteCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		vpcID := args[0]
 		subnetID := args[1]
+
+		// Get skip confirmation flag
+		skipConfirm, _ := cmd.Flags().GetBool("yes")
+
+		// Prompt for confirmation unless --yes flag is used
+		if !skipConfirm {
+			fmt.Printf("Are you sure you want to delete subnet %s? This action cannot be undone.\n", subnetID)
+			fmt.Print("Type 'yes' to confirm: ")
+			var response string
+			fmt.Scanln(&response)
+			if response != "yes" && response != "y" {
+				fmt.Println("Delete cancelled")
+				return
+			}
+		}
+
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
