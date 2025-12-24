@@ -26,8 +26,13 @@ const sidebars = {
       label: 'Getting Started',
     },
     {
-      type: 'category',
+      type: 'doc',
+      id: 'resources',
       label: 'Resources',
+    },
+    {
+      type: 'category',
+      label: 'Resource Details',
       items: [
         {
           type: 'category',

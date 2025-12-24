@@ -896,5 +896,5 @@ Use this information to identify and fix the isue.
 # Next Steps
 
 - Learn about [Network Resources](./network.md)
-- Review [Management Resources](../management.md)
+- Review [Management Resources](./management.md)
 

@@ -22,7 +22,11 @@ const config = {
   trailingSlash: false,
 
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: 'warn',
+    },
+  },
 
   // Even if you don't use internalization, you can use this field to set useful
   // metadata like html lang. For example, if your site is Chinese, you may want
@@ -39,13 +43,15 @@ const config = {
       ({
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
-          // Enable versioning
-          versions: {
-            current: {
-              label: 'Next 🚧',
-              path: 'next',
+          // Enable versioning (disabled during PR checks via DISABLE_VERSIONING env var)
+          ...(process.env.DISABLE_VERSIONING !== 'true' && {
+            versions: {
+              current: {
+                label: 'Next 🚧',
+                path: 'next',
+              },
             },
-          },
+          }),
           // Show last update time
           showLastUpdateTime: true,
           showLastUpdateAuthor: true,
