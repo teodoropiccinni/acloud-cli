@@ -16,19 +16,19 @@ func contains(s, substr string) bool {
 func setupMockConfig(t *testing.T) (string, func()) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, ".acloud.yaml")
-	
+
 	// Save original HOME
 	originalHome := os.Getenv("HOME")
 	if originalHome == "" {
 		originalHome = os.Getenv("USERPROFILE")
 	}
-	
+
 	// Set HOME to temp directory
 	os.Setenv("HOME", tmpDir)
 	if os.Getenv("USERPROFILE") != "" {
 		os.Setenv("USERPROFILE", tmpDir)
 	}
-	
+
 	// Create mock config
 	config := &Config{
 		ClientID:     "test-client-id",
@@ -38,7 +38,7 @@ func setupMockConfig(t *testing.T) (string, func()) {
 	if err != nil {
 		t.Fatalf("Failed to create mock config: %v", err)
 	}
-	
+
 	// Cleanup function
 	cleanup := func() {
 		if originalHome != "" {
@@ -52,14 +52,14 @@ func setupMockConfig(t *testing.T) (string, func()) {
 		cachedDebug = false
 		clientCacheLock.Unlock()
 	}
-	
+
 	return configPath, cleanup
 }
 
 func TestGetArubaClient(t *testing.T) {
 	_, cleanup := setupMockConfig(t)
 	defer cleanup()
-	
+
 	// Clear cache before test
 	clientCacheLock.Lock()
 	clientCache = nil
@@ -113,7 +113,7 @@ func TestGetArubaClient_NoConfig(t *testing.T) {
 	if originalHome == "" {
 		originalHome = os.Getenv("USERPROFILE")
 	}
-	
+
 	// Create temporary directory without config
 	tmpDir := t.TempDir()
 	os.Setenv("HOME", tmpDir)
@@ -140,7 +140,7 @@ func TestGetArubaClient_NoConfig(t *testing.T) {
 	if client != nil {
 		t.Error("GetArubaClient() should return nil client when config doesn't exist")
 	}
-	
+
 	// Verify error message
 	errMsg := err.Error()
 	if !contains(errMsg, "failed to load configuration") {
@@ -154,7 +154,7 @@ func TestGetArubaClient_EmptyCredentials(t *testing.T) {
 	if originalHome == "" {
 		originalHome = os.Getenv("USERPROFILE")
 	}
-	
+
 	// Create temporary directory
 	tmpDir := t.TempDir()
 	os.Setenv("HOME", tmpDir)
@@ -191,7 +191,7 @@ func TestGetArubaClient_EmptyCredentials(t *testing.T) {
 	if client != nil {
 		t.Error("GetArubaClient() should return nil client when credentials are empty")
 	}
-	
+
 	// Verify error message
 	errMsg := err.Error()
 	if !contains(errMsg, "client ID or client secret not configured") {
@@ -295,7 +295,7 @@ func TestGetArubaClient_CredentialChange(t *testing.T) {
 	if originalHome == "" {
 		originalHome = os.Getenv("USERPROFILE")
 	}
-	
+
 	tmpDir := t.TempDir()
 	os.Setenv("HOME", tmpDir)
 	if os.Getenv("USERPROFILE") != "" {
