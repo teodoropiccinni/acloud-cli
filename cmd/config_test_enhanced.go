@@ -141,4 +141,3 @@ func TestGetConfigPath(t *testing.T) {
 		t.Errorf("GetConfigPath() = %v, want %v", configPath, expectedPath)
 	}
 }
-

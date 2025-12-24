@@ -15,7 +15,7 @@ func TestLoadContext(t *testing.T) {
 
 	// Create temporary directory for test
 	tmpDir := t.TempDir()
-	
+
 	// Set HOME to temp directory
 	os.Setenv("HOME", tmpDir)
 	defer os.Setenv("HOME", originalHome)
@@ -39,7 +39,7 @@ func TestSaveContext(t *testing.T) {
 
 	// Create temporary directory for test
 	tmpDir := t.TempDir()
-	
+
 	// Set HOME to temp directory
 	os.Setenv("HOME", tmpDir)
 	defer os.Setenv("HOME", originalHome)
@@ -90,7 +90,7 @@ func TestGetCurrentProjectID(t *testing.T) {
 
 	// Create temporary directory for test
 	tmpDir := t.TempDir()
-	
+
 	// Set HOME to temp directory
 	os.Setenv("HOME", tmpDir)
 	defer os.Setenv("HOME", originalHome)
@@ -129,4 +129,3 @@ func TestGetCurrentProjectID(t *testing.T) {
 		t.Errorf("GetCurrentProjectID() = %v, want test-project-id", projectID)
 	}
 }
-
