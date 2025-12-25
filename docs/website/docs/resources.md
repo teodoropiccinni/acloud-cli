@@ -53,7 +53,20 @@ Manage scheduled jobs for automation.
 
 Manage security and encryption resources.
 
-- [KMS Keys](resources/security/kms.md) - Key Management Service keys
+- [KMS Keys](resources/security/kms.md) - Key Management System keys
+
+### [Compute Resources](resources/compute.md)
+
+Manage compute resources and SSH key pairs.
+
+- [Cloud Servers](resources/compute/cloudserver.md) - Virtual machine instances
+- [Key Pairs](resources/compute/keypair.md) - SSH key pair management
+
+### [Container Resources](resources/container.md)
+
+Manage container and Kubernetes resources.
+
+- [KaaS](resources/container/kaas.md) - Kubernetes as a Service clusters
 
 ## Quick Reference
 

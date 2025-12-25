@@ -97,6 +97,23 @@ const sidebars = {
             'resources/security/kms',
           ],
         },
+        {
+          type: 'category',
+          label: 'Compute',
+          items: [
+            'resources/compute',
+            'resources/compute/cloudserver',
+            'resources/compute/keypair',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Container',
+          items: [
+            'resources/container',
+            'resources/container/kaas',
+          ],
+        },
       ],
     },
   ],
