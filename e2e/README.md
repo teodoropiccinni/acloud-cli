@@ -8,6 +8,9 @@ The E2E tests are organized by resource category:
 - **[Management](management/)** - Organization-level resources (Projects)
 - **[Storage](storage/)** - Storage resources (Block Storage, Snapshots, Backups, Restores)
 - **[Network](network/)** - Network resources (VPCs, Subnets, Security Groups, Elastic IPs, VPN Tunnels, etc.)
+- **[Database](database/)** - Database resources (DBaaS, Databases, Users, Backups)
+- **[Schedule](schedule/)** - Scheduled jobs (OneShot and Recurring jobs)
+- **[Security](security/)** - Security resources (KMS Keys)
 
 ## Prerequisites
 
@@ -41,6 +44,9 @@ To run all E2E tests:
 ./e2e/management/test.sh
 ./e2e/storage/test.sh
 ./e2e/network/test.sh
+./e2e/database/test.sh
+./e2e/schedule/test.sh
+./e2e/security/test.sh
 ```
 
 ### Run Individual Category Tests
@@ -56,6 +62,15 @@ Each category has its own test script:
 
 # Network resources
 ./e2e/network/test.sh
+
+# Database resources
+./e2e/database/test.sh
+
+# Schedule resources
+./e2e/schedule/test.sh
+
+# Security resources
+./e2e/security/test.sh
 ```
 
 ## Test Structure
@@ -102,6 +117,31 @@ Tests network resources:
 - **VPN Route** - VPN route configuration
 
 See [network/test.sh](network/test.sh) for details.
+
+### Database Tests
+
+Tests database resources:
+- **DBaaS** - Database as a Service instance management
+- **DBaaS Databases** - Database creation and management within DBaaS
+- **DBaaS Users** - User management for DBaaS instances
+- **Database Backups** - Backup operations for databases
+
+See [database/test.sh](database/test.sh) for details.
+
+### Schedule Tests
+
+Tests scheduled job resources:
+- **OneShot Jobs** - One-time scheduled jobs
+- **Recurring Jobs** - Recurring scheduled jobs with CRON expressions
+
+See [schedule/test.sh](schedule/test.sh) for details.
+
+### Security Tests
+
+Tests security resources:
+- **KMS Keys** - Key Management Service key operations
+
+See [security/test.sh](security/test.sh) for details.
 
 ## Environment Variables
 
