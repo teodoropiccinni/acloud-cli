@@ -34,6 +34,27 @@ Manage virtual private clouds, networking, and security.
 - [VPN Tunnel](resources/network/vpntunnel.md) - VPN connections
 - [VPN Route](resources/network/vpnroute.md) - VPN routing
 
+### [Database Resources](resources/database.md)
+
+Manage database services, databases, users, and backups.
+
+- [DBaaS](resources/database/dbaas.md) - Database as a Service instances
+- [DBaaS Databases](resources/database/dbaas.database.md) - Databases within DBaaS
+- [DBaaS Users](resources/database/dbaas.user.md) - Database users
+- [Database Backups](resources/database/backup.md) - Database backup operations
+
+### [Schedule Resources](resources/schedule.md)
+
+Manage scheduled jobs for automation.
+
+- [Jobs](resources/schedule/job.md) - Scheduled jobs (OneShot and Recurring)
+
+### [Security Resources](resources/security.md)
+
+Manage security and encryption resources.
+
+- [KMS Keys](resources/security/kms.md) - Key Management Service keys
+
 ## Quick Reference
 
 All resources support standard CRUD operations:

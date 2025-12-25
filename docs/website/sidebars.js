@@ -70,6 +70,33 @@ const sidebars = {
             'resources/network/vpnroute',
           ],
         },
+        {
+          type: 'category',
+          label: 'Database',
+          items: [
+            'resources/database',
+            'resources/database/dbaas',
+            'resources/database/dbaas.database',
+            'resources/database/dbaas.user',
+            'resources/database/backup',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Schedule',
+          items: [
+            'resources/schedule',
+            'resources/schedule/job',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Security',
+          items: [
+            'resources/security',
+            'resources/security/kms',
+          ],
+        },
       ],
     },
   ],
