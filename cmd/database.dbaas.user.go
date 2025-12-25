@@ -377,4 +377,3 @@ var dbaasUserDeleteCmd = &cobra.Command{
 		fmt.Printf("\nUser '%s' deleted successfully!\n", username)
 	},
 }
-

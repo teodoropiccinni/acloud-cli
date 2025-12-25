@@ -569,4 +569,3 @@ var jobDeleteCmd = &cobra.Command{
 		fmt.Printf("\nJob %s deleted successfully!\n", jobID)
 	},
 }
-

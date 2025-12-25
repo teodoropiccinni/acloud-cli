@@ -127,5 +127,5 @@ acloud database backup delete 69455aa70d0972656501d45d --yes
 
 - [DBaaS](dbaas.md) - Manage DBaaS instances
 - [DBaaS Databases](dbaas.database.md) - Manage databases
-- [Schedule Jobs](../../schedule/job.md) - Automate backup creation
+- [Schedule Jobs](../schedule/job.md) - Automate backup creation
 

@@ -149,6 +149,6 @@ acloud security kms delete 69455aa70d0972656501d45d --yes
 
 ## Related Resources
 
-- [Database Resources](../../database/dbaas.md) - Use KMS keys with databases
-- [Storage Resources](../../storage/blockstorage.md) - Encrypt storage volumes
+- [Database Resources](../database/dbaas.md) - Use KMS keys with databases
+- [Storage Resources](../storage/blockstorage.md) - Encrypt storage volumes
 

@@ -484,4 +484,3 @@ var kmsDeleteCmd = &cobra.Command{
 		fmt.Printf("\nKMS %s deleted successfully!\n", kmsID)
 	},
 }
-

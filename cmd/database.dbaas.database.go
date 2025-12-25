@@ -372,4 +372,3 @@ var dbaasDatabaseDeleteCmd = &cobra.Command{
 		fmt.Printf("\nDatabase '%s' deleted successfully!\n", databaseName)
 	},
 }
-

@@ -434,4 +434,3 @@ var backupDeleteCmd = &cobra.Command{
 		fmt.Printf("\nBackup %s deleted successfully!\n", backupID)
 	},
 }
-

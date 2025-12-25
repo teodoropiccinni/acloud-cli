@@ -230,6 +230,6 @@ acloud schedule job delete 69455aa70d0972656501d45d --yes
 
 ## Related Resources
 
-- [Database Backups](../../database/backup.md) - Automate backup creation
-- [Storage Backups](../../storage/backup.md) - Schedule storage backups
+- [Database Backups](../database/backup.md) - Automate backup creation
+- [Storage Backups](../storage/backup.md) - Schedule storage backups
 
