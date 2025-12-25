@@ -399,9 +399,9 @@ var cloudserverUpdateCmd = &cobra.Command{
 			return
 		}
 
-			if response != nil && response.Data != nil {
-				fmt.Println("\nCloud server updated successfully!")
-				fmt.Printf("Name:    %s\n", response.Data.Metadata.Name)
+		if response != nil && response.Data != nil {
+			fmt.Println("\nCloud server updated successfully!")
+			fmt.Printf("Name:    %s\n", response.Data.Metadata.Name)
 			if len(response.Data.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:    %v\n", response.Data.Metadata.Tags)
 			}
@@ -534,4 +534,3 @@ var cloudserverListCmd = &cobra.Command{
 		}
 	},
 }
-

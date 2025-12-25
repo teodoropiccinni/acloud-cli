@@ -358,4 +358,3 @@ var keypairListCmd = &cobra.Command{
 		}
 	},
 }
-
