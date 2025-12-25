@@ -11,6 +11,8 @@ The E2E tests are organized by resource category:
 - **[Database](database/)** - Database resources (DBaaS, Databases, Users, Backups)
 - **[Schedule](schedule/)** - Scheduled jobs (OneShot and Recurring jobs)
 - **[Security](security/)** - Security resources (KMS Keys)
+- **[Compute](compute/)** - Compute resources (Cloud Servers, Key Pairs)
+- **[Container](container/)** - Container resources (KaaS clusters)
 
 ## Prerequisites
 
@@ -47,6 +49,8 @@ To run all E2E tests:
 ./e2e/database/test.sh
 ./e2e/schedule/test.sh
 ./e2e/security/test.sh
+./e2e/compute/test.sh
+./e2e/container/test.sh
 ```
 
 ### Run Individual Category Tests
@@ -71,6 +75,12 @@ Each category has its own test script:
 
 # Security resources
 ./e2e/security/test.sh
+
+# Compute resources
+./e2e/compute/test.sh
+
+# Container resources
+./e2e/container/test.sh
 ```
 
 ## Test Structure
@@ -139,9 +149,24 @@ See [schedule/test.sh](schedule/test.sh) for details.
 ### Security Tests
 
 Tests security resources:
-- **KMS Keys** - Key Management Service key operations
+- **KMS Keys** - Key Management System key operations
 
 See [security/test.sh](security/test.sh) for details.
+
+### Compute Tests
+
+Tests compute resources:
+- **Cloud Servers** - Virtual machine instances
+- **Key Pairs** - SSH key pair management
+
+See [compute/test.sh](compute/test.sh) for details.
+
+### Container Tests
+
+Tests container resources:
+- **KaaS Clusters** - Kubernetes as a Service cluster management
+
+See [container/test.sh](container/test.sh) for details.
 
 ## Environment Variables
 
