@@ -32,88 +32,82 @@ const sidebars = {
     },
     {
       type: 'category',
-      label: 'Resource Details',
+      label: 'Management',
       items: [
-        {
-          type: 'category',
-          label: 'Management',
-          items: [
-            'resources/management',
-            'resources/management/project',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'Storage',
-          items: [
-            'resources/storage',
-            'resources/storage/blockstorage',
-            'resources/storage/snapshot',
-            'resources/storage/backup',
-            'resources/storage/restore',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'Network',
-          items: [
-            'resources/network',
-            'resources/network/vpc',
-            'resources/network/subnet',
-            'resources/network/securitygroup',
-            'resources/network/securityrule',
-            'resources/network/elasticip',
-            'resources/network/loadbalancer',
-            'resources/network/vpcpeering',
-            'resources/network/vpcpeeringroute',
-            'resources/network/vpntunnel',
-            'resources/network/vpnroute',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'Database',
-          items: [
-            'resources/database',
-            'resources/database/dbaas',
-            'resources/database/dbaas.database',
-            'resources/database/dbaas.user',
-            'resources/database/backup',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'Schedule',
-          items: [
-            'resources/schedule',
-            'resources/schedule/job',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'Security',
-          items: [
-            'resources/security',
-            'resources/security/kms',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'Compute',
-          items: [
-            'resources/compute',
-            'resources/compute/cloudserver',
-            'resources/compute/keypair',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'Container',
-          items: [
-            'resources/container',
-            'resources/container/kaas',
-          ],
-        },
+        'resources/management',
+        'resources/management/project',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Storage',
+      items: [
+        'resources/storage',
+        'resources/storage/blockstorage',
+        'resources/storage/snapshot',
+        'resources/storage/backup',
+        'resources/storage/restore',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Network',
+      items: [
+        'resources/network',
+        'resources/network/vpc',
+        'resources/network/subnet',
+        'resources/network/securitygroup',
+        'resources/network/securityrule',
+        'resources/network/elasticip',
+        'resources/network/loadbalancer',
+        'resources/network/vpcpeering',
+        'resources/network/vpcpeeringroute',
+        'resources/network/vpntunnel',
+        'resources/network/vpnroute',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Database',
+      items: [
+        'resources/database',
+        'resources/database/dbaas',
+        'resources/database/dbaas.database',
+        'resources/database/dbaas.user',
+        'resources/database/backup',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Schedule',
+      items: [
+        'resources/schedule',
+        'resources/schedule/job',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Security',
+      items: [
+        'resources/security',
+        'resources/security/kms',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Compute',
+      items: [
+        'resources/compute',
+        'resources/compute/cloudserver',
+        'resources/compute/keypair',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Container',
+      items: [
+        'resources/container',
+        'resources/container/kaas',
       ],
     },
   ],
