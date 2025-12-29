@@ -402,6 +402,6 @@ acloud management project update <id> --description "New description"
 
 ## Related Resources
 
-- [Getting Started Guide](../../getting-started.md)
+- [Installation Guide](../../installation.md)
 - [Management Resources Overview](../management.md)
 - [API Documentation](https://www.arubacloud.com/docs)

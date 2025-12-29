@@ -154,7 +154,7 @@ Scheduled jobs are scoped to a project. You can either:
    acloud schedule job list  # Uses context project ID
    ```
 
-See [Getting Started - Context Management](../getting-started.md#context-management) for more information.
+See [Installation - Context Management](../installation.md#context-management) for more information.
 
 ## Next Steps
 

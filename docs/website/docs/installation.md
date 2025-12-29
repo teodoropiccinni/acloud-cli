@@ -1,6 +1,6 @@
-# Getting Started with Aruba Cloud CLI
+# Installation
 
-This guide will help you install, configure, and start using the Aruba Cloud CLI.
+This guide covers installing the Aruba Cloud CLI on your platform and initial configuration.
 
 ## Installation
 
@@ -8,30 +8,74 @@ This guide will help you install, configure, and start using the Aruba Cloud CLI
 
 Download the latest release for your platform from the [releases page](https://github.com/Arubacloud/acloud-cli/releases).
 
-#### Linux
+#### Linux AMD64
 ```bash
 # Download and extract
 wget https://github.com/Arubacloud/acloud-cli/releases/latest/download/acloud-linux-amd64.tar.gz
 tar -xzf acloud-linux-amd64.tar.gz
 
 # Move to PATH
-sudo mv acloud /usr/local/bin/
+sudo mv acloud-linux-amd64 /usr/local/bin/acloud
 sudo chmod +x /usr/local/bin/acloud
 ```
 
-#### macOS
+#### Linux ARM64
 ```bash
 # Download and extract
-wget https://github.com/Arubacloud/acloud-cli/releases/latest/download/acloud-darwin-amd64.tar.gz
+wget https://github.com/Arubacloud/acloud-cli/releases/latest/download/acloud-linux-arm64.tar.gz
+tar -xzf acloud-linux-arm64.tar.gz
+
+# Move to PATH
+sudo mv acloud-linux-arm64 /usr/local/bin/acloud
+sudo chmod +x /usr/local/bin/acloud
+```
+
+#### macOS (Intel)
+```bash
+# Download and extract
+curl -LO https://github.com/Arubacloud/acloud-cli/releases/latest/download/acloud-darwin-amd64.tar.gz
 tar -xzf acloud-darwin-amd64.tar.gz
 
 # Move to PATH
-sudo mv acloud /usr/local/bin/
+sudo mv acloud-darwin-amd64 /usr/local/bin/acloud
+sudo chmod +x /usr/local/bin/acloud
+```
+
+#### macOS (Apple Silicon)
+```bash
+# Download and extract
+curl -LO https://github.com/Arubacloud/acloud-cli/releases/latest/download/acloud-darwin-arm64.tar.gz
+tar -xzf acloud-darwin-arm64.tar.gz
+
+# Move to PATH
+sudo mv acloud-darwin-arm64 /usr/local/bin/acloud
 sudo chmod +x /usr/local/bin/acloud
 ```
 
 #### Windows
-Download `acloud-windows-amd64.zip`, extract it, and add the location to your PATH.
+
+**Using PowerShell:**
+```powershell
+# Download
+Invoke-WebRequest -Uri "https://github.com/Arubacloud/acloud-cli/releases/latest/download/acloud-windows-amd64.zip" -OutFile "acloud-windows-amd64.zip"
+
+# Extract
+Expand-Archive -Path acloud-windows-amd64.zip -DestinationPath .
+
+# Add to PATH (current session)
+$env:Path += ";$PWD"
+
+# Or move to a permanent location and add to PATH
+# Move acloud-windows-amd64.exe to C:\Program Files\acloud-cli\
+# Then add C:\Program Files\acloud-cli\ to your system PATH
+```
+
+**Using Command Prompt:**
+1. Download `acloud-windows-amd64.zip` from the [releases page](https://github.com/Arubacloud/acloud-cli/releases)
+2. Extract the ZIP file
+3. Move `acloud-windows-amd64.exe` to a folder (e.g., `C:\Program Files\acloud-cli\`)
+4. Add that folder to your system PATH environment variable
+5. Rename `acloud-windows-amd64.exe` to `acloud.exe` for convenience
 
 ### Build from Source
 

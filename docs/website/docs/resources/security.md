@@ -87,7 +87,7 @@ Security resources are scoped to a project. You can either:
    acloud security kms list  # Uses context project ID
    ```
 
-See [Getting Started - Context Management](../getting-started.md#context-management) for more information.
+See [Installation - Context Management](../installation.md#context-management) for more information.
 
 ## Next Steps
 

@@ -83,9 +83,30 @@ jobs:
             exit 1
           fi
 
+      - name: Create archives
+        run: |
+          # Linux AMD64
+          tar -czf acloud-linux-amd64.tar.gz acloud-linux-amd64
+          # Linux ARM64
+          tar -czf acloud-linux-arm64.tar.gz acloud-linux-arm64
+          # macOS AMD64 (Intel)
+          tar -czf acloud-darwin-amd64.tar.gz acloud-darwin-amd64
+          # macOS ARM64 (Apple Silicon)
+          tar -czf acloud-darwin-arm64.tar.gz acloud-darwin-arm64
+          # Windows AMD64
+          zip acloud-windows-amd64.zip acloud-windows-amd64.exe
+
       - name: Create checksums
         run: |
-          sha256sum acloud-linux-amd64 > checksums.txt
+          sha256sum acloud-linux-amd64.tar.gz > checksums.txt
+          sha256sum acloud-linux-arm64.tar.gz >> checksums.txt
+          sha256sum acloud-darwin-amd64.tar.gz >> checksums.txt
+          sha256sum acloud-darwin-arm64.tar.gz >> checksums.txt
+          sha256sum acloud-windows-amd64.zip >> checksums.txt
+          # Also include checksums for raw binaries for backward compatibility
+          echo "" >> checksums.txt
+          echo "# Raw binaries (for backward compatibility)" >> checksums.txt
+          sha256sum acloud-linux-amd64 >> checksums.txt
           sha256sum acloud-linux-arm64 >> checksums.txt
           sha256sum acloud-darwin-amd64 >> checksums.txt
           sha256sum acloud-darwin-arm64 >> checksums.txt
@@ -95,6 +116,11 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
+            acloud-linux-amd64.tar.gz
+            acloud-linux-arm64.tar.gz
+            acloud-darwin-amd64.tar.gz
+            acloud-darwin-arm64.tar.gz
+            acloud-windows-amd64.zip
             acloud-linux-amd64
             acloud-linux-arm64
             acloud-darwin-amd64

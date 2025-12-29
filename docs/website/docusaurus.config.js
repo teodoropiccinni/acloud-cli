@@ -100,8 +100,8 @@ const config = {
             title: 'Documentation',
             items: [
               {
-                label: 'Getting Started',
-                to: '/docs/getting-started',
+                label: 'Installation',
+                to: '/docs/installation',
               },
               {
                 label: 'Resources',

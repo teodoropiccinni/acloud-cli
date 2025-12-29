@@ -22,8 +22,8 @@ const sidebars = {
     },
     {
       type: 'doc',
-      id: 'getting-started',
-      label: 'Getting Started',
+      id: 'installation',
+      label: 'Installation',
     },
     {
       type: 'doc',
