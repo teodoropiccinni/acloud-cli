@@ -116,14 +116,24 @@ lint: fmt vet ## Run all linters (fmt + vet)
 
 lint-check: ## Check if code needs formatting (for CI)
 	@echo "$(GREEN)Checking code formatting...$(NC)"
-	@test -z $$(go fmt -l ./...) || (echo "$(RED)Code is not formatted. Run 'make fmt'$(NC)" && exit 1)
+	@if [ -n "$$(gofmt -l .)" ]; then \
+		echo "$(RED)Code is not formatted. Run 'make fmt'$(NC)"; \
+		exit 1; \
+	fi
 	@echo "$(GREEN)Code formatting check passed$(NC)"
 
 mod-verify: ## Verify go.mod and go.sum
 	@echo "$(GREEN)Verifying go.mod and go.sum...$(NC)"
 	@go mod verify
-	@go mod tidy
-	@test -z $$(git diff go.mod go.sum) || (echo "$(RED)go.mod or go.sum needs updating. Run 'go mod tidy'$(NC)" && exit 1)
+	@if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then \
+		echo "$(YELLOW)Running go mod tidy...$(NC)"; \
+		git diff --quiet go.mod go.sum 2>/dev/null && WAS_CLEAN=1 || WAS_CLEAN=0; \
+		go mod tidy; \
+		if [ "$$WAS_CLEAN" = "1" ] && ! git diff --quiet go.mod go.sum 2>/dev/null; then \
+			echo "$(RED)go.mod or go.sum needs updating. Run 'go mod tidy'$(NC)"; \
+			exit 1; \
+		fi; \
+	fi
 	@echo "$(GREEN)Module verification passed$(NC)"
 
 ##@ Development

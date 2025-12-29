@@ -280,9 +280,10 @@ var kaasUpdateCmd = &cobra.Command{
 		name, _ := cmd.Flags().GetString("name")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 
-		if name == "" && len(tags) == 0 {
-			fmt.Println("Error: at least one of --name or --tags must be provided")
-			return
+		// Note: The new SDK only supports updating properties, not metadata (name/tags)
+		if name != "" || len(tags) > 0 {
+			fmt.Println("Warning: Updating name and tags is not supported in the current SDK version.")
+			fmt.Println("The update will only modify cluster properties (Kubernetes version, node pools, etc.).")
 		}
 
 		projectID, err := GetProjectID(cmd)
@@ -311,38 +312,69 @@ var kaasUpdateCmd = &cobra.Command{
 
 		current := getResponse.Data
 
-		// Get region value
-		regionValue := ""
-		if current.Metadata.LocationResponse != nil {
-			regionValue = current.Metadata.LocationResponse.Value
-		}
-		if regionValue == "" {
-			fmt.Println("Error: Unable to determine region value for KaaS cluster")
-			return
-		}
-
-		// Build the update request, preserving existing values
-		updateRequest := types.KaaSRequest{
-			Metadata: types.RegionalResourceMetadataRequest{
-				ResourceMetadataRequest: types.ResourceMetadataRequest{
-					Name: *current.Metadata.Name,
-					Tags: current.Metadata.Tags,
+		// Build the update request using KaaSUpdateRequest (only supports properties)
+		// Convert from response types to update request types
+		updateRequest := types.KaaSUpdateRequest{
+			Properties: types.KaaSPropertiesUpdateRequest{
+				// KubernetesVersion is required
+				KubernetesVersion: types.KubernetesVersionInfoUpdate{
+					Value: func() string {
+						if current.Properties.KubernetesVersion.Value != nil {
+							return *current.Properties.KubernetesVersion.Value
+						}
+						return ""
+					}(),
 				},
-				Location: types.LocationRequest{
-					Value: regionValue,
-				},
+				// NodePools is required - convert from response to request format
+				NodePools: func() []types.NodePoolProperties {
+					if current.Properties.NodePools == nil {
+						return []types.NodePoolProperties{}
+					}
+					var nodePools []types.NodePoolProperties
+					for _, np := range *current.Properties.NodePools {
+						nodePool := types.NodePoolProperties{
+							Name: func() string {
+								if np.Name != nil {
+									return *np.Name
+								} else {
+									return ""
+								}
+							}(),
+							Nodes: func() int32 {
+								if np.Nodes != nil {
+									return *np.Nodes
+								} else {
+									return 0
+								}
+							}(),
+							Autoscaling: np.Autoscaling,
+							MinCount:    np.MinCount,
+							MaxCount:    np.MaxCount,
+						}
+						// Instance - convert from InstanceResponse to string
+						if np.Instance != nil && np.Instance.Name != nil {
+							nodePool.Instance = *np.Instance.Name
+						}
+						// DataCenter - convert from DataCenterResponse to string
+						if np.DataCenter != nil && np.DataCenter.Code != nil {
+							nodePool.Zone = *np.DataCenter.Code
+						}
+						nodePools = append(nodePools, nodePool)
+					}
+					return nodePools
+				}(),
+				// Optional fields
+				HA:      current.Properties.HA,
+				Storage: current.Properties.Storage,
+				BillingPlan: func() *types.BillingPeriodResource {
+					if current.Properties.BillingPlan != nil && current.Properties.BillingPlan.BillingPeriod != nil {
+						return &types.BillingPeriodResource{
+							BillingPeriod: *current.Properties.BillingPlan.BillingPeriod,
+						}
+					}
+					return nil
+				}(),
 			},
-			Properties: types.KaaSPropertiesRequest{
-				// Preserve existing properties - Version field may not exist
-			},
-		}
-
-		// Apply updates
-		if name != "" {
-			updateRequest.Metadata.Name = name
-		}
-		if len(tags) > 0 {
-			updateRequest.Metadata.Tags = tags
 		}
 
 		response, err := client.FromContainer().KaaS().Update(ctx, projectID, kaasID, updateRequest, nil)
