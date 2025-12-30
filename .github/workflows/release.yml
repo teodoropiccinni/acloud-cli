@@ -27,9 +27,9 @@ jobs:
 
       - name: Build binaries
         run: |
-          # Linux AMD64
+          # Linux AMD64 (latest - for Ubuntu 22.04+)
           GOOS=linux GOARCH=amd64 go build -o acloud-linux-amd64 -ldflags "-X main.Version=${{ steps.get_version.outputs.VERSION }}"
-          # Linux ARM64
+          # Linux ARM64 (latest - for Ubuntu 22.04+)
           GOOS=linux GOARCH=arm64 go build -o acloud-linux-arm64 -ldflags "-X main.Version=${{ steps.get_version.outputs.VERSION }}"
           # macOS AMD64 (Intel)
           GOOS=darwin GOARCH=amd64 go build -o acloud-darwin-amd64 -ldflags "-X main.Version=${{ steps.get_version.outputs.VERSION }}"
@@ -83,31 +83,135 @@ jobs:
             exit 1
           fi
 
-      - name: Create archives
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-latest
+          path: |
+            acloud-linux-amd64
+            acloud-linux-arm64
+            acloud-darwin-amd64
+            acloud-darwin-arm64
+            acloud-windows-amd64.exe
+          retention-days: 1
+
+  build-ubuntu20:
+    name: Build for Ubuntu 20.04 (GLIBC 2.31)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build Linux binaries in Ubuntu 20.04 Docker container
         run: |
-          # Linux AMD64
+          # Build AMD64 binary using Ubuntu 20.04 (GLIBC 2.31)
+          docker run --rm -v "${{ github.workspace }}":/workspace -w /workspace \
+            ubuntu:20.04 bash -c "
+            apt-get update -qq && \
+            apt-get install -y -qq wget ca-certificates && \
+            wget -q https://go.dev/dl/go1.24.2.linux-amd64.tar.gz && \
+            tar -C /usr/local -xzf go1.24.2.linux-amd64.tar.gz && \
+            export PATH=/usr/local/go/bin:\$PATH && \
+            go version && \
+            GOOS=linux GOARCH=amd64 go build -o acloud-linux-amd64-ubuntu20 -ldflags '-X main.Version=${{ steps.get_version.outputs.VERSION }}' . && \
+            file acloud-linux-amd64-ubuntu20 && \
+            ldd --version
+          "
+          
+          # Build ARM64 binary using Ubuntu 20.04 (GLIBC 2.31) - cross-compile with CGO disabled
+          docker run --rm -v "${{ github.workspace }}":/workspace -w /workspace \
+            ubuntu:20.04 bash -c "
+            apt-get update -qq && \
+            apt-get install -y -qq wget ca-certificates && \
+            wget -q https://go.dev/dl/go1.24.2.linux-amd64.tar.gz && \
+            tar -C /usr/local -xzf go1.24.2.linux-amd64.tar.gz && \
+            export PATH=/usr/local/go/bin:\$PATH && \
+            CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o acloud-linux-arm64-ubuntu20 -ldflags '-X main.Version=${{ steps.get_version.outputs.VERSION }}' . && \
+            file acloud-linux-arm64-ubuntu20
+          "
+
+      - name: Verify Ubuntu 20.04 binaries
+        run: |
+          file acloud-linux-amd64-ubuntu20
+          file acloud-linux-arm64-ubuntu20
+          ls -lh acloud-linux-amd64-ubuntu20 acloud-linux-arm64-ubuntu20
+          if ! file acloud-linux-amd64-ubuntu20 | grep -q "ELF 64-bit LSB executable"; then
+            echo "ERROR: acloud-linux-amd64-ubuntu20 is not a valid Linux AMD64 binary!"
+            exit 1
+          fi
+          if ! file acloud-linux-arm64-ubuntu20 | grep -q "ELF 64-bit LSB executable"; then
+            echo "ERROR: acloud-linux-arm64-ubuntu20 is not a valid Linux ARM64 binary!"
+            exit 1
+          fi
+
+      - name: Upload Ubuntu 20.04 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-ubuntu20
+          path: |
+            acloud-linux-amd64-ubuntu20
+            acloud-linux-arm64-ubuntu20
+          retention-days: 1
+
+  release:
+    name: Create Release
+    needs: [build, build-ubuntu20]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Download latest binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries-latest
+          path: ./binaries-latest
+
+      - name: Download Ubuntu 20.04 binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries-ubuntu20
+          path: ./binaries-ubuntu20
+
+      - name: Prepare release files
+        run: |
+          # Copy binaries to root
+          cp binaries-latest/* .
+          cp binaries-ubuntu20/acloud-linux-amd64-ubuntu20 ./acloud-linux-amd64-ubuntu20
+          cp binaries-ubuntu20/acloud-linux-arm64-ubuntu20 ./acloud-linux-arm64-ubuntu20
+          
+          # Create archives
           tar -czf acloud-linux-amd64.tar.gz acloud-linux-amd64
-          # Linux ARM64
           tar -czf acloud-linux-arm64.tar.gz acloud-linux-arm64
-          # macOS AMD64 (Intel)
+          tar -czf acloud-linux-amd64-ubuntu20.tar.gz acloud-linux-amd64-ubuntu20
+          tar -czf acloud-linux-arm64-ubuntu20.tar.gz acloud-linux-arm64-ubuntu20
           tar -czf acloud-darwin-amd64.tar.gz acloud-darwin-amd64
-          # macOS ARM64 (Apple Silicon)
           tar -czf acloud-darwin-arm64.tar.gz acloud-darwin-arm64
-          # Windows AMD64
           zip acloud-windows-amd64.zip acloud-windows-amd64.exe
 
       - name: Create checksums
         run: |
           sha256sum acloud-linux-amd64.tar.gz > checksums.txt
           sha256sum acloud-linux-arm64.tar.gz >> checksums.txt
+          sha256sum acloud-linux-amd64-ubuntu20.tar.gz >> checksums.txt
+          sha256sum acloud-linux-arm64-ubuntu20.tar.gz >> checksums.txt
           sha256sum acloud-darwin-amd64.tar.gz >> checksums.txt
           sha256sum acloud-darwin-arm64.tar.gz >> checksums.txt
           sha256sum acloud-windows-amd64.zip >> checksums.txt
-          # Also include checksums for raw binaries for backward compatibility
           echo "" >> checksums.txt
           echo "# Raw binaries (for backward compatibility)" >> checksums.txt
           sha256sum acloud-linux-amd64 >> checksums.txt
           sha256sum acloud-linux-arm64 >> checksums.txt
+          sha256sum acloud-linux-amd64-ubuntu20 >> checksums.txt
+          sha256sum acloud-linux-arm64-ubuntu20 >> checksums.txt
           sha256sum acloud-darwin-amd64 >> checksums.txt
           sha256sum acloud-darwin-arm64 >> checksums.txt
           sha256sum acloud-windows-amd64.exe >> checksums.txt
@@ -118,11 +222,15 @@ jobs:
           files: |
             acloud-linux-amd64.tar.gz
             acloud-linux-arm64.tar.gz
+            acloud-linux-amd64-ubuntu20.tar.gz
+            acloud-linux-arm64-ubuntu20.tar.gz
             acloud-darwin-amd64.tar.gz
             acloud-darwin-arm64.tar.gz
             acloud-windows-amd64.zip
             acloud-linux-amd64
             acloud-linux-arm64
+            acloud-linux-amd64-ubuntu20
+            acloud-linux-arm64-ubuntu20
             acloud-darwin-amd64
             acloud-darwin-arm64
             acloud-windows-amd64.exe

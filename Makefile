@@ -45,6 +45,20 @@ build-linux: ## Build for Linux
 	@GOOS=linux GOARCH=amd64 go build $(BUILD_FLAGS) $(LDFLAGS) -o $(BINARY_NAME)-linux-amd64 .
 	@echo "$(GREEN)Build complete: $(BINARY_NAME)-linux-amd64$(NC)"
 
+build-linux-ubuntu20: ## Build for Linux (Ubuntu 20.04 compatible - GLIBC 2.31)
+	@echo "$(GREEN)Building for Linux (Ubuntu 20.04 compatible)...$(NC)"
+	@echo "$(YELLOW)Note: This requires Docker to build in Ubuntu 20.04 environment$(NC)"
+	@docker run --rm -v "$(PWD)":/workspace -w /workspace \
+		ubuntu:20.04 bash -c "\
+		apt-get update -qq && \
+		apt-get install -y -qq wget ca-certificates > /dev/null 2>&1 && \
+		wget -q https://go.dev/dl/go1.24.2.linux-amd64.tar.gz && \
+		tar -C /usr/local -xzf go1.24.2.linux-amd64.tar.gz && \
+		export PATH=/usr/local/go/bin:\$$PATH && \
+		GOOS=linux GOARCH=amd64 go build $(BUILD_FLAGS) $(LDFLAGS) -o $(BINARY_NAME)-linux-amd64-ubuntu20 . && \
+		echo 'Build complete: $(BINARY_NAME)-linux-amd64-ubuntu20'"
+	@echo "$(GREEN)Build complete: $(BINARY_NAME)-linux-amd64-ubuntu20$(NC)"
+
 build-darwin: ## Build for macOS (Intel)
 	@echo "$(GREEN)Building for macOS (Intel)...$(NC)"
 	@GOOS=darwin GOARCH=amd64 go build $(BUILD_FLAGS) $(LDFLAGS) -o $(BINARY_NAME)-darwin-amd64 .

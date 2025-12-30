@@ -24,12 +24,23 @@ ArubaCloud Command Line Interface - A CLI tool for interacting with Aruba Cloud 
 
 ### Linux
 
+**For Ubuntu 22.04+ or newer distributions:**
 ```bash
 # Download the latest release
 curl -LO https://github.com/Arubacloud/acloud-cli/releases/latest/download/acloud-linux-amd64
 chmod +x acloud-linux-amd64
 sudo mv acloud-linux-amd64 /usr/local/bin/acloud
 ```
+
+**For Ubuntu 20.04 or older WSL distributions (GLIBC 2.31 compatible):**
+```bash
+# Download the Ubuntu 20.04 compatible release
+curl -LO https://github.com/Arubacloud/acloud-cli/releases/latest/download/acloud-linux-amd64-ubuntu20
+chmod +x acloud-linux-amd64-ubuntu20
+sudo mv acloud-linux-amd64-ubuntu20 /usr/local/bin/acloud
+```
+
+> **Note:** If you encounter GLIBC version errors (e.g., `GLIBC_2.34 not found`), use the `-ubuntu20` binary which is compatible with Ubuntu 20.04 and newer.
 
 ### macOS
 
