@@ -9,6 +9,8 @@ This guide covers installing the Aruba Cloud CLI on your platform and initial co
 Download the latest release for your platform from the [releases page](https://github.com/Arubacloud/acloud-cli/releases).
 
 #### Linux AMD64
+
+**For Ubuntu 22.04+ or newer distributions:**
 ```bash
 # Download and extract
 wget https://github.com/Arubacloud/acloud-cli/releases/latest/download/acloud-linux-amd64.tar.gz
@@ -19,7 +21,24 @@ sudo mv acloud-linux-amd64 /usr/local/bin/acloud
 sudo chmod +x /usr/local/bin/acloud
 ```
 
+**For Ubuntu 20.04 or older WSL distributions (GLIBC 2.31 compatible):**
+
+If you encounter GLIBC version errors (e.g., `GLIBC_2.34 not found`), use the Ubuntu 20.04 compatible binary:
+```bash
+# Download and extract Ubuntu 20.04 compatible binary
+wget https://github.com/Arubacloud/acloud-cli/releases/latest/download/acloud-linux-amd64-ubuntu20.tar.gz
+tar -xzf acloud-linux-amd64-ubuntu20.tar.gz
+
+# Move to PATH
+sudo mv acloud-linux-amd64-ubuntu20 /usr/local/bin/acloud
+sudo chmod +x /usr/local/bin/acloud
+```
+
+> **Note:** The Ubuntu 20.04 compatible binary works on Ubuntu 20.04, 22.04, 24.04, and newer versions. Use this version if you're running older WSL distributions or encounter GLIBC compatibility issues.
+
 #### Linux ARM64
+
+**For Ubuntu 22.04+ or newer distributions:**
 ```bash
 # Download and extract
 wget https://github.com/Arubacloud/acloud-cli/releases/latest/download/acloud-linux-arm64.tar.gz
@@ -27,6 +46,19 @@ tar -xzf acloud-linux-arm64.tar.gz
 
 # Move to PATH
 sudo mv acloud-linux-arm64 /usr/local/bin/acloud
+sudo chmod +x /usr/local/bin/acloud
+```
+
+**For Ubuntu 20.04 or older distributions (GLIBC 2.31 compatible):**
+
+If you encounter GLIBC version errors, use the Ubuntu 20.04 compatible binary:
+```bash
+# Download and extract Ubuntu 20.04 compatible binary
+wget https://github.com/Arubacloud/acloud-cli/releases/latest/download/acloud-linux-arm64-ubuntu20.tar.gz
+tar -xzf acloud-linux-arm64-ubuntu20.tar.gz
+
+# Move to PATH
+sudo mv acloud-linux-arm64-ubuntu20 /usr/local/bin/acloud
 sudo chmod +x /usr/local/bin/acloud
 ```
 
@@ -411,6 +443,25 @@ Request Payload:
 **Note**: Debug output is sent to `stderr`, so it won't interfere with normal command output and can be redirected separately if needed.
 
 ## Troubleshooting
+
+### GLIBC Version Errors
+
+If you see errors like:
+```
+acloud: /lib/x86_64-linux-gnu/libc.so.6: version 'GLIBC_2.34' not found
+```
+
+This means your Linux distribution has an older GLIBC version than required. **Solution:** Use the Ubuntu 20.04 compatible binary:
+
+```bash
+# Download Ubuntu 20.04 compatible binary instead
+wget https://github.com/Arubacloud/acloud-cli/releases/latest/download/acloud-linux-amd64-ubuntu20.tar.gz
+tar -xzf acloud-linux-amd64-ubuntu20.tar.gz
+sudo mv acloud-linux-amd64-ubuntu20 /usr/local/bin/acloud
+sudo chmod +x /usr/local/bin/acloud
+```
+
+The Ubuntu 20.04 compatible binaries work on Ubuntu 20.04, 22.04, 24.04, and newer versions.
 
 ### "Error initializing client"
 
