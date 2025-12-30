@@ -51,11 +51,12 @@ build-linux-ubuntu20: ## Build for Linux (Ubuntu 20.04 compatible - GLIBC 2.31)
 	@docker run --rm -v "$(PWD)":/workspace -w /workspace \
 		ubuntu:20.04 bash -c "\
 		apt-get update -qq && \
-		apt-get install -y -qq wget ca-certificates > /dev/null 2>&1 && \
+		apt-get install -y -qq wget ca-certificates file > /dev/null 2>&1 && \
 		wget -q https://go.dev/dl/go1.24.2.linux-amd64.tar.gz && \
 		tar -C /usr/local -xzf go1.24.2.linux-amd64.tar.gz && \
 		export PATH=/usr/local/go/bin:\$$PATH && \
 		GOOS=linux GOARCH=amd64 go build $(BUILD_FLAGS) $(LDFLAGS) -o $(BINARY_NAME)-linux-amd64-ubuntu20 . && \
+		file $(BINARY_NAME)-linux-amd64-ubuntu20 && \
 		echo 'Build complete: $(BINARY_NAME)-linux-amd64-ubuntu20'"
 	@echo "$(GREEN)Build complete: $(BINARY_NAME)-linux-amd64-ubuntu20$(NC)"
 
