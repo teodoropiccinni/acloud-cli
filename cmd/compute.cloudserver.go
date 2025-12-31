@@ -747,8 +747,8 @@ var cloudserverSetPasswordCmd = &cobra.Command{
 				fmt.Printf("Server ID: %s\n", serverID)
 			}
 		} else {
-		fmt.Println("Cloud server password set successfully!")
-		fmt.Printf("Server ID: %s\n", serverID)
+			fmt.Println("Cloud server password set successfully!")
+			fmt.Printf("Server ID: %s\n", serverID)
 		}
 	},
 }

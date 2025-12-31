@@ -577,7 +577,7 @@ var containerregistryListCmd = &cobra.Command{
 		}
 
 		ctx := context.Background()
-		
+
 		containerClient := client.FromContainer()
 		if containerClient == nil {
 			fmt.Println("Error: Container client is not available")
@@ -655,4 +655,3 @@ var containerregistryListCmd = &cobra.Command{
 		}
 	},
 }
-

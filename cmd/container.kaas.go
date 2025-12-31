@@ -29,7 +29,7 @@ func init() {
 	kaasCreateCmd.Flags().String("name", "", "Name for the KaaS cluster (required)")
 	kaasCreateCmd.Flags().String("region", "", "Region code (required)")
 	kaasCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
-	
+
 	// Required properties
 	kaasCreateCmd.Flags().String("vpc-uri", "", "VPC URI (required, e.g., /projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id})")
 	kaasCreateCmd.Flags().String("subnet-uri", "", "Subnet URI (required, e.g., /projects/{project-id}/providers/Aruba.Network/subnets/{subnet-id})")
@@ -38,7 +38,7 @@ func init() {
 	kaasCreateCmd.Flags().String("security-group-name", "", "Security group name (required)")
 	kaasCreateCmd.Flags().String("kubernetes-version", "", "Kubernetes version (required, e.g., 1.28.0)")
 	kaasCreateCmd.Flags().String("billing-period", "", "Billing period: Hour, Month, Year (optional)")
-	
+
 	// Node pool flags (at least one node pool is required)
 	kaasCreateCmd.Flags().String("node-pool-name", "", "Node pool name (required)")
 	kaasCreateCmd.Flags().Int32("node-pool-nodes", 0, "Number of nodes in the node pool (required)")
@@ -47,13 +47,13 @@ func init() {
 	kaasCreateCmd.Flags().Bool("node-pool-autoscaling", false, "Enable autoscaling for node pool")
 	kaasCreateCmd.Flags().Int32("node-pool-min-count", 0, "Minimum number of nodes for autoscaling")
 	kaasCreateCmd.Flags().Int32("node-pool-max-count", 0, "Maximum number of nodes for autoscaling")
-	
+
 	// Optional properties
 	kaasCreateCmd.Flags().String("pod-cidr", "", "Pod CIDR (optional)")
 	kaasCreateCmd.Flags().Bool("ha", false, "Enable high availability")
 	kaasCreateCmd.Flags().StringSlice("api-server-authorized-ip-ranges", []string{}, "Authorized IP ranges for API server access (optional)")
 	kaasCreateCmd.Flags().Bool("api-server-enable-private-cluster", false, "Enable private cluster for API server (optional)")
-	
+
 	kaasCreateCmd.MarkFlagRequired("name")
 	kaasCreateCmd.MarkFlagRequired("region")
 	kaasCreateCmd.MarkFlagRequired("vpc-uri")
@@ -72,14 +72,14 @@ func init() {
 	kaasUpdateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	kaasUpdateCmd.Flags().String("name", "", "New name for the KaaS cluster")
 	kaasUpdateCmd.Flags().StringSlice("tags", []string{}, "New tags (comma-separated)")
-	
+
 	// Properties update flags
 	kaasUpdateCmd.Flags().String("kubernetes-version", "", "Kubernetes version to upgrade to")
 	kaasUpdateCmd.Flags().String("kubernetes-version-upgrade-date", "", "Upgrade date for Kubernetes version (optional, ISO 8601 format)")
 	kaasUpdateCmd.Flags().Bool("ha", false, "Enable/disable high availability")
 	kaasUpdateCmd.Flags().Int32("storage-max-cumulative-volume-size", 0, "Maximum cumulative volume size for storage")
 	kaasUpdateCmd.Flags().String("billing-period", "", "Billing period: Hour, Month, Year")
-	
+
 	// Node pool update flags (for updating existing node pools)
 	kaasUpdateCmd.Flags().String("node-pool-name", "", "Node pool name to update")
 	kaasUpdateCmd.Flags().Int32("node-pool-nodes", 0, "Number of nodes in the node pool")
