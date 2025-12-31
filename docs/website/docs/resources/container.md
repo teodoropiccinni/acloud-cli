@@ -1,6 +1,6 @@
 # Container Resources
 
-The `container` category provides commands for managing container resources in Aruba Cloud, including Kubernetes as a Service (KaaS) clusters.
+The `container` category provides commands for managing container resources in Aruba Cloud, including Kubernetes as a Service (KaaS) clusters and Container Registry.
 
 ## Available Resources
 
@@ -24,6 +24,35 @@ acloud container kaas update <cluster-id> --name "new-name"
 
 # Delete a KaaS cluster
 acloud container kaas delete <cluster-id>
+```
+
+### [Container Registry](container/containerregistry.md)
+
+Container Registry provides a private Docker container registry for storing and managing container images.
+
+**Quick Commands:**
+```bash
+# List all container registries
+acloud container containerregistry list
+
+# Get container registry details
+acloud container containerregistry get <registry-id>
+
+# Create a container registry
+acloud container containerregistry create \
+  --name "my-registry" \
+  --region "ITBG-Bergamo" \
+  --public-ip-uri "/projects/{id}/providers/Aruba.Network/elasticIps/{eip-id}" \
+  --vpc-uri "/projects/{id}/providers/Aruba.Network/vpcs/{vpc-id}" \
+  --subnet-uri "/projects/{id}/providers/Aruba.Network/subnets/{subnet-id}" \
+  --security-group-uri "/projects/{id}/providers/Aruba.Network/securityGroups/{sg-id}" \
+  --block-storage-uri "/projects/{id}/providers/Aruba.Storage/volumes/{volume-id}"
+
+# Update a container registry
+acloud container containerregistry update <registry-id> --name "new-name"
+
+# Delete a container registry
+acloud container containerregistry delete <registry-id>
 ```
 
 ## Common Use Cases
@@ -59,6 +88,33 @@ acloud container kaas update <cluster-id> \
   --name "production-cluster-updated" \
   --tags "production,kubernetes,updated"
 ```
+
+### Creating a Container Registry
+
+1. **Ensure required resources exist:**
+   - Public IP (Elastic IP)
+   - VPC
+   - Subnet
+   - Security Group
+   - Block Storage
+
+2. **Create the container registry:**
+   ```bash
+   acloud container containerregistry create \
+     --name "my-registry" \
+     --region "ITBG-Bergamo" \
+     --public-ip-uri "/projects/{id}/providers/Aruba.Network/elasticIps/{eip-id}" \
+     --vpc-uri "/projects/{id}/providers/Aruba.Network/vpcs/{vpc-id}" \
+     --subnet-uri "/projects/{id}/providers/Aruba.Network/subnets/{subnet-id}" \
+     --security-group-uri "/projects/{id}/providers/Aruba.Network/securityGroups/{sg-id}" \
+     --block-storage-uri "/projects/{id}/providers/Aruba.Storage/volumes/{volume-id}" \
+     --billing-period "Month"
+   ```
+
+3. **Wait for the registry to be ready** and check status:
+   ```bash
+   acloud container containerregistry get <registry-id>
+   ```
 
 ## Best Practices
 

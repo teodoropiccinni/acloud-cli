@@ -67,6 +67,7 @@ Manage compute resources and SSH key pairs.
 Manage container and Kubernetes resources.
 
 - [KaaS](resources/container/kaas.md) - Kubernetes as a Service clusters
+- [Container Registry](resources/container/containerregistry.md) - Private Docker container registry
 
 ## Quick Reference
 

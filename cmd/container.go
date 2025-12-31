@@ -13,4 +13,5 @@ var containerCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(containerCmd)
 	// KaaS commands are registered in container.kaas.go
+	// ContainerRegistry commands are registered in container.containerregistry.go
 }
