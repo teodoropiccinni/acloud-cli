@@ -22,19 +22,46 @@ acloud container kaas create [flags]
 **Required Flags:**
 - `--name <string>` - Name for the KaaS cluster
 - `--region <string>` - Region code (e.g., `ITBG-Bergamo`)
-- `--version <string>` - Kubernetes version (e.g., `1.28.0`)
+- `--vpc-uri <string>` - VPC URI (e.g., `/projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id}`)
+- `--subnet-uri <string>` - Subnet URI (e.g., `/projects/{project-id}/providers/Aruba.Network/subnets/{subnet-id}`)
+- `--node-cidr-address <string>` - Node CIDR address in CIDR notation (e.g., `10.0.0.0/16`)
+- `--node-cidr-name <string>` - Node CIDR name
+- `--security-group-name <string>` - Security group name
+- `--kubernetes-version <string>` - Kubernetes version (e.g., `1.28.0`)
+- `--node-pool-name <string>` - Node pool name
+- `--node-pool-nodes <int>` - Number of nodes in the node pool
+- `--node-pool-instance <string>` - Instance configuration name for nodes
+- `--node-pool-zone <string>` - Datacenter/zone code for nodes
 
 **Optional Flags:**
 - `--project-id <string>` - Project ID (uses context if not specified)
 - `--tags <stringSlice>` - Tags (comma-separated)
+- `--pod-cidr <string>` - Pod CIDR (optional)
+- `--ha` - Enable high availability
+- `--billing-period <string>` - Billing period: Hour, Month, Year (optional)
+- `--api-server-authorized-ip-ranges <stringSlice>` - Authorized IP ranges for API server access
+- `--api-server-enable-private-cluster` - Enable private cluster for API server
+- `--node-pool-autoscaling` - Enable autoscaling for node pool
+- `--node-pool-min-count <int>` - Minimum number of nodes for autoscaling
+- `--node-pool-max-count <int>` - Maximum number of nodes for autoscaling
 
 **Example:**
 ```bash
 acloud container kaas create \
   --name "production-cluster" \
   --region "ITBG-Bergamo" \
-  --version "1.28.0" \
-  --tags "production,kubernetes"
+  --vpc-uri "/projects/66a10244f62b99c686572a9f/providers/Aruba.Network/vpcs/69495ef64d0cdc87949b71ec" \
+  --subnet-uri "/projects/66a10244f62b99c686572a9f/providers/Aruba.Network/subnets/694b05ac4d0cdc87949b75f9" \
+  --node-cidr-address "10.0.0.0/16" \
+  --node-cidr-name "node-cidr" \
+  --security-group-name "kaas-sg" \
+  --kubernetes-version "1.28.0" \
+  --node-pool-name "default-pool" \
+  --node-pool-nodes 3 \
+  --node-pool-instance "small" \
+  --node-pool-zone "ITBG-Bergamo-A" \
+  --tags "production,kubernetes" \
+  --ha
 ```
 
 ### `list`
@@ -94,7 +121,7 @@ The command displays detailed information including:
 
 ### `update`
 
-Update a KaaS cluster's properties (name, tags).
+Update a KaaS cluster's metadata and properties.
 
 **Syntax:**
 ```bash
@@ -108,15 +135,40 @@ acloud container kaas update <cluster-id> [flags]
 - `--project-id <string>` - Project ID (uses context if not specified)
 - `--name <string>` - New name for the KaaS cluster
 - `--tags <stringSlice>` - New tags (comma-separated)
+- `--kubernetes-version <string>` - Kubernetes version to upgrade to
+- `--kubernetes-version-upgrade-date <string>` - Upgrade date for Kubernetes version (ISO 8601 format)
+- `--ha` - Enable/disable high availability
+- `--storage-max-cumulative-volume-size <int>` - Maximum cumulative volume size for storage
+- `--billing-period <string>` - Billing period: Hour, Month, Year
+- `--node-pool-name <string>` - Node pool name to update
+- `--node-pool-nodes <int>` - Number of nodes in the node pool
+- `--node-pool-instance <string>` - Instance configuration name for nodes
+- `--node-pool-zone <string>` - Datacenter/zone code for nodes
+- `--node-pool-autoscaling` - Enable autoscaling for node pool
+- `--node-pool-min-count <int>` - Minimum number of nodes for autoscaling
+- `--node-pool-max-count <int>` - Maximum number of nodes for autoscaling
 
 **Example:**
 ```bash
+# Update metadata (name and tags)
 acloud container kaas update 69495ef64d0cdc87949b71ec \
   --name "production-cluster-updated" \
   --tags "production,kubernetes,updated"
+
+# Update Kubernetes version
+acloud container kaas update 69495ef64d0cdc87949b71ec \
+  --kubernetes-version "1.29.0"
+
+# Update node pool
+acloud container kaas update 69495ef64d0cdc87949b71ec \
+  --node-pool-name "default-pool" \
+  --node-pool-nodes 5 \
+  --node-pool-autoscaling \
+  --node-pool-min-count 3 \
+  --node-pool-max-count 10
 ```
 
-**Note:** At least one of `--name` or `--tags` must be provided.
+**Note:** You can update metadata (name, tags) and properties (Kubernetes version, node pools, etc.) in the same command.
 
 ### `delete`
 
@@ -141,6 +193,44 @@ acloud container kaas delete 69495ef64d0cdc87949b71ec --yes
 
 **Warning:** Deleting a cluster will remove all workloads and data. Ensure you have backups if needed.
 
+### `connect`
+
+Connect to a KaaS cluster and configure kubectl automatically.
+
+**Syntax:**
+```bash
+acloud container kaas connect <cluster-id> [flags]
+```
+
+**Arguments:**
+- `<cluster-id>` - The ID of the KaaS cluster
+
+**Optional Flags:**
+- `--project-id <string>` - Project ID (uses context if not specified)
+
+**Example:**
+```bash
+acloud container kaas connect 69495ef64d0cdc87949b71ec
+```
+
+**What it does:**
+1. Downloads the kubeconfig from the KaaS cluster
+2. Creates a kubeconfig file in `$HOME/.kube/` named with the cluster name
+3. Updates `$HOME/.kube/config` with the cluster configuration
+4. Runs `kubectl cluster-info` to verify the connection
+5. Prints success message if connection is successful, or error if it fails
+
+**Prerequisites:**
+- `kubectl` must be installed and available in your PATH
+- The cluster must be in a ready state
+
+**Output:**
+```
+KaaS successfully connected
+Kubeconfig saved to: /home/user/.kube/production-cluster
+Default config updated: /home/user/.kube/config
+```
+
 ## Auto-completion
 
 The CLI provides auto-completion for KaaS cluster IDs:
@@ -149,6 +239,7 @@ The CLI provides auto-completion for KaaS cluster IDs:
 acloud container kaas get <TAB>
 acloud container kaas update <TAB>
 acloud container kaas delete <TAB>
+acloud container kaas connect <TAB>
 ```
 
 ## Common Workflows
@@ -170,23 +261,43 @@ acloud container kaas delete <TAB>
    # Wait until status is "Active"
    ```
 
-3. **Configure kubectl** (after cluster is ready):
+3. **Connect to the cluster** (after cluster is ready):
    ```bash
-   # Get kubeconfig from Aruba Cloud console or API
-   # Export kubeconfig:
-   export KUBECONFIG=/path/to/kubeconfig
+   # Automatically configure kubectl
+   acloud container kaas connect <cluster-id>
    
    # Verify connection:
    kubectl get nodes
+   kubectl cluster-info
    ```
 
-### Updating Cluster Metadata
+### Updating Cluster
 
 ```bash
 # Update cluster name and tags
 acloud container kaas update <cluster-id> \
   --name "production-cluster" \
   --tags "production,kubernetes,updated"
+
+# Update Kubernetes version
+acloud container kaas update <cluster-id> \
+  --kubernetes-version "1.29.0"
+
+# Scale node pool
+acloud container kaas update <cluster-id> \
+  --node-pool-name "default-pool" \
+  --node-pool-nodes 5
+```
+
+### Connecting to a Cluster
+
+```bash
+# Connect and configure kubectl automatically
+acloud container kaas connect <cluster-id>
+
+# After connection, use kubectl normally
+kubectl get nodes
+kubectl get pods --all-namespaces
 ```
 
 ### Listing and Filtering Clusters

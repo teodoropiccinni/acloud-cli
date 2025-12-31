@@ -2,8 +2,12 @@ package cmd
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/Arubacloud/sdk-go/pkg/types"
@@ -18,16 +22,50 @@ func init() {
 	kaasCmd.AddCommand(kaasUpdateCmd)
 	kaasCmd.AddCommand(kaasDeleteCmd)
 	kaasCmd.AddCommand(kaasListCmd)
+	kaasCmd.AddCommand(kaasConnectCmd)
 
 	// Add flags for KaaS commands
 	kaasCreateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	kaasCreateCmd.Flags().String("name", "", "Name for the KaaS cluster (required)")
 	kaasCreateCmd.Flags().String("region", "", "Region code (required)")
-	kaasCreateCmd.Flags().String("version", "", "Kubernetes version (optional - check SDK for correct field)")
 	kaasCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
+
+	// Required properties
+	kaasCreateCmd.Flags().String("vpc-uri", "", "VPC URI (required, e.g., /projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id})")
+	kaasCreateCmd.Flags().String("subnet-uri", "", "Subnet URI (required, e.g., /projects/{project-id}/providers/Aruba.Network/subnets/{subnet-id})")
+	kaasCreateCmd.Flags().String("node-cidr-address", "", "Node CIDR address in CIDR notation (required, e.g., 10.0.0.0/16)")
+	kaasCreateCmd.Flags().String("node-cidr-name", "", "Node CIDR name (required)")
+	kaasCreateCmd.Flags().String("security-group-name", "", "Security group name (required)")
+	kaasCreateCmd.Flags().String("kubernetes-version", "", "Kubernetes version (required, e.g., 1.28.0)")
+	kaasCreateCmd.Flags().String("billing-period", "", "Billing period: Hour, Month, Year (optional)")
+
+	// Node pool flags (at least one node pool is required)
+	kaasCreateCmd.Flags().String("node-pool-name", "", "Node pool name (required)")
+	kaasCreateCmd.Flags().Int32("node-pool-nodes", 0, "Number of nodes in the node pool (required)")
+	kaasCreateCmd.Flags().String("node-pool-instance", "", "Instance configuration name for nodes (required)")
+	kaasCreateCmd.Flags().String("node-pool-zone", "", "Datacenter/zone code for nodes (required)")
+	kaasCreateCmd.Flags().Bool("node-pool-autoscaling", false, "Enable autoscaling for node pool")
+	kaasCreateCmd.Flags().Int32("node-pool-min-count", 0, "Minimum number of nodes for autoscaling")
+	kaasCreateCmd.Flags().Int32("node-pool-max-count", 0, "Maximum number of nodes for autoscaling")
+
+	// Optional properties
+	kaasCreateCmd.Flags().String("pod-cidr", "", "Pod CIDR (optional)")
+	kaasCreateCmd.Flags().Bool("ha", false, "Enable high availability")
+	kaasCreateCmd.Flags().StringSlice("api-server-authorized-ip-ranges", []string{}, "Authorized IP ranges for API server access (optional)")
+	kaasCreateCmd.Flags().Bool("api-server-enable-private-cluster", false, "Enable private cluster for API server (optional)")
+
 	kaasCreateCmd.MarkFlagRequired("name")
 	kaasCreateCmd.MarkFlagRequired("region")
-	// Version may not be a direct field in KaaSPropertiesRequest - check SDK documentation
+	kaasCreateCmd.MarkFlagRequired("vpc-uri")
+	kaasCreateCmd.MarkFlagRequired("subnet-uri")
+	kaasCreateCmd.MarkFlagRequired("node-cidr-address")
+	kaasCreateCmd.MarkFlagRequired("node-cidr-name")
+	kaasCreateCmd.MarkFlagRequired("security-group-name")
+	kaasCreateCmd.MarkFlagRequired("kubernetes-version")
+	kaasCreateCmd.MarkFlagRequired("node-pool-name")
+	kaasCreateCmd.MarkFlagRequired("node-pool-nodes")
+	kaasCreateCmd.MarkFlagRequired("node-pool-instance")
+	kaasCreateCmd.MarkFlagRequired("node-pool-zone")
 
 	kaasGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 
@@ -35,15 +73,34 @@ func init() {
 	kaasUpdateCmd.Flags().String("name", "", "New name for the KaaS cluster")
 	kaasUpdateCmd.Flags().StringSlice("tags", []string{}, "New tags (comma-separated)")
 
+	// Properties update flags
+	kaasUpdateCmd.Flags().String("kubernetes-version", "", "Kubernetes version to upgrade to")
+	kaasUpdateCmd.Flags().String("kubernetes-version-upgrade-date", "", "Upgrade date for Kubernetes version (optional, ISO 8601 format)")
+	kaasUpdateCmd.Flags().Bool("ha", false, "Enable/disable high availability")
+	kaasUpdateCmd.Flags().Int32("storage-max-cumulative-volume-size", 0, "Maximum cumulative volume size for storage")
+	kaasUpdateCmd.Flags().String("billing-period", "", "Billing period: Hour, Month, Year")
+
+	// Node pool update flags (for updating existing node pools)
+	kaasUpdateCmd.Flags().String("node-pool-name", "", "Node pool name to update")
+	kaasUpdateCmd.Flags().Int32("node-pool-nodes", 0, "Number of nodes in the node pool")
+	kaasUpdateCmd.Flags().String("node-pool-instance", "", "Instance configuration name for nodes")
+	kaasUpdateCmd.Flags().String("node-pool-zone", "", "Datacenter/zone code for nodes")
+	kaasUpdateCmd.Flags().Bool("node-pool-autoscaling", false, "Enable autoscaling for node pool")
+	kaasUpdateCmd.Flags().Int32("node-pool-min-count", 0, "Minimum number of nodes for autoscaling")
+	kaasUpdateCmd.Flags().Int32("node-pool-max-count", 0, "Maximum number of nodes for autoscaling")
+
 	kaasDeleteCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	kaasDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	kaasListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 
+	kaasConnectCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+
 	// Set up auto-completion for resource IDs
 	kaasGetCmd.ValidArgsFunction = completeKaaSID
 	kaasUpdateCmd.ValidArgsFunction = completeKaaSID
 	kaasDeleteCmd.ValidArgsFunction = completeKaaSID
+	kaasConnectCmd.ValidArgsFunction = completeKaaSID
 }
 
 // Completion functions for container resources
@@ -96,20 +153,60 @@ var kaasCreateCmd = &cobra.Command{
 			return
 		}
 
+		// Get metadata flags
 		name, _ := cmd.Flags().GetString("name")
 		region, _ := cmd.Flags().GetString("region")
-		version, _ := cmd.Flags().GetString("version")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 
-		if name == "" || region == "" || version == "" {
-			fmt.Println("Error: --name, --region, and --version are required")
-			return
-		}
+		// Get required properties flags
+		vpcURI, _ := cmd.Flags().GetString("vpc-uri")
+		subnetURI, _ := cmd.Flags().GetString("subnet-uri")
+		nodeCIDRAddress, _ := cmd.Flags().GetString("node-cidr-address")
+		nodeCIDRName, _ := cmd.Flags().GetString("node-cidr-name")
+		securityGroupName, _ := cmd.Flags().GetString("security-group-name")
+		kubernetesVersion, _ := cmd.Flags().GetString("kubernetes-version")
+		billingPeriod, _ := cmd.Flags().GetString("billing-period")
+
+		// Get node pool flags
+		nodePoolName, _ := cmd.Flags().GetString("node-pool-name")
+		nodePoolNodes, _ := cmd.Flags().GetInt32("node-pool-nodes")
+		nodePoolInstance, _ := cmd.Flags().GetString("node-pool-instance")
+		nodePoolZone, _ := cmd.Flags().GetString("node-pool-zone")
+		nodePoolAutoscaling, _ := cmd.Flags().GetBool("node-pool-autoscaling")
+		nodePoolMinCount, _ := cmd.Flags().GetInt32("node-pool-min-count")
+		nodePoolMaxCount, _ := cmd.Flags().GetInt32("node-pool-max-count")
+
+		// Get optional flags
+		podCIDR, _ := cmd.Flags().GetString("pod-cidr")
+		ha, _ := cmd.Flags().GetBool("ha")
+		apiServerAuthorizedIPRanges, _ := cmd.Flags().GetStringSlice("api-server-authorized-ip-ranges")
+		apiServerEnablePrivateCluster, _ := cmd.Flags().GetBool("api-server-enable-private-cluster")
 
 		client, err := GetArubaClient()
 		if err != nil {
 			fmt.Printf("Error initializing client: %v\n", err)
 			return
+		}
+
+		// Build node pool
+		nodePool := types.NodePoolProperties{
+			Name:        nodePoolName,
+			Nodes:       nodePoolNodes,
+			Instance:    nodePoolInstance,
+			Zone:        nodePoolZone,
+			Autoscaling: nodePoolAutoscaling,
+		}
+		if nodePoolMinCount > 0 {
+			nodePool.MinCount = &nodePoolMinCount
+		}
+		if nodePoolMaxCount > 0 {
+			nodePool.MaxCount = &nodePoolMaxCount
+		}
+
+		// Build HA flag if set
+		var haPtr *bool
+		if ha {
+			haPtr = &ha
 		}
 
 		// Build the create request
@@ -124,9 +221,48 @@ var kaasCreateCmd = &cobra.Command{
 				},
 			},
 			Properties: types.KaaSPropertiesRequest{
-				// Note: Version field may not exist in KaaSPropertiesRequest
-				// Check SDK documentation for correct way to specify Kubernetes version
+				VPC: types.ReferenceResource{
+					URI: vpcURI,
+				},
+				Subnet: types.ReferenceResource{
+					URI: subnetURI,
+				},
+				NodeCIDR: types.NodeCIDRProperties{
+					Address: nodeCIDRAddress,
+					Name:    nodeCIDRName,
+				},
+				SecurityGroup: types.SecurityGroupProperties{
+					Name: securityGroupName,
+				},
+				KubernetesVersion: types.KubernetesVersionInfo{
+					Value: kubernetesVersion,
+				},
+				NodePools: []types.NodePoolProperties{nodePool},
 			},
+		}
+
+		// Add optional fields
+		if podCIDR != "" {
+			createRequest.Properties.PodCIDR = &podCIDR
+		}
+		if haPtr != nil {
+			createRequest.Properties.HA = haPtr
+		}
+		// BillingPlan is optional - only set if provided
+		if billingPeriod != "" {
+			createRequest.Properties.BillingPlan = types.BillingPeriodResource{
+				BillingPeriod: billingPeriod,
+			}
+		}
+		// APIServerAccessProfile is optional - only set if provided
+		if len(apiServerAuthorizedIPRanges) > 0 || apiServerEnablePrivateCluster {
+			apiServerAccessProfile := &types.APIServerAccessProfileProperties{
+				EnablePrivateCluster: apiServerEnablePrivateCluster,
+			}
+			if len(apiServerAuthorizedIPRanges) > 0 {
+				apiServerAccessProfile.AuthorizedIPRanges = &apiServerAuthorizedIPRanges
+			}
+			createRequest.Properties.APIServerAccessProfile = apiServerAccessProfile
 		}
 
 		ctx := context.Background()
@@ -154,6 +290,10 @@ var kaasCreateCmd = &cobra.Command{
 				{Header: "VERSION", Width: 20},
 				{Header: "REGION", Width: 20},
 			}
+			version := ""
+			if response.Data.Properties.KubernetesVersion.Value != nil {
+				version = *response.Data.Properties.KubernetesVersion.Value
+			}
 			row := []string{
 				func() string {
 					if response.Data.Metadata.ID != nil {
@@ -167,7 +307,7 @@ var kaasCreateCmd = &cobra.Command{
 					}
 					return ""
 				}(),
-				"", // Version field may not be available in response
+				version,
 				func() string {
 					if response.Data.Metadata.LocationResponse != nil {
 						return response.Data.Metadata.LocationResponse.Value
@@ -237,8 +377,9 @@ var kaasGetCmd = &cobra.Command{
 			if kaas.Metadata.LocationResponse != nil {
 				fmt.Printf("Region:          %s\n", kaas.Metadata.LocationResponse.Value)
 			}
-			// Version field may not be available in KaaSPropertiesResponse
-			// Check SDK documentation for correct field name
+			if kaas.Properties.KubernetesVersion.Value != nil {
+				fmt.Printf("Kubernetes Version: %s\n", *kaas.Properties.KubernetesVersion.Value)
+			}
 			if kaas.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *kaas.Status.State)
 			}
@@ -277,15 +418,6 @@ var kaasUpdateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		kaasID := args[0]
 
-		name, _ := cmd.Flags().GetString("name")
-		tags, _ := cmd.Flags().GetStringSlice("tags")
-
-		// Note: The new SDK only supports updating properties, not metadata (name/tags)
-		if name != "" || len(tags) > 0 {
-			fmt.Println("Warning: Updating name and tags is not supported in the current SDK version.")
-			fmt.Println("The update will only modify cluster properties (Kubernetes version, node pools, etc.).")
-		}
-
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -312,69 +444,162 @@ var kaasUpdateCmd = &cobra.Command{
 
 		current := getResponse.Data
 
-		// Build the update request using KaaSUpdateRequest (only supports properties)
-		// Convert from response types to update request types
+		// Get metadata update flags
+		name, _ := cmd.Flags().GetString("name")
+		tags, _ := cmd.Flags().GetStringSlice("tags")
+		region := ""
+		if current.Metadata.LocationResponse != nil {
+			region = current.Metadata.LocationResponse.Value
+		}
+
+		// Get properties update flags
+		kubernetesVersion, _ := cmd.Flags().GetString("kubernetes-version")
+		kubernetesVersionUpgradeDate, _ := cmd.Flags().GetString("kubernetes-version-upgrade-date")
+		haFlag, _ := cmd.Flags().GetBool("ha")
+		storageMaxSize, _ := cmd.Flags().GetInt32("storage-max-cumulative-volume-size")
+		billingPeriod, _ := cmd.Flags().GetString("billing-period")
+
+		// Get node pool update flags
+		nodePoolName, _ := cmd.Flags().GetString("node-pool-name")
+		nodePoolNodes, _ := cmd.Flags().GetInt32("node-pool-nodes")
+		nodePoolInstance, _ := cmd.Flags().GetString("node-pool-instance")
+		nodePoolZone, _ := cmd.Flags().GetString("node-pool-zone")
+		nodePoolAutoscaling, _ := cmd.Flags().GetBool("node-pool-autoscaling")
+		nodePoolMinCount, _ := cmd.Flags().GetInt32("node-pool-min-count")
+		nodePoolMaxCount, _ := cmd.Flags().GetInt32("node-pool-max-count")
+
+		// Build metadata update (use current values if not provided)
+		updateName := name
+		if updateName == "" && current.Metadata.Name != nil {
+			updateName = *current.Metadata.Name
+		}
+		updateTags := tags
+		if len(updateTags) == 0 {
+			updateTags = current.Metadata.Tags
+		}
+
+		// Build properties update
+		// KubernetesVersion is required - use provided or current
+		kubernetesVersionValue := kubernetesVersion
+		if kubernetesVersionValue == "" {
+			if current.Properties.KubernetesVersion.Value != nil {
+				kubernetesVersionValue = *current.Properties.KubernetesVersion.Value
+			} else {
+				fmt.Println("Error: Kubernetes version is required")
+				return
+			}
+		}
+
+		kubernetesVersionUpdate := types.KubernetesVersionInfoUpdate{
+			Value: kubernetesVersionValue,
+		}
+		if kubernetesVersionUpgradeDate != "" {
+			kubernetesVersionUpdate.UpgradeDate = &kubernetesVersionUpgradeDate
+		}
+
+		// NodePools is required - use provided values or current
+		var nodePools []types.NodePoolProperties
+		if nodePoolName != "" {
+			// Update specific node pool or add new one
+			nodePool := types.NodePoolProperties{
+				Name:        nodePoolName,
+				Nodes:       nodePoolNodes,
+				Instance:    nodePoolInstance,
+				Zone:        nodePoolZone,
+				Autoscaling: nodePoolAutoscaling,
+			}
+			if nodePoolMinCount > 0 {
+				nodePool.MinCount = &nodePoolMinCount
+			}
+			if nodePoolMaxCount > 0 {
+				nodePool.MaxCount = &nodePoolMaxCount
+			}
+			nodePools = []types.NodePoolProperties{nodePool}
+		} else {
+			// Use current node pools
+			if current.Properties.NodePools != nil {
+				for _, np := range *current.Properties.NodePools {
+					nodePool := types.NodePoolProperties{
+						Name: func() string {
+							if np.Name != nil {
+								return *np.Name
+							}
+							return ""
+						}(),
+						Nodes: func() int32 {
+							if np.Nodes != nil {
+								return *np.Nodes
+							}
+							return 0
+						}(),
+						Autoscaling: np.Autoscaling,
+						MinCount:    np.MinCount,
+						MaxCount:    np.MaxCount,
+					}
+					if np.Instance != nil && np.Instance.Name != nil {
+						nodePool.Instance = *np.Instance.Name
+					}
+					if np.DataCenter != nil && np.DataCenter.Code != nil {
+						nodePool.Zone = *np.DataCenter.Code
+					}
+					nodePools = append(nodePools, nodePool)
+				}
+			}
+		}
+
+		// Build optional fields
+		var haPtr *bool
+		if cmd.Flags().Changed("ha") {
+			haPtr = &haFlag
+		} else if current.Properties.HA != nil {
+			haPtr = current.Properties.HA
+		}
+
+		var storage *types.StorageKubernetes
+		if storageMaxSize > 0 {
+			storage = &types.StorageKubernetes{
+				MaxCumulativeVolumeSize: &storageMaxSize,
+			}
+		} else if current.Properties.Storage != nil {
+			storage = current.Properties.Storage
+		}
+
+		var billingPlan *types.BillingPeriodResource
+		if billingPeriod != "" {
+			billingPlan = &types.BillingPeriodResource{
+				BillingPeriod: billingPeriod,
+			}
+		} else if current.Properties.BillingPlan != nil && current.Properties.BillingPlan.BillingPeriod != nil {
+			billingPlan = &types.BillingPeriodResource{
+				BillingPeriod: *current.Properties.BillingPlan.BillingPeriod,
+			}
+		}
+
+		// Build the update request
 		updateRequest := types.KaaSUpdateRequest{
-			Properties: types.KaaSPropertiesUpdateRequest{
-				// KubernetesVersion is required
-				KubernetesVersion: types.KubernetesVersionInfoUpdate{
-					Value: func() string {
-						if current.Properties.KubernetesVersion.Value != nil {
-							return *current.Properties.KubernetesVersion.Value
-						}
-						return ""
-					}(),
+			Metadata: types.RegionalResourceMetadataRequest{
+				ResourceMetadataRequest: types.ResourceMetadataRequest{
+					Name: updateName,
+					Tags: updateTags,
 				},
-				// NodePools is required - convert from response to request format
-				NodePools: func() []types.NodePoolProperties {
-					if current.Properties.NodePools == nil {
-						return []types.NodePoolProperties{}
-					}
-					var nodePools []types.NodePoolProperties
-					for _, np := range *current.Properties.NodePools {
-						nodePool := types.NodePoolProperties{
-							Name: func() string {
-								if np.Name != nil {
-									return *np.Name
-								} else {
-									return ""
-								}
-							}(),
-							Nodes: func() int32 {
-								if np.Nodes != nil {
-									return *np.Nodes
-								} else {
-									return 0
-								}
-							}(),
-							Autoscaling: np.Autoscaling,
-							MinCount:    np.MinCount,
-							MaxCount:    np.MaxCount,
-						}
-						// Instance - convert from InstanceResponse to string
-						if np.Instance != nil && np.Instance.Name != nil {
-							nodePool.Instance = *np.Instance.Name
-						}
-						// DataCenter - convert from DataCenterResponse to string
-						if np.DataCenter != nil && np.DataCenter.Code != nil {
-							nodePool.Zone = *np.DataCenter.Code
-						}
-						nodePools = append(nodePools, nodePool)
-					}
-					return nodePools
-				}(),
-				// Optional fields
-				HA:      current.Properties.HA,
-				Storage: current.Properties.Storage,
-				BillingPlan: func() *types.BillingPeriodResource {
-					if current.Properties.BillingPlan != nil && current.Properties.BillingPlan.BillingPeriod != nil {
-						return &types.BillingPeriodResource{
-							BillingPeriod: *current.Properties.BillingPlan.BillingPeriod,
-						}
-					}
-					return nil
-				}(),
+				Location: types.LocationRequest{
+					Value: region,
+				},
 			},
+			Properties: types.KaaSPropertiesUpdateRequest{
+				KubernetesVersion: kubernetesVersionUpdate,
+				NodePools:         nodePools,
+			},
+		}
+
+		if haPtr != nil {
+			updateRequest.Properties.HA = haPtr
+		}
+		if storage != nil {
+			updateRequest.Properties.Storage = storage
+		}
+		if billingPlan != nil {
+			updateRequest.Properties.BillingPlan = billingPlan
 		}
 
 		response, err := client.FromContainer().KaaS().Update(ctx, projectID, kaasID, updateRequest, nil)
@@ -506,7 +731,10 @@ var kaasListCmd = &cobra.Command{
 				if kaas.Metadata.Name != nil {
 					name = *kaas.Metadata.Name
 				}
-				version := "" // Version field may not be available
+				version := ""
+				if kaas.Properties.KubernetesVersion.Value != nil {
+					version = *kaas.Properties.KubernetesVersion.Value
+				}
 				region := ""
 				if kaas.Metadata.LocationResponse != nil {
 					region = kaas.Metadata.LocationResponse.Value
@@ -529,5 +757,106 @@ var kaasListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No KaaS clusters found")
 		}
+	},
+}
+
+var kaasConnectCmd = &cobra.Command{
+	Use:   "connect [kaas-id]",
+	Short: "Connect to a KaaS cluster and configure kubectl",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		kaasID := args[0]
+
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+
+		client, err := GetArubaClient()
+		if err != nil {
+			fmt.Printf("Error initializing client: %v\n", err)
+			return
+		}
+
+		ctx := context.Background()
+		response, err := client.FromContainer().KaaS().DownloadKubeconfig(ctx, projectID, kaasID, nil)
+		if err != nil {
+			fmt.Printf("Error downloading kubeconfig: %v\n", err)
+			return
+		}
+
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to connect to KaaS cluster - Status: %d\n", response.StatusCode)
+			if response.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *response.Error.Title)
+			}
+			if response.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
+			}
+			return
+		}
+
+		if response == nil || response.Data == nil {
+			fmt.Println("Error: No kubeconfig data returned")
+			return
+		}
+
+		kubeconfig := response.Data
+
+		// Decode base64 content
+		decodedContent, err := base64.StdEncoding.DecodeString(kubeconfig.Content)
+		if err != nil {
+			fmt.Printf("Error decoding kubeconfig content: %v\n", err)
+			return
+		}
+
+		// Get home directory
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			fmt.Printf("Error getting home directory: %v\n", err)
+			return
+		}
+
+		// Create .kube directory if it doesn't exist
+		kubeDir := filepath.Join(homeDir, ".kube")
+		err = os.MkdirAll(kubeDir, 0755)
+		if err != nil {
+			fmt.Printf("Error creating .kube directory: %v\n", err)
+			return
+		}
+
+		// Write kubeconfig file with name from response
+		kubeconfigFile := filepath.Join(kubeDir, kubeconfig.Name)
+		err = os.WriteFile(kubeconfigFile, decodedContent, 0600)
+		if err != nil {
+			fmt.Printf("Error writing kubeconfig file: %v\n", err)
+			return
+		}
+
+		// Copy to config file (overwrite if exists)
+		configFile := filepath.Join(kubeDir, "config")
+		err = os.WriteFile(configFile, decodedContent, 0600)
+		if err != nil {
+			fmt.Printf("Error writing config file: %v\n", err)
+			return
+		}
+
+		// Run kubectl cluster-info
+		kubectlCmd := exec.Command("kubectl", "cluster-info")
+		output, err := kubectlCmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("Error: kubectl cluster-info failed\n")
+			fmt.Printf("Error details: %v\n", err)
+			if len(output) > 0 {
+				fmt.Printf("kubectl output: %s\n", string(output))
+			}
+			os.Exit(1)
+		}
+
+		// Success message
+		fmt.Println("KaaS successfully connected")
+		fmt.Printf("Kubeconfig saved to: %s\n", kubeconfigFile)
+		fmt.Printf("Default config updated: %s\n", configFile)
 	},
 }

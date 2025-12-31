@@ -73,7 +73,10 @@ const config = {
         title: 'Aruba Cloud CLI',
         logo: {
           alt: 'Aruba Cloud CLI Logo',
-          src: 'img/logo.svg',
+          src: 'img/logo-cloud.png',
+          srcDark: 'img/logo-cloud.png',
+          width: 32,
+          height: 32,
         },
         items: [
           {
@@ -128,6 +131,10 @@ const config = {
               {
                 label: 'Aruba Cloud',
                 href: 'https://www.arubacloud.com',
+              },
+              {
+                label: 'Changelog',
+                href: 'https://github.com/Arubacloud/acloud-cli/releases',
               },
             ],
           },

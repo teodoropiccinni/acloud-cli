@@ -18,6 +18,10 @@ func init() {
 	cloudserverCmd.AddCommand(cloudserverUpdateCmd)
 	cloudserverCmd.AddCommand(cloudserverDeleteCmd)
 	cloudserverCmd.AddCommand(cloudserverListCmd)
+	cloudserverCmd.AddCommand(cloudserverPowerOnCmd)
+	cloudserverCmd.AddCommand(cloudserverPowerOffCmd)
+	cloudserverCmd.AddCommand(cloudserverSetPasswordCmd)
+	cloudserverCmd.AddCommand(cloudserverConnectCmd)
 
 	// Add flags for cloudserver commands
 	cloudserverCreateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
@@ -43,10 +47,38 @@ func init() {
 
 	cloudserverListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 
+	cloudserverPowerOnCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	cloudserverPowerOffCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+
+	cloudserverSetPasswordCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	cloudserverSetPasswordCmd.Flags().String("password", "", "New password for the cloud server (required)")
+	cloudserverSetPasswordCmd.MarkFlagRequired("password")
+
+	cloudserverConnectCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	cloudserverConnectCmd.Flags().String("user", "<user>", "SSH username (required - see documentation for image-specific users)")
+
 	// Set up auto-completion for resource IDs
 	cloudserverGetCmd.ValidArgsFunction = completeCloudServerID
 	cloudserverUpdateCmd.ValidArgsFunction = completeCloudServerID
 	cloudserverDeleteCmd.ValidArgsFunction = completeCloudServerID
+	cloudserverPowerOnCmd.ValidArgsFunction = completeCloudServerID
+	cloudserverPowerOffCmd.ValidArgsFunction = completeCloudServerID
+	cloudserverSetPasswordCmd.ValidArgsFunction = completeCloudServerID
+	cloudserverConnectCmd.ValidArgsFunction = completeCloudServerID
+}
+
+// Helper function to extract ID from URI
+func extractIDFromURI(uri string) string {
+	if uri == "" {
+		return ""
+	}
+	// URI format: /projects/{projectId}/providers/Aruba.Compute/cloudServers/{serverId}
+	parts := strings.Split(uri, "/")
+	if len(parts) > 0 {
+		// Get the last part which should be the ID
+		return parts[len(parts)-1]
+	}
+	return ""
 }
 
 // Completion functions for compute resources
@@ -71,11 +103,18 @@ func completeCloudServerID(cmd *cobra.Command, args []string, toComplete string)
 	if response != nil && response.Data != nil {
 		for _, server := range response.Data.Values {
 			name := server.Metadata.Name
+			// Try to extract ID from BootVolume URI or other URI fields
+			id := name // Default to name
+			if server.Properties.BootVolume.URI != "" {
+				// Try to extract from a URI pattern if available
+				// For now, use name as identifier
+				id = name
+			}
 			if name != "" {
 				// For completion, we can use name or try to extract ID from URI if available
 				// The response structure may vary, so we'll use name as the primary identifier
-				if toComplete == "" || strings.HasPrefix(name, toComplete) {
-					completions = append(completions, fmt.Sprintf("%s\tCloud Server", name))
+				if toComplete == "" || strings.HasPrefix(name, toComplete) || strings.HasPrefix(id, toComplete) {
+					completions = append(completions, fmt.Sprintf("%s\tCloud Server", id))
 				}
 			}
 		}
@@ -489,41 +528,54 @@ var cloudserverListCmd = &cobra.Command{
 
 		if response != nil && response.Data != nil && len(response.Data.Values) > 0 {
 			headers := []TableColumn{
-				{Header: "ID", Width: 30},
 				{Header: "NAME", Width: 25},
+				{Header: "ID", Width: 30},
 				{Header: "LOCATION", Width: 15},
 				{Header: "FLAVOR", Width: 15},
-				{Header: "CPU", Width: 10},
-				{Header: "RAM(GB)", Width: 15},
-				{Header: "HD(GB)", Width: 15},
 				{Header: "STATUS", Width: 15},
 			}
 
+			// Extract IDs from raw JSON response if available
+			// The SDK type definition uses Request types but actual response has ID fields
+			idMap := make(map[int]string) // Map server index to ID
+			if response.RawBody != nil {
+				var rawResponse map[string]interface{}
+				if err := json.Unmarshal(response.RawBody, &rawResponse); err == nil {
+					if values, ok := rawResponse["values"].([]interface{}); ok {
+						for i, val := range values {
+							if serverMap, ok := val.(map[string]interface{}); ok {
+								if metadata, ok := serverMap["metadata"].(map[string]interface{}); ok {
+									if idVal, ok := metadata["id"].(string); ok && idVal != "" {
+										idMap[i] = idVal
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
 			var rows [][]string
-			for _, server := range response.Data.Values {
+			for idx, server := range response.Data.Values {
 				name := server.Metadata.Name
 				location := server.Metadata.Location.Value
 				flavor := server.Properties.Flavor.Name
-				cpu := server.Properties.Flavor.CPU
-				ram := server.Properties.Flavor.RAM
-				disk := server.Properties.Flavor.HD
 				status := ""
 				if server.Status.State != nil {
 					status = *server.Status.State
 				}
 
-				// CloudServer list response may not expose ID in metadata
-				// Use name as identifier or extract from URI
-				id := server.Metadata.Name // Use name for now
+				// Get ID from raw JSON map, fallback to name
+				id := idMap[idx]
+				if id == "" {
+					id = name
+				}
 
 				rows = append(rows, []string{
-					id,
 					name,
+					id,
 					location,
 					flavor,
-					fmt.Sprintf("%d", cpu),
-					fmt.Sprintf("%d", ram),
-					fmt.Sprintf("%d", disk),
 					status,
 				})
 			}
@@ -532,5 +584,284 @@ var cloudserverListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No cloud servers found")
 		}
+	},
+}
+
+var cloudserverPowerOnCmd = &cobra.Command{
+	Use:   "power-on [cloudserver-id]",
+	Short: "Power on a cloud server",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		serverID := args[0]
+
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+
+		client, err := GetArubaClient()
+		if err != nil {
+			fmt.Printf("Error initializing client: %v\n", err)
+			return
+		}
+
+		ctx := context.Background()
+		response, err := client.FromCompute().CloudServers().PowerOn(ctx, projectID, serverID, nil)
+		if err != nil {
+			fmt.Printf("Error powering on cloud server: %v\n", err)
+			return
+		}
+
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to power on cloud server - Status: %d\n", response.StatusCode)
+			if response.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *response.Error.Title)
+			}
+			if response.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
+			}
+			return
+		}
+
+		if response != nil && response.Data != nil {
+			fmt.Println("Cloud server powered on successfully!")
+			fmt.Printf("Server: %s\n", response.Data.Metadata.Name)
+			if response.Data.Status.State != nil {
+				fmt.Printf("Status: %s\n", *response.Data.Status.State)
+			}
+		} else {
+			fmt.Println("Cloud server power-on initiated. Use 'get' to check status.")
+		}
+	},
+}
+
+var cloudserverPowerOffCmd = &cobra.Command{
+	Use:   "power-off [cloudserver-id]",
+	Short: "Power off a cloud server",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		serverID := args[0]
+
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+
+		client, err := GetArubaClient()
+		if err != nil {
+			fmt.Printf("Error initializing client: %v\n", err)
+			return
+		}
+
+		ctx := context.Background()
+		response, err := client.FromCompute().CloudServers().PowerOff(ctx, projectID, serverID, nil)
+		if err != nil {
+			fmt.Printf("Error powering off cloud server: %v\n", err)
+			return
+		}
+
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to power off cloud server - Status: %d\n", response.StatusCode)
+			if response.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *response.Error.Title)
+			}
+			if response.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
+			}
+			return
+		}
+
+		if response != nil && response.Data != nil {
+			fmt.Println("Cloud server powered off successfully!")
+			fmt.Printf("Server: %s\n", response.Data.Metadata.Name)
+			if response.Data.Status.State != nil {
+				fmt.Printf("Status: %s\n", *response.Data.Status.State)
+			}
+		} else {
+			fmt.Println("Cloud server power-off initiated. Use 'get' to check status.")
+		}
+	},
+}
+
+var cloudserverSetPasswordCmd = &cobra.Command{
+	Use:   "set-password [cloudserver-id]",
+	Short: "Set password for a cloud server",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		serverID := args[0]
+
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+
+		password, _ := cmd.Flags().GetString("password")
+		if password == "" {
+			fmt.Println("Error: --password is required")
+			return
+		}
+
+		client, err := GetArubaClient()
+		if err != nil {
+			fmt.Printf("Error initializing client: %v\n", err)
+			return
+		}
+
+		ctx := context.Background()
+		passwordRequest := types.CloudServerPasswordRequest{
+			Password: password,
+		}
+
+		response, err := client.FromCompute().CloudServers().SetPassword(ctx, projectID, serverID, passwordRequest, nil)
+		if err != nil {
+			fmt.Printf("Error setting password for cloud server: %v\n", err)
+			return
+		}
+
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to set password for cloud server - Status: %d\n", response.StatusCode)
+			if response.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *response.Error.Title)
+			}
+			if response.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
+			}
+			return
+		}
+
+		if response != nil && response.Data != nil {
+			// Try to cast to CloudServerResponse to get detailed info
+			// response.Data is *any, so we need to dereference and assert
+			if data, ok := (*response.Data).(*types.CloudServerResponse); ok && data != nil {
+				fmt.Println("Cloud server password set successfully!")
+				fmt.Printf("Server: %s\n", data.Metadata.Name)
+				if data.Status.State != nil {
+					fmt.Printf("Status: %s\n", *data.Status.State)
+				}
+			} else {
+				// If response doesn't have CloudServerResponse structure, show simple success
+				fmt.Println("Cloud server password set successfully!")
+				fmt.Printf("Server ID: %s\n", serverID)
+			}
+		} else {
+			fmt.Println("Cloud server password set successfully!")
+			fmt.Printf("Server ID: %s\n", serverID)
+		}
+	},
+}
+
+var cloudserverConnectCmd = &cobra.Command{
+	Use:   "connect [cloudserver-id]",
+	Short: "Get SSH connection information for a cloud server",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		serverID := args[0]
+
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+
+		user, _ := cmd.Flags().GetString("user")
+		if user == "" || user == "<user>" {
+			fmt.Println("Error: --user is required")
+			fmt.Println("\nCommon SSH users by image type:")
+			fmt.Println("  - Ubuntu/Debian: ubuntu")
+			fmt.Println("  - CentOS/RHEL: centos or root")
+			fmt.Println("  - Other Linux: root or check image documentation")
+			fmt.Println("\nFor more information, see: https://kb.arubacloud.com/cmp/en/computing/cloud-server.aspx")
+			return
+		}
+
+		client, err := GetArubaClient()
+		if err != nil {
+			fmt.Printf("Error initializing client: %v\n", err)
+			return
+		}
+
+		ctx := context.Background()
+
+		// First, get the cloud server details
+		serverResp, err := client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
+		if err != nil {
+			fmt.Printf("Error getting cloud server: %v\n", err)
+			return
+		}
+
+		if serverResp != nil && serverResp.IsError() && serverResp.Error != nil {
+			fmt.Printf("Failed to get cloud server - Status: %d\n", serverResp.StatusCode)
+			if serverResp.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *serverResp.Error.Title)
+			}
+			if serverResp.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *serverResp.Error.Detail)
+			}
+			return
+		}
+
+		if serverResp == nil || serverResp.Data == nil {
+			fmt.Println("Cloud server not found or no data returned.")
+			return
+		}
+
+		server := serverResp.Data
+
+		// Check for ElasticIP in linked resources
+		var elasticIPURI string
+		for _, linkedResource := range server.Properties.LinkedResources {
+			if strings.Contains(linkedResource.URI, "providers/Aruba.Network/elasticIps") {
+				elasticIPURI = linkedResource.URI
+				break
+			}
+		}
+
+		if elasticIPURI == "" {
+			fmt.Println("No Elastic IP found for this cloud server.")
+			fmt.Println("The server must have an Elastic IP linked to use the connect command.")
+			return
+		}
+
+		// Extract ElasticIP ID from URI
+		elasticIPID := extractIDFromURI(elasticIPURI)
+		if elasticIPID == "" {
+			fmt.Printf("Error: Could not extract Elastic IP ID from URI: %s\n", elasticIPURI)
+			return
+		}
+
+		// Get ElasticIP details
+		eipResp, err := client.FromNetwork().ElasticIPs().Get(ctx, projectID, elasticIPID, nil)
+		if err != nil {
+			fmt.Printf("Error getting Elastic IP details: %v\n", err)
+			return
+		}
+
+		if eipResp != nil && eipResp.IsError() && eipResp.Error != nil {
+			fmt.Printf("Failed to get Elastic IP - Status: %d\n", eipResp.StatusCode)
+			if eipResp.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *eipResp.Error.Title)
+			}
+			if eipResp.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *eipResp.Error.Detail)
+			}
+			return
+		}
+
+		if eipResp == nil || eipResp.Data == nil {
+			fmt.Println("Elastic IP not found or no data returned.")
+			return
+		}
+
+		eip := eipResp.Data
+		if eip.Properties.Address == nil || *eip.Properties.Address == "" {
+			fmt.Println("Elastic IP address not available.")
+			return
+		}
+
+		// Print SSH connection command
+		fmt.Printf("Connect by running: ssh %s@%s\n", user, *eip.Properties.Address)
 	},
 }
