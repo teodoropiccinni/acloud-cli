@@ -21,6 +21,7 @@ func init() {
 	cloudserverCmd.AddCommand(cloudserverPowerOnCmd)
 	cloudserverCmd.AddCommand(cloudserverPowerOffCmd)
 	cloudserverCmd.AddCommand(cloudserverSetPasswordCmd)
+	cloudserverCmd.AddCommand(cloudserverConnectCmd)
 
 	// Add flags for cloudserver commands
 	cloudserverCreateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
@@ -53,6 +54,9 @@ func init() {
 	cloudserverSetPasswordCmd.Flags().String("password", "", "New password for the cloud server (required)")
 	cloudserverSetPasswordCmd.MarkFlagRequired("password")
 
+	cloudserverConnectCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	cloudserverConnectCmd.Flags().String("user", "<user>", "SSH username (required - see documentation for image-specific users)")
+
 	// Set up auto-completion for resource IDs
 	cloudserverGetCmd.ValidArgsFunction = completeCloudServerID
 	cloudserverUpdateCmd.ValidArgsFunction = completeCloudServerID
@@ -60,6 +64,7 @@ func init() {
 	cloudserverPowerOnCmd.ValidArgsFunction = completeCloudServerID
 	cloudserverPowerOffCmd.ValidArgsFunction = completeCloudServerID
 	cloudserverSetPasswordCmd.ValidArgsFunction = completeCloudServerID
+	cloudserverConnectCmd.ValidArgsFunction = completeCloudServerID
 }
 
 // Helper function to extract ID from URI
@@ -523,58 +528,54 @@ var cloudserverListCmd = &cobra.Command{
 
 		if response != nil && response.Data != nil && len(response.Data.Values) > 0 {
 			headers := []TableColumn{
-				{Header: "ID", Width: 30},
 				{Header: "NAME", Width: 25},
+				{Header: "ID", Width: 30},
 				{Header: "LOCATION", Width: 15},
 				{Header: "FLAVOR", Width: 15},
-				{Header: "CPU", Width: 10},
-				{Header: "RAM(GB)", Width: 15},
-				{Header: "HD(GB)", Width: 15},
 				{Header: "STATUS", Width: 15},
 			}
 
+			// Extract IDs from raw JSON response if available
+			// The SDK type definition uses Request types but actual response has ID fields
+			idMap := make(map[int]string) // Map server index to ID
+			if response.RawBody != nil {
+				var rawResponse map[string]interface{}
+				if err := json.Unmarshal(response.RawBody, &rawResponse); err == nil {
+					if values, ok := rawResponse["values"].([]interface{}); ok {
+						for i, val := range values {
+							if serverMap, ok := val.(map[string]interface{}); ok {
+								if metadata, ok := serverMap["metadata"].(map[string]interface{}); ok {
+									if idVal, ok := metadata["id"].(string); ok && idVal != "" {
+										idMap[i] = idVal
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
 			var rows [][]string
-			for _, server := range response.Data.Values {
+			for idx, server := range response.Data.Values {
 				name := server.Metadata.Name
 				location := server.Metadata.Location.Value
 				flavor := server.Properties.Flavor.Name
-				cpu := server.Properties.Flavor.CPU
-				ram := server.Properties.Flavor.RAM
-				disk := server.Properties.Flavor.HD
 				status := ""
 				if server.Status.State != nil {
 					status = *server.Status.State
 				}
 
-				// Extract ID - CloudServerResponse uses RegionalResourceMetadataRequest which doesn't have ID
-				// Try to extract from VPC URI pattern if it contains cloudServers path
-				// Format: /projects/{projectId}/providers/Aruba.Compute/cloudServers/{serverId}
-				id := name // Default to name
-				
-				// Check VPC URI - it might contain the server reference
-				if server.Properties.VPC.URI != "" {
-					// VPC URI format: /projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}
-					// This doesn't help us get the server ID
+				// Get ID from raw JSON map, fallback to name
+				id := idMap[idx]
+				if id == "" {
+					id = name
 				}
-				
-				// Since CloudServerResponse doesn't expose ID in metadata, we need to extract it
-				// The ID should be available in the response but might be in a different field
-				// For now, we'll try to get it by making a Get call, but that's inefficient
-				// Let's check if there's a way to get it from the response structure
-				
-				// Actually, let's check if the server name IS the ID (some APIs use name as ID)
-				// Or we might need to extract from a URI field if available
-				// For now, use name as the identifier
-				id = name
 
 				rows = append(rows, []string{
-					id,
 					name,
+					id,
 					location,
 					flavor,
-					fmt.Sprintf("%d", cpu),
-					fmt.Sprintf("%d", ram),
-					fmt.Sprintf("%d", disk),
 					status,
 				})
 			}
@@ -731,7 +732,136 @@ var cloudserverSetPasswordCmd = &cobra.Command{
 			return
 		}
 
+		if response != nil && response.Data != nil {
+			// Try to cast to CloudServerResponse to get detailed info
+			// response.Data is *any, so we need to dereference and assert
+			if data, ok := (*response.Data).(*types.CloudServerResponse); ok && data != nil {
+				fmt.Println("Cloud server password set successfully!")
+				fmt.Printf("Server: %s\n", data.Metadata.Name)
+				if data.Status.State != nil {
+					fmt.Printf("Status: %s\n", *data.Status.State)
+				}
+			} else {
+				// If response doesn't have CloudServerResponse structure, show simple success
+				fmt.Println("Cloud server password set successfully!")
+				fmt.Printf("Server ID: %s\n", serverID)
+			}
+		} else {
 		fmt.Println("Cloud server password set successfully!")
 		fmt.Printf("Server ID: %s\n", serverID)
+		}
+	},
+}
+
+var cloudserverConnectCmd = &cobra.Command{
+	Use:   "connect [cloudserver-id]",
+	Short: "Get SSH connection information for a cloud server",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		serverID := args[0]
+
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+
+		user, _ := cmd.Flags().GetString("user")
+		if user == "" || user == "<user>" {
+			fmt.Println("Error: --user is required")
+			fmt.Println("\nCommon SSH users by image type:")
+			fmt.Println("  - Ubuntu/Debian: ubuntu")
+			fmt.Println("  - CentOS/RHEL: centos or root")
+			fmt.Println("  - Other Linux: root or check image documentation")
+			fmt.Println("\nFor more information, see: https://kb.arubacloud.com/cmp/en/computing/cloud-server.aspx")
+			return
+		}
+
+		client, err := GetArubaClient()
+		if err != nil {
+			fmt.Printf("Error initializing client: %v\n", err)
+			return
+		}
+
+		ctx := context.Background()
+
+		// First, get the cloud server details
+		serverResp, err := client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
+		if err != nil {
+			fmt.Printf("Error getting cloud server: %v\n", err)
+			return
+		}
+
+		if serverResp != nil && serverResp.IsError() && serverResp.Error != nil {
+			fmt.Printf("Failed to get cloud server - Status: %d\n", serverResp.StatusCode)
+			if serverResp.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *serverResp.Error.Title)
+			}
+			if serverResp.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *serverResp.Error.Detail)
+			}
+			return
+		}
+
+		if serverResp == nil || serverResp.Data == nil {
+			fmt.Println("Cloud server not found or no data returned.")
+			return
+		}
+
+		server := serverResp.Data
+
+		// Check for ElasticIP in linked resources
+		var elasticIPURI string
+		for _, linkedResource := range server.Properties.LinkedResources {
+			if strings.Contains(linkedResource.URI, "providers/Aruba.Network/elasticIps") {
+				elasticIPURI = linkedResource.URI
+				break
+			}
+		}
+
+		if elasticIPURI == "" {
+			fmt.Println("No Elastic IP found for this cloud server.")
+			fmt.Println("The server must have an Elastic IP linked to use the connect command.")
+			return
+		}
+
+		// Extract ElasticIP ID from URI
+		elasticIPID := extractIDFromURI(elasticIPURI)
+		if elasticIPID == "" {
+			fmt.Printf("Error: Could not extract Elastic IP ID from URI: %s\n", elasticIPURI)
+			return
+		}
+
+		// Get ElasticIP details
+		eipResp, err := client.FromNetwork().ElasticIPs().Get(ctx, projectID, elasticIPID, nil)
+		if err != nil {
+			fmt.Printf("Error getting Elastic IP details: %v\n", err)
+			return
+		}
+
+		if eipResp != nil && eipResp.IsError() && eipResp.Error != nil {
+			fmt.Printf("Failed to get Elastic IP - Status: %d\n", eipResp.StatusCode)
+			if eipResp.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *eipResp.Error.Title)
+			}
+			if eipResp.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *eipResp.Error.Detail)
+			}
+			return
+		}
+
+		if eipResp == nil || eipResp.Data == nil {
+			fmt.Println("Elastic IP not found or no data returned.")
+			return
+		}
+
+		eip := eipResp.Data
+		if eip.Properties.Address == nil || *eip.Properties.Address == "" {
+			fmt.Println("Elastic IP address not available.")
+			return
+		}
+
+		// Print SSH connection command
+		fmt.Printf("Connect by running: ssh %s@%s\n", user, *eip.Properties.Address)
 	},
 }

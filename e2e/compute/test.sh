@@ -111,6 +111,54 @@ test_cloudserver() {
             echo -e "${RED}✗ Failed to update cloud server${NC}"
             echo "$UPDATE_OUTPUT"
         fi
+        
+        # Power operations (if server is in a state that allows it)
+        echo -e "${YELLOW}Testing power-off...${NC}"
+        POWER_OFF_OUTPUT=$($ACLOUD_CMD compute cloudserver power-off "$SERVER_ID" \
+            --project-id "$PROJECT_ID" 2>&1)
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✓ Cloud server power-off successful${NC}"
+            # Wait a bit before powering on
+            sleep 2
+        else
+            echo -e "${YELLOW}⚠ Power-off failed (may be expected if server is already off)${NC}"
+            echo "$POWER_OFF_OUTPUT"
+        fi
+        
+        echo -e "${YELLOW}Testing power-on...${NC}"
+        POWER_ON_OUTPUT=$($ACLOUD_CMD compute cloudserver power-on "$SERVER_ID" \
+            --project-id "$PROJECT_ID" 2>&1)
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✓ Cloud server power-on successful${NC}"
+        else
+            echo -e "${YELLOW}⚠ Power-on failed (may be expected if server is already on)${NC}"
+            echo "$POWER_ON_OUTPUT"
+        fi
+        
+        # Set password (optional test)
+        echo -e "${YELLOW}Testing set-password...${NC}"
+        SET_PASSWORD_OUTPUT=$($ACLOUD_CMD compute cloudserver set-password "$SERVER_ID" \
+            --project-id "$PROJECT_ID" \
+            --password "TestPassword123!" 2>&1)
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✓ Cloud server set-password successful${NC}"
+        else
+            echo -e "${YELLOW}⚠ Set-password failed (may not be supported for all server types)${NC}"
+            echo "$SET_PASSWORD_OUTPUT"
+        fi
+        
+        # Connect (requires Elastic IP)
+        echo -e "${YELLOW}Testing connect...${NC}"
+        CONNECT_OUTPUT=$($ACLOUD_CMD compute cloudserver connect "$SERVER_ID" \
+            --project-id "$PROJECT_ID" \
+            --user ubuntu 2>&1)
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✓ Cloud server connect successful${NC}"
+            echo "$CONNECT_OUTPUT"
+        else
+            echo -e "${YELLOW}⚠ Connect failed (server may not have an Elastic IP)${NC}"
+            echo "$CONNECT_OUTPUT"
+        fi
     fi
     
     echo ""

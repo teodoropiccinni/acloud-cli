@@ -157,6 +157,9 @@ See [security/test.sh](security/test.sh) for details.
 
 Tests compute resources:
 - **Cloud Servers** - Virtual machine instances
+  - Create, list, get, update, delete cloud servers
+  - Power on/off operations
+  - Password management
 - **Key Pairs** - SSH key pair management
 
 See [compute/test.sh](compute/test.sh) for details.

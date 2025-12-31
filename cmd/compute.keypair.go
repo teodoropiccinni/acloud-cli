@@ -331,14 +331,41 @@ var keypairListCmd = &cobra.Command{
 		if response != nil && response.Data != nil && len(response.Data.Values) > 0 {
 			headers := []TableColumn{
 				{Header: "NAME", Width: 40},
+				{Header: "ID", Width: 30},
 				{Header: "PUBLIC_KEY", Width: 60},
 			}
 
+			// Extract IDs from raw JSON response if available
+			// The SDK type definition uses Request types but actual response has ID fields
+			idMap := make(map[int]string) // Map keypair index to ID
+			if response.RawBody != nil {
+				var rawResponse map[string]interface{}
+				if err := json.Unmarshal(response.RawBody, &rawResponse); err == nil {
+					if values, ok := rawResponse["values"].([]interface{}); ok {
+						for i, val := range values {
+							if keypairMap, ok := val.(map[string]interface{}); ok {
+								if metadata, ok := keypairMap["metadata"].(map[string]interface{}); ok {
+									if idVal, ok := metadata["id"].(string); ok && idVal != "" {
+										idMap[i] = idVal
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
 			var rows [][]string
-			for _, keypair := range response.Data.Values {
+			for idx, keypair := range response.Data.Values {
 				name := ""
 				if keypair.Metadata.Name != nil {
 					name = *keypair.Metadata.Name
+				}
+
+				// Get ID from raw JSON map, fallback to name
+				id := idMap[idx]
+				if id == "" {
+					id = name
 				}
 
 				publicKey := ""
@@ -349,7 +376,7 @@ var keypairListCmd = &cobra.Command{
 					}
 				}
 
-				rows = append(rows, []string{name, publicKey})
+				rows = append(rows, []string{name, id, publicKey})
 			}
 
 			PrintTable(headers, rows)

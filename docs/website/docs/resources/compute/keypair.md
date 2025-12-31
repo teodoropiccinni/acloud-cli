@@ -59,6 +59,7 @@ acloud compute keypair list
 **Output:**
 The command displays a table with the following columns:
 - NAME
+- ID
 - PUBLIC_KEY (truncated to 50 characters)
 
 ### `get`
