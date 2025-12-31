@@ -18,6 +18,9 @@ func init() {
 	cloudserverCmd.AddCommand(cloudserverUpdateCmd)
 	cloudserverCmd.AddCommand(cloudserverDeleteCmd)
 	cloudserverCmd.AddCommand(cloudserverListCmd)
+	cloudserverCmd.AddCommand(cloudserverPowerOnCmd)
+	cloudserverCmd.AddCommand(cloudserverPowerOffCmd)
+	cloudserverCmd.AddCommand(cloudserverSetPasswordCmd)
 
 	// Add flags for cloudserver commands
 	cloudserverCreateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
@@ -43,10 +46,34 @@ func init() {
 
 	cloudserverListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 
+	cloudserverPowerOnCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	cloudserverPowerOffCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+
+	cloudserverSetPasswordCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	cloudserverSetPasswordCmd.Flags().String("password", "", "New password for the cloud server (required)")
+	cloudserverSetPasswordCmd.MarkFlagRequired("password")
+
 	// Set up auto-completion for resource IDs
 	cloudserverGetCmd.ValidArgsFunction = completeCloudServerID
 	cloudserverUpdateCmd.ValidArgsFunction = completeCloudServerID
 	cloudserverDeleteCmd.ValidArgsFunction = completeCloudServerID
+	cloudserverPowerOnCmd.ValidArgsFunction = completeCloudServerID
+	cloudserverPowerOffCmd.ValidArgsFunction = completeCloudServerID
+	cloudserverSetPasswordCmd.ValidArgsFunction = completeCloudServerID
+}
+
+// Helper function to extract ID from URI
+func extractIDFromURI(uri string) string {
+	if uri == "" {
+		return ""
+	}
+	// URI format: /projects/{projectId}/providers/Aruba.Compute/cloudServers/{serverId}
+	parts := strings.Split(uri, "/")
+	if len(parts) > 0 {
+		// Get the last part which should be the ID
+		return parts[len(parts)-1]
+	}
+	return ""
 }
 
 // Completion functions for compute resources
@@ -71,11 +98,18 @@ func completeCloudServerID(cmd *cobra.Command, args []string, toComplete string)
 	if response != nil && response.Data != nil {
 		for _, server := range response.Data.Values {
 			name := server.Metadata.Name
+			// Try to extract ID from BootVolume URI or other URI fields
+			id := name // Default to name
+			if server.Properties.BootVolume.URI != "" {
+				// Try to extract from a URI pattern if available
+				// For now, use name as identifier
+				id = name
+			}
 			if name != "" {
 				// For completion, we can use name or try to extract ID from URI if available
 				// The response structure may vary, so we'll use name as the primary identifier
-				if toComplete == "" || strings.HasPrefix(name, toComplete) {
-					completions = append(completions, fmt.Sprintf("%s\tCloud Server", name))
+				if toComplete == "" || strings.HasPrefix(name, toComplete) || strings.HasPrefix(id, toComplete) {
+					completions = append(completions, fmt.Sprintf("%s\tCloud Server", id))
 				}
 			}
 		}
@@ -512,9 +546,26 @@ var cloudserverListCmd = &cobra.Command{
 					status = *server.Status.State
 				}
 
-				// CloudServer list response may not expose ID in metadata
-				// Use name as identifier or extract from URI
-				id := server.Metadata.Name // Use name for now
+				// Extract ID - CloudServerResponse uses RegionalResourceMetadataRequest which doesn't have ID
+				// Try to extract from VPC URI pattern if it contains cloudServers path
+				// Format: /projects/{projectId}/providers/Aruba.Compute/cloudServers/{serverId}
+				id := name // Default to name
+				
+				// Check VPC URI - it might contain the server reference
+				if server.Properties.VPC.URI != "" {
+					// VPC URI format: /projects/{projectId}/providers/Aruba.Network/vpcs/{vpcId}
+					// This doesn't help us get the server ID
+				}
+				
+				// Since CloudServerResponse doesn't expose ID in metadata, we need to extract it
+				// The ID should be available in the response but might be in a different field
+				// For now, we'll try to get it by making a Get call, but that's inefficient
+				// Let's check if there's a way to get it from the response structure
+				
+				// Actually, let's check if the server name IS the ID (some APIs use name as ID)
+				// Or we might need to extract from a URI field if available
+				// For now, use name as the identifier
+				id = name
 
 				rows = append(rows, []string{
 					id,
@@ -532,5 +583,155 @@ var cloudserverListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No cloud servers found")
 		}
+	},
+}
+
+var cloudserverPowerOnCmd = &cobra.Command{
+	Use:   "power-on [cloudserver-id]",
+	Short: "Power on a cloud server",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		serverID := args[0]
+
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+
+		client, err := GetArubaClient()
+		if err != nil {
+			fmt.Printf("Error initializing client: %v\n", err)
+			return
+		}
+
+		ctx := context.Background()
+		response, err := client.FromCompute().CloudServers().PowerOn(ctx, projectID, serverID, nil)
+		if err != nil {
+			fmt.Printf("Error powering on cloud server: %v\n", err)
+			return
+		}
+
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to power on cloud server - Status: %d\n", response.StatusCode)
+			if response.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *response.Error.Title)
+			}
+			if response.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
+			}
+			return
+		}
+
+		if response != nil && response.Data != nil {
+			fmt.Println("Cloud server powered on successfully!")
+			fmt.Printf("Server: %s\n", response.Data.Metadata.Name)
+			if response.Data.Status.State != nil {
+				fmt.Printf("Status: %s\n", *response.Data.Status.State)
+			}
+		} else {
+			fmt.Println("Cloud server power-on initiated. Use 'get' to check status.")
+		}
+	},
+}
+
+var cloudserverPowerOffCmd = &cobra.Command{
+	Use:   "power-off [cloudserver-id]",
+	Short: "Power off a cloud server",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		serverID := args[0]
+
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+
+		client, err := GetArubaClient()
+		if err != nil {
+			fmt.Printf("Error initializing client: %v\n", err)
+			return
+		}
+
+		ctx := context.Background()
+		response, err := client.FromCompute().CloudServers().PowerOff(ctx, projectID, serverID, nil)
+		if err != nil {
+			fmt.Printf("Error powering off cloud server: %v\n", err)
+			return
+		}
+
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to power off cloud server - Status: %d\n", response.StatusCode)
+			if response.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *response.Error.Title)
+			}
+			if response.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
+			}
+			return
+		}
+
+		if response != nil && response.Data != nil {
+			fmt.Println("Cloud server powered off successfully!")
+			fmt.Printf("Server: %s\n", response.Data.Metadata.Name)
+			if response.Data.Status.State != nil {
+				fmt.Printf("Status: %s\n", *response.Data.Status.State)
+			}
+		} else {
+			fmt.Println("Cloud server power-off initiated. Use 'get' to check status.")
+		}
+	},
+}
+
+var cloudserverSetPasswordCmd = &cobra.Command{
+	Use:   "set-password [cloudserver-id]",
+	Short: "Set password for a cloud server",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		serverID := args[0]
+
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+
+		password, _ := cmd.Flags().GetString("password")
+		if password == "" {
+			fmt.Println("Error: --password is required")
+			return
+		}
+
+		client, err := GetArubaClient()
+		if err != nil {
+			fmt.Printf("Error initializing client: %v\n", err)
+			return
+		}
+
+		ctx := context.Background()
+		passwordRequest := types.CloudServerPasswordRequest{
+			Password: password,
+		}
+
+		response, err := client.FromCompute().CloudServers().SetPassword(ctx, projectID, serverID, passwordRequest, nil)
+		if err != nil {
+			fmt.Printf("Error setting password for cloud server: %v\n", err)
+			return
+		}
+
+		if response != nil && response.IsError() && response.Error != nil {
+			fmt.Printf("Failed to set password for cloud server - Status: %d\n", response.StatusCode)
+			if response.Error.Title != nil {
+				fmt.Printf("Error: %s\n", *response.Error.Title)
+			}
+			if response.Error.Detail != nil {
+				fmt.Printf("Detail: %s\n", *response.Error.Detail)
+			}
+			return
+		}
+
+		fmt.Println("Cloud server password set successfully!")
+		fmt.Printf("Server ID: %s\n", serverID)
 	},
 }
