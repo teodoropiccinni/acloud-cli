@@ -108,6 +108,7 @@ const sidebars = {
       items: [
         'resources/container',
         'resources/container/kaas',
+        'resources/container/containerregistry',
       ],
     },
   ],
