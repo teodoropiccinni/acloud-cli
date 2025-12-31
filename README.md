@@ -192,6 +192,7 @@ End-to-end (E2E) tests are available to validate CRUD operations across all reso
 - **[Management Tests](e2e/management/test.sh)** - Test projects and organization resources
 - **[Storage Tests](e2e/storage/test.sh)** - Test block storage, snapshots, backups, and restores
 - **[Network Tests](e2e/network/test.sh)** - Test VPCs, subnets, security groups, VPN tunnels, and more
+- **[Container Tests](e2e/container/test.sh)** - Test KaaS (Kubernetes as a Service) clusters
 
 To run E2E tests:
 
@@ -204,7 +205,14 @@ export ACLOUD_REGION="ITBG-Bergamo"
 ./e2e/management/test.sh
 ./e2e/storage/test.sh
 ./e2e/network/test.sh
+./e2e/container/test.sh
 ```
+
+**Note:** Container tests require additional environment variables for KaaS cluster creation:
+- `ACLOUD_VPC_URI` - VPC URI for the cluster
+- `ACLOUD_SUBNET_URI` - Subnet URI for the cluster
+- `ACLOUD_NODE_POOL_INSTANCE` - Instance type for node pool
+- `ACLOUD_NODE_POOL_ZONE` - Zone for node pool
 
 See the [E2E Tests README](e2e/README.md) for detailed instructions and prerequisites.
 

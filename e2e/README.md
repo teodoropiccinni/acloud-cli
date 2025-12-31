@@ -165,6 +165,24 @@ See [compute/test.sh](compute/test.sh) for details.
 
 Tests container resources:
 - **KaaS Clusters** - Kubernetes as a Service cluster management
+  - Create, list, get, update, delete KaaS clusters
+  - Connect to clusters and configure kubectl (requires kubectl installed)
+
+**Required Environment Variables:**
+- `ACLOUD_VPC_URI` - VPC URI for the cluster (e.g., `/projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id}`)
+- `ACLOUD_SUBNET_URI` - Subnet URI for the cluster (e.g., `/projects/{project-id}/providers/Aruba.Network/subnets/{subnet-id}`)
+- `ACLOUD_NODE_POOL_INSTANCE` - Instance configuration name for nodes
+- `ACLOUD_NODE_POOL_ZONE` - Datacenter/zone code for nodes
+
+**Optional Environment Variables:**
+- `ACLOUD_NODE_CIDR` - Node CIDR address (default: `10.0.0.0/16`)
+- `ACLOUD_NODE_CIDR_NAME` - Node CIDR name (default: `node-cidr`)
+- `ACLOUD_SECURITY_GROUP_NAME` - Security group name (default: `kaas-sg`)
+- `ACLOUD_NODE_POOL_NAME` - Node pool name (default: `default-pool`)
+- `ACLOUD_NODE_POOL_NODES` - Number of nodes (default: `1`)
+- `ACLOUD_K8S_VERSION` - Kubernetes version (default: `1.28.0`)
+
+**Note:** The connect test requires `kubectl` to be installed and available in PATH. If kubectl is not found, the connect test will be skipped.
 
 See [container/test.sh](container/test.sh) for details.
 
@@ -178,6 +196,10 @@ Common environment variables used across tests:
 | `ACLOUD_REGION` | Region code | `ITBG-Bergamo` |
 | `ACLOUD_VPC_ID` | VPC ID for network resources | `69495ef64d0cdc87949b71ec` |
 | `ACLOUD_PEER_VPC_ID` | Peer VPC ID for peering | `69485a584d0cdc87949b6ff8` |
+| `ACLOUD_VPC_URI` | VPC URI for KaaS clusters | `/projects/{id}/providers/Aruba.Network/vpcs/{vpc-id}` |
+| `ACLOUD_SUBNET_URI` | Subnet URI for KaaS clusters | `/projects/{id}/providers/Aruba.Network/subnets/{subnet-id}` |
+| `ACLOUD_NODE_POOL_INSTANCE` | Instance type for KaaS node pool | `small` |
+| `ACLOUD_NODE_POOL_ZONE` | Zone for KaaS node pool | `ITBG-Bergamo-A` |
 
 See individual test scripts for category-specific variables.
 

@@ -39,6 +39,18 @@ echo "Region: $REGION"
 echo "Test prefix: $RESOURCE_PREFIX"
 echo "ACLOUD command: $ACLOUD_CMD"
 echo ""
+echo "Note: KaaS tests require the following environment variables:"
+echo "  - ACLOUD_VPC_URI (required)"
+echo "  - ACLOUD_SUBNET_URI (required)"
+echo "  - ACLOUD_NODE_POOL_INSTANCE (required)"
+echo "  - ACLOUD_NODE_POOL_ZONE (required)"
+echo "  - ACLOUD_NODE_CIDR (optional, default: 10.0.0.0/16)"
+echo "  - ACLOUD_NODE_CIDR_NAME (optional, default: node-cidr)"
+echo "  - ACLOUD_SECURITY_GROUP_NAME (optional, default: kaas-sg)"
+echo "  - ACLOUD_NODE_POOL_NAME (optional, default: default-pool)"
+echo "  - ACLOUD_NODE_POOL_NODES (optional, default: 1)"
+echo "  - ACLOUD_K8S_VERSION (optional, default: 1.28.0)"
+echo ""
 
 # Function to extract resource ID from output
 extract_id() {
@@ -52,7 +64,26 @@ test_kaas() {
     local cluster_name="${RESOURCE_PREFIX}-kaas"
     local version="${ACLOUD_K8S_VERSION:-1.28.0}"
     
+    # Required environment variables for KaaS creation
+    local vpc_uri="${ACLOUD_VPC_URI}"
+    local subnet_uri="${ACLOUD_SUBNET_URI}"
+    local node_cidr_address="${ACLOUD_NODE_CIDR:-10.0.0.0/16}"
+    local node_cidr_name="${ACLOUD_NODE_CIDR_NAME:-node-cidr}"
+    local security_group_name="${ACLOUD_SECURITY_GROUP_NAME:-kaas-sg}"
+    local node_pool_name="${ACLOUD_NODE_POOL_NAME:-default-pool}"
+    local node_pool_nodes="${ACLOUD_NODE_POOL_NODES:-1}"
+    local node_pool_instance="${ACLOUD_NODE_POOL_INSTANCE}"
+    local node_pool_zone="${ACLOUD_NODE_POOL_ZONE}"
+    
     echo -e "${BLUE}--- Testing KaaS Operations ---${NC}"
+    
+    # Check if required variables are set
+    if [ -z "$vpc_uri" ] || [ -z "$subnet_uri" ] || [ -z "$node_pool_instance" ] || [ -z "$node_pool_zone" ]; then
+        echo -e "${YELLOW}⚠ Skipping KaaS create test - required environment variables not set${NC}"
+        echo "Required: ACLOUD_VPC_URI, ACLOUD_SUBNET_URI, ACLOUD_NODE_POOL_INSTANCE, ACLOUD_NODE_POOL_ZONE"
+        echo "Optional: ACLOUD_NODE_CIDR, ACLOUD_NODE_CIDR_NAME, ACLOUD_SECURITY_GROUP_NAME, ACLOUD_NODE_POOL_NAME, ACLOUD_NODE_POOL_NODES"
+        return
+    fi
     
     # Create
     echo -e "${YELLOW}Creating KaaS cluster...${NC}"
@@ -60,7 +91,17 @@ test_kaas() {
         --project-id "$PROJECT_ID" \
         --name "$cluster_name" \
         --region "$REGION" \
-        --version "$version" 2>&1)
+        --vpc-uri "$vpc_uri" \
+        --subnet-uri "$subnet_uri" \
+        --node-cidr-address "$node_cidr_address" \
+        --node-cidr-name "$node_cidr_name" \
+        --security-group-name "$security_group_name" \
+        --kubernetes-version "$version" \
+        --node-pool-name "$node_pool_name" \
+        --node-pool-nodes "$node_pool_nodes" \
+        --node-pool-instance "$node_pool_instance" \
+        --node-pool-zone "$node_pool_zone" \
+        --tags "e2e-test,kaas" 2>&1)
     CREATE_EXIT=$?
     
     if [ $CREATE_EXIT -eq 0 ]; then
@@ -101,12 +142,28 @@ test_kaas() {
         echo -e "${YELLOW}Updating KaaS cluster...${NC}"
         UPDATE_OUTPUT=$($ACLOUD_CMD container kaas update "$CLUSTER_ID" \
             --project-id "$PROJECT_ID" \
-            --name "${cluster_name}-updated" 2>&1)
+            --name "${cluster_name}-updated" \
+            --tags "e2e-test,kaas,updated" 2>&1)
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}✓ KaaS cluster update successful${NC}"
         else
             echo -e "${RED}✗ Failed to update KaaS cluster${NC}"
             echo "$UPDATE_OUTPUT"
+        fi
+        
+        # Connect (optional - requires kubectl)
+        if command -v kubectl >/dev/null 2>&1; then
+            echo -e "${YELLOW}Testing KaaS connect...${NC}"
+            CONNECT_OUTPUT=$($ACLOUD_CMD container kaas connect "$CLUSTER_ID" \
+                --project-id "$PROJECT_ID" 2>&1)
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}✓ KaaS connect successful${NC}"
+            else
+                echo -e "${YELLOW}⚠ KaaS connect failed (may be expected if cluster is not ready)${NC}"
+                echo "$CONNECT_OUTPUT"
+            fi
+        else
+            echo -e "${YELLOW}⚠ Skipping KaaS connect test - kubectl not found${NC}"
         fi
     fi
     
