@@ -71,4 +71,12 @@ docs/website/.yarn/unplugged
 docs/website/.yarn/build-state.yml
 docs/website/.yarn/install-state.gz
 docs/website/.pnp.js
-# Note: package-lock.json, versioned_docs/, versioned_sidebars/, and i18n/ should be committed
+
+# CI-created versioned documentation files
+# These are generated during the release workflow and don't need to be committed
+docs/website/versioned_docs/
+docs/website/versioned_sidebars/
+docs/website/versions.json
+# Versioned translations (created by CI, but keep current/ translations)
+docs/website/i18n/*/docusaurus-plugin-content-docs/version-*/
+docs/website/i18n/*/docusaurus-plugin-content-docs/version-*.json
