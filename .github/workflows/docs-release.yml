@@ -48,6 +48,23 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Deploying documentation for version: $VERSION"
 
+      - name: Clean up and prepare for versioning
+        working-directory: docs/website
+        run: |
+          # Clear versions.json to start fresh (versioned docs are gitignored)
+          # This ensures we don't have references to missing versioned_docs directories
+          echo "[]" > versions.json
+          # Remove any existing versioned_docs if they exist (from previous workflow runs)
+          if [ -d "versioned_docs" ]; then
+            rm -rf versioned_docs
+          fi
+          if [ -d "versioned_sidebars" ]; then
+            rm -rf versioned_sidebars
+          fi
+          # Remove any existing versioned translations
+          find i18n -type d -name "version-*" -exec rm -rf {} + 2>/dev/null || true
+          find i18n -type f -name "version-*.json" -delete 2>/dev/null || true
+
       - name: Create versioned docs
         working-directory: docs/website
         run: |
