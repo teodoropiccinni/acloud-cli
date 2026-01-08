@@ -2,6 +2,13 @@
 
 Subnets allow you to segment your VPC network into smaller, isolated sections. Each subnet can have its own CIDR block and can be used to organize resources, control routing, and apply security policies within a VPC.
 
+## Subnet Types
+
+Subnets can be created in two types:
+
+- **Basic Subnet**: Automatically assigned CIDR block by the system. No DHCP configuration required.
+- **Advanced Subnet**: Custom CIDR block specified by the user. Requires DHCP configuration with `--dhcp-enabled` flag. Optionally supports custom routes and DNS servers.
+
 ## Commands
 
 ### List Subnets
@@ -48,7 +55,12 @@ Subnet Details:
 ===============
 ID:            1234567890abcdef
 Name:          subnet-1
+Type:          Advanced
 CIDR:          10.0.1.0/24
+DHCP Enabled:  true
+DHCP Routes:
+  - 0.0.0.0/0 -> 10.0.0.1
+DHCP DNS:      [8.8.8.8 8.8.4.4]
 Status:        Active
 ```
 
@@ -56,28 +68,44 @@ Status:        Active
 Create a new subnet in a VPC.
 
 ```bash
-acloud network subnet create <vpc-id> --cidr <cidr> --name <name>
+acloud network subnet create <vpc-id> --name <name> --region <region> [flags]
 ```
 
 **Required Flags:**
-- `--cidr string` - CIDR block for the subnet
 - `--name string` - Name for the subnet
+- `--region string` - Region for the subnet
 
-**Example:**
+**Optional Flags:**
+- `--cidr string` - CIDR block for the subnet (if provided, creates Advanced subnet type)
+- `--tags stringSlice` - Subnet tags (comma-separated or multiple flags)
+- `--dhcp-enabled` - Enable DHCP for Advanced subnet type (required when `--cidr` is provided)
+- `--dhcp-routes stringSlice` - DHCP routes for Advanced subnet type (format: `destination:gateway`, e.g., `0.0.0.0/0:10.0.0.1`)
+- `--dhcp-dns stringSlice` - DHCP DNS servers for Advanced subnet type (e.g., `8.8.8.8`, `8.8.4.4`)
+
+**Create Basic Subnet (Auto-assigned CIDR):**
 ```bash
-acloud network subnet create 689307f4745108d3c6343b5a --cidr 10.0.1.0/24 --name subnet-1
+acloud network subnet create 689307f4745108d3c6343b5a --name subnet-1 --region "ITBG-Bergamo"
+```
+
+**Create Advanced Subnet (Custom CIDR with DHCP):**
+```bash
+acloud network subnet create 689307f4745108d3c6343b5a \
+  --name subnet-1 \
+  --region "ITBG-Bergamo" \
+  --cidr 10.0.1.0/24 \
+  --dhcp-enabled \
+  --dhcp-routes "0.0.0.0/0:10.0.0.1" \
+  --dhcp-dns "8.8.8.8" "8.8.4.4"
 ```
 
 **Output:**
 ```
-Subnet created successfully!
-ID:      1234567890abcdef
-Name:    subnet-1
-CIDR:    10.0.1.0/24
+NAME         ID                        REGION          CIDR           STATUS
+subnet-1     1234567890abcdef          ITBG-Bergamo    10.0.1.0/24    Active
 ```
 
 ### Update Subnet
-Update an existing subnet's name or CIDR.
+Update an existing subnet's name, CIDR, tags, or DHCP configuration.
 
 ```bash
 acloud network subnet update <vpc-id> <subnet-id> [flags]
@@ -90,17 +118,34 @@ acloud network subnet update <vpc-id> <subnet-id> [flags]
 **Flags:**
 - `--name string` - New name for the subnet
 - `--cidr string` - New CIDR block
+- `--tags stringSlice` - Subnet tags (comma-separated or multiple flags)
+- `--dhcp-enabled` - Enable/disable DHCP for Advanced subnet type
+- `--dhcp-routes stringSlice` - DHCP routes for Advanced subnet type (format: `destination:gateway`)
+- `--dhcp-dns stringSlice` - DHCP DNS servers for Advanced subnet type
 
-**Example:**
+**Examples:**
+
+Update subnet name:
 ```bash
 acloud network subnet update 689307f4745108d3c6343b5a 1234567890abcdef --name new-subnet-name
 ```
 
+Update DHCP routes for Advanced subnet:
+```bash
+acloud network subnet update 689307f4745108d3c6343b5a 1234567890abcdef \
+  --dhcp-routes "192.168.1.0/24:10.0.0.1" "0.0.0.0/0:10.0.0.1"
+```
+
+Update DHCP DNS servers:
+```bash
+acloud network subnet update 689307f4745108d3c6343b5a 1234567890abcdef \
+  --dhcp-dns "1.1.1.1" "1.0.0.1"
+```
+
 **Output:**
 ```
-Subnet updated successfully!
-ID:      1234567890abcdef
-Name:    new-subnet-name
+NAME              ID                        CIDR           STATUS
+new-subnet-name   1234567890abcdef          10.0.1.0/24    Active
 ```
 
 ### Delete Subnet
@@ -131,6 +176,9 @@ The subnet commands support auto-completion for VPC IDs and subnet IDs.
 ## Best Practices
 - Use descriptive names for subnets based on their purpose.
 - Avoid overlapping CIDR blocks between subnets.
+- For Advanced subnets, always enable DHCP with `--dhcp-enabled` when providing a custom CIDR.
+- Configure appropriate DHCP routes and DNS servers for Advanced subnets to ensure proper network connectivity.
+- Use Basic subnets when you don't need custom CIDR configuration.
 
 ## Troubleshooting
 - Ensure the VPC is **Active** before creating subnets.

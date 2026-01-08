@@ -3,10 +3,16 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/spf13/cobra"
 )
+
+// splitRouteString splits a route string in format "destination:gateway"
+func splitRouteString(routeStr string) []string {
+	return strings.SplitN(routeStr, ":", 2)
+}
 
 // INIT
 func init() {
@@ -22,9 +28,15 @@ func init() {
 	subnetCreateCmd.Flags().String("cidr", "", "Subnet CIDR (optional, if provided subnet type will be Advanced, otherwise Basic)")
 	subnetCreateCmd.Flags().String("region", "", "Region for the subnet (required)")
 	subnetCreateCmd.Flags().StringSlice("tags", []string{}, "Subnet tags (optional)")
+	subnetCreateCmd.Flags().Bool("dhcp-enabled", false, "Enable DHCP for Advanced subnet type (required when CIDR is provided)")
+	subnetCreateCmd.Flags().StringSlice("dhcp-routes", []string{}, "DHCP routes for Advanced subnet type (optional, format: destination:gateway, e.g., '0.0.0.0/0:10.0.0.1')")
+	subnetCreateCmd.Flags().StringSlice("dhcp-dns", []string{}, "DHCP DNS servers for Advanced subnet type (optional, e.g., '8.8.8.8,8.8.4.4')")
 	subnetUpdateCmd.Flags().String("name", "", "Subnet name (optional)")
 	subnetUpdateCmd.Flags().String("cidr", "", "Subnet CIDR (optional)")
 	subnetUpdateCmd.Flags().StringSlice("tags", []string{}, "Subnet tags (optional)")
+	subnetUpdateCmd.Flags().Bool("dhcp-enabled", false, "Enable DHCP for Advanced subnet type")
+	subnetUpdateCmd.Flags().StringSlice("dhcp-routes", []string{}, "DHCP routes for Advanced subnet type (optional, format: destination:gateway)")
+	subnetUpdateCmd.Flags().StringSlice("dhcp-dns", []string{}, "DHCP DNS servers for Advanced subnet type (optional)")
 	subnetListCmd.Flags().String("vpc-id", "", "Parent VPC ID (required)")
 	subnetDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 }
@@ -47,6 +59,9 @@ var subnetCreateCmd = &cobra.Command{
 		cidr, _ := cmd.Flags().GetString("cidr")
 		region, _ := cmd.Flags().GetString("region")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
+		dhcpEnabled, _ := cmd.Flags().GetBool("dhcp-enabled")
+		dhcpRoutes, _ := cmd.Flags().GetStringSlice("dhcp-routes")
+		dhcpDNS, _ := cmd.Flags().GetStringSlice("dhcp-dns")
 		if name == "" || region == "" {
 			fmt.Println("Error: --name and --region are required")
 			return
@@ -67,6 +82,44 @@ var subnetCreateCmd = &cobra.Command{
 		var subnetType types.SubnetType = types.SubnetTypeBasic
 		if cidr != "" {
 			subnetType = types.SubnetTypeAdvanced
+			// For Advanced subnet type, DHCP enabled is required
+			if !dhcpEnabled {
+				fmt.Println("Error: --dhcp-enabled is required when creating an Advanced subnet (CIDR provided)")
+				return
+			}
+		}
+
+		// Build DHCP configuration for Advanced subnet type
+		var dhcpConfig *types.SubnetDHCP
+		if subnetType == types.SubnetTypeAdvanced && dhcpEnabled {
+			dhcpConfig = &types.SubnetDHCP{
+				Enabled: dhcpEnabled,
+			}
+
+			// Parse DHCP routes if provided
+			if len(dhcpRoutes) > 0 {
+				var routes []types.SubnetDHCPRoute
+				for _, routeStr := range dhcpRoutes {
+					// Parse route in format "destination:gateway" (e.g., "0.0.0.0/0:10.0.0.1")
+					parts := splitRouteString(routeStr)
+					if len(parts) == 2 {
+						routes = append(routes, types.SubnetDHCPRoute{
+							Address: parts[0],
+							Gateway: parts[1],
+						})
+					} else {
+						fmt.Printf("Warning: Invalid route format '%s', expected 'destination:gateway'. Skipping.\n", routeStr)
+					}
+				}
+				if len(routes) > 0 {
+					dhcpConfig.Routes = routes
+				}
+			}
+
+			// Set DNS servers if provided
+			if len(dhcpDNS) > 0 {
+				dhcpConfig.DNS = dhcpDNS
+			}
 		}
 
 		req := types.SubnetRequest{
@@ -89,6 +142,7 @@ var subnetCreateCmd = &cobra.Command{
 					}
 					return nil
 				}(),
+				DHCP: dhcpConfig,
 			},
 		}
 		resp, err := client.FromNetwork().Subnets().Create(ctx, projectID, vpcID, req, nil)
@@ -192,8 +246,24 @@ var subnetGetCmd = &cobra.Command{
 			if subnet.Metadata.LocationResponse != nil && subnet.Metadata.LocationResponse.Value != "" {
 				fmt.Printf("Region:          %s\n", subnet.Metadata.LocationResponse.Value)
 			}
+			if subnet.Properties.Type != "" {
+				fmt.Printf("Type:            %s\n", subnet.Properties.Type)
+			}
 			if subnet.Properties.Network != nil {
 				fmt.Printf("CIDR:            %s\n", subnet.Properties.Network.Address)
+			}
+			// Display DHCP information for Advanced subnets
+			if subnet.Properties.DHCP != nil {
+				fmt.Printf("DHCP Enabled:    %v\n", subnet.Properties.DHCP.Enabled)
+				if len(subnet.Properties.DHCP.Routes) > 0 {
+					fmt.Printf("DHCP Routes:\n")
+					for _, route := range subnet.Properties.DHCP.Routes {
+						fmt.Printf("  - %s -> %s\n", route.Address, route.Gateway)
+					}
+				}
+				if len(subnet.Properties.DHCP.DNS) > 0 {
+					fmt.Printf("DHCP DNS:        %v\n", subnet.Properties.DHCP.DNS)
+				}
 			}
 			if subnet.Metadata.CreationDate != nil {
 				fmt.Printf("Creation Date:   %s\n", subnet.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
@@ -293,8 +363,11 @@ var subnetUpdateCmd = &cobra.Command{
 		name, _ := cmd.Flags().GetString("name")
 		cidr, _ := cmd.Flags().GetString("cidr")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
-		if name == "" && cidr == "" && !cmd.Flags().Changed("tags") {
-			fmt.Println("Error: at least one of --name, --cidr, or --tags must be provided")
+		dhcpEnabled, _ := cmd.Flags().GetBool("dhcp-enabled")
+		dhcpRoutes, _ := cmd.Flags().GetStringSlice("dhcp-routes")
+		dhcpDNS, _ := cmd.Flags().GetStringSlice("dhcp-dns")
+		if name == "" && cidr == "" && !cmd.Flags().Changed("tags") && !cmd.Flags().Changed("dhcp-enabled") && len(dhcpRoutes) == 0 && len(dhcpDNS) == 0 {
+			fmt.Println("Error: at least one of --name, --cidr, --tags, --dhcp-enabled, --dhcp-routes, or --dhcp-dns must be provided")
 			return
 		}
 		projectID, err := GetProjectID(cmd)
@@ -335,6 +408,53 @@ var subnetUpdateCmd = &cobra.Command{
 			return
 		}
 
+		// Determine if this is an Advanced subnet
+		isAdvanced := current.Properties.Type == types.SubnetTypeAdvanced
+
+		// Build DHCP configuration for Advanced subnet type
+		var dhcpConfig *types.SubnetDHCP
+		if isAdvanced {
+			// Start with current DHCP config if it exists
+			if current.Properties.DHCP != nil {
+				dhcpConfig = &types.SubnetDHCP{
+					Enabled: current.Properties.DHCP.Enabled,
+					Routes:  current.Properties.DHCP.Routes,
+					DNS:     current.Properties.DHCP.DNS,
+				}
+			} else {
+				dhcpConfig = &types.SubnetDHCP{}
+			}
+
+			// Update DHCP enabled if flag is provided
+			if cmd.Flags().Changed("dhcp-enabled") {
+				dhcpConfig.Enabled = dhcpEnabled
+			}
+
+			// Update DHCP routes if provided
+			if len(dhcpRoutes) > 0 {
+				var routes []types.SubnetDHCPRoute
+				for _, routeStr := range dhcpRoutes {
+					parts := splitRouteString(routeStr)
+					if len(parts) == 2 {
+						routes = append(routes, types.SubnetDHCPRoute{
+							Address: parts[0],
+							Gateway: parts[1],
+						})
+					} else {
+						fmt.Printf("Warning: Invalid route format '%s', expected 'destination:gateway'. Skipping.\n", routeStr)
+					}
+				}
+				if len(routes) > 0 {
+					dhcpConfig.Routes = routes
+				}
+			}
+
+			// Update DNS servers if provided
+			if len(dhcpDNS) > 0 {
+				dhcpConfig.DNS = dhcpDNS
+			}
+		}
+
 		// Build update request by merging user input with all current valid fields
 		req := types.SubnetRequest{
 			Metadata: types.RegionalResourceMetadataRequest{
@@ -363,6 +483,7 @@ var subnetUpdateCmd = &cobra.Command{
 				},
 			},
 			Properties: types.SubnetPropertiesRequest{
+				Type: current.Properties.Type,
 				Network: &types.SubnetNetwork{
 					Address: func() string {
 						if cidr != "" {
@@ -374,6 +495,7 @@ var subnetUpdateCmd = &cobra.Command{
 						return ""
 					}(),
 				},
+				DHCP: dhcpConfig,
 			},
 		}
 
