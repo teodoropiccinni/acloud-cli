@@ -33,7 +33,21 @@ const config = {
   // to replace "en" with "zh-Hans".
   i18n: {
     defaultLocale: 'en',
-    locales: ['en'],
+    locales: ['en', 'it'],
+    localeConfigs: {
+      en: {
+        label: 'English',
+        direction: 'ltr',
+        htmlLang: 'en-US',
+        calendar: 'gregory',
+      },
+      it: {
+        label: 'Italiano',
+        direction: 'ltr',
+        htmlLang: 'it-IT',
+        calendar: 'gregory',
+      },
+    },
   },
 
   presets: [
@@ -65,12 +79,12 @@ const config = {
   ],
 
   plugins: [
-    [
+      [
       require.resolve('@easyops-cn/docusaurus-search-local'),
       {
         // Options for the search plugin
         hashed: true,
-        language: ['en'],
+        language: ['en', 'it'],
         highlightSearchTermsOnTargetPage: true,
         explicitSearchResultPath: true,
       },
@@ -99,6 +113,10 @@ const config = {
             label: 'Documentation',
           },
           {
+            type: 'localeDropdown',
+            position: 'right',
+          },
+          {
             type: 'docsVersionDropdown',
             position: 'right',
           },
@@ -117,11 +135,11 @@ const config = {
             items: [
               {
                 label: 'Installation',
-                to: '/docs/installation',
+                to: '/docs/next/installation',
               },
               {
                 label: 'Resources',
-                to: '/docs/resources',
+                to: '/docs/next/resources',
               },
             ],
           },

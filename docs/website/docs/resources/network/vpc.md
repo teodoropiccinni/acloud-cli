@@ -1,4 +1,4 @@
-# VPC (Virtual Private Cloud)
+# VPC Network (Virtual Private Cloud Network)
 
 Virtual Private Clouds provide isolated network environments for your cloud resources.
 

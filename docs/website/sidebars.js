@@ -54,7 +54,11 @@ const sidebars = {
       label: 'Network',
       items: [
         'resources/network',
-        'resources/network/vpc',
+        {
+          type: 'doc',
+          id: 'resources/network/vpc',
+          label: 'VPC Network (Virtual Private Cloud Network)',
+        },
         'resources/network/subnet',
         'resources/network/securitygroup',
         'resources/network/securityrule',

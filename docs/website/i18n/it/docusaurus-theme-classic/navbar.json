@@ -1,0 +1,14 @@
+{
+  "title": {
+    "message": "Aruba Cloud CLI"
+  },
+  "logo.alt": {
+    "message": "Logo Aruba Cloud CLI"
+  },
+  "item.label.Documentation": {
+    "message": "Documentazione"
+  },
+  "item.label.GitHub": {
+    "message": "GitHub"
+  }
+}
