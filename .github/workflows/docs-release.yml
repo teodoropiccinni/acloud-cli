@@ -53,6 +53,11 @@ jobs:
         run: |
           npm run version ${{ steps.extract_version.outputs.version }}
 
+      - name: Sync version translations
+        working-directory: docs/website
+        run: |
+          npm run sync-version-translations
+
       - name: Build documentation
         working-directory: docs/website
         run: npm run build

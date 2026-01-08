@@ -12,7 +12,8 @@
     "serve": "docusaurus serve",
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
-    "version": "docusaurus docs:version",
+    "version": "docusaurus docs:version && node scripts/sync-version-translations.js",
+    "sync-version-translations": "node scripts/sync-version-translations.js",
     "validate": "node validate-config.js"
   },
   "dependencies": {
