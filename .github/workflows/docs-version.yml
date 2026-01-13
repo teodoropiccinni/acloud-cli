@@ -249,18 +249,49 @@ jobs:
             const branchName = `docs/version-${{ steps.extract_version.outputs.version }}`;
             
             // Check if branch exists
+            let branch;
             try {
-              await github.rest.repos.getBranch({
+              const { data: branchData } = await github.rest.repos.getBranch({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 branch: branchName
               });
+              branch = branchData;
             } catch (error) {
               if (error.status === 404) {
                 console.log('Branch does not exist, skipping PR creation (no changes to commit)');
                 return;
               }
               throw error;
+            }
+            
+            // Check if there are commits between main and the branch
+            const { data: mainBranch } = await github.rest.repos.getBranch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: 'main'
+            });
+            
+            // Compare the branches to see if there are differences
+            try {
+              const { data: comparison } = await github.rest.repos.compareCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                base: mainBranch.commit.sha,
+                head: branch.commit.sha
+              });
+              
+              // If there are no commits ahead, skip PR creation
+              if (comparison.ahead_by === 0) {
+                console.log(`No commits between main and ${branchName}, skipping PR creation`);
+                return;
+              }
+              
+              console.log(`Branch ${branchName} is ${comparison.ahead_by} commit(s) ahead of main`);
+            } catch (error) {
+              // If comparison fails, it might mean branches are identical
+              console.log(`Could not compare branches, skipping PR creation: ${error.message}`);
+              return;
             }
             
             const title = `docs: add version ${{ steps.extract_version.outputs.version }}`;
