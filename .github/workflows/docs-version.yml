@@ -120,6 +120,28 @@ jobs:
         run: |
           VERSION="${{ steps.extract_version.outputs.version }}"
           echo "Creating versioned docs for version: $VERSION"
+          
+          # Check if version already exists and remove it if it does
+          # This allows re-running the workflow for the same version
+          # Docusaurus checks both the directory and versions.json, so we need to remove both
+          if [ -d "versioned_docs/version-${VERSION}" ]; then
+            echo "Version ${VERSION} already exists, removing it to recreate..."
+            rm -rf "versioned_docs/version-${VERSION}"
+            rm -f "versioned_sidebars/version-${VERSION}-sidebars.json"
+            echo "✓ Removed existing version ${VERSION} directory and sidebars"
+          fi
+          
+          # Also remove the version from versions.json if it exists
+          # Docusaurus checks versions.json to see if a version already exists
+          if [ -f "versions.json" ]; then
+            echo "Removing version ${VERSION} from versions.json if present..."
+            # Remove the version from the JSON array using jq
+            # Filter out the version from the array
+            jq "[.[] | select(. != \"${VERSION}\")]" versions.json > versions.json.tmp && mv versions.json.tmp versions.json || true
+            echo "✓ Updated versions.json (removed ${VERSION} if it was present)"
+          fi
+          
+          # Create the versioned docs
           npm run version "$VERSION"
           
           # Verify the version was created
