@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/Arubacloud/sdk-go/pkg/types"
@@ -31,6 +33,7 @@ func init() {
 	cloudserverCreateCmd.Flags().String("image", "", "Image ID or name (required)")
 	cloudserverCreateCmd.Flags().String("keypair", "", "Keypair name")
 	cloudserverCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
+	cloudserverCreateCmd.Flags().String("user-data-file", "", "Path to cloud-init YAML file (will be base64 encoded)")
 	cloudserverCreateCmd.MarkFlagRequired("name")
 	cloudserverCreateCmd.MarkFlagRequired("region")
 	cloudserverCreateCmd.MarkFlagRequired("flavor")
@@ -102,7 +105,10 @@ func completeCloudServerID(cmd *cobra.Command, args []string, toComplete string)
 	var completions []string
 	if response != nil && response.Data != nil {
 		for _, server := range response.Data.Values {
-			name := server.Metadata.Name
+			var name string
+			if server.Metadata.Name != nil {
+				name = *server.Metadata.Name
+			}
 			// Try to extract ID from BootVolume URI or other URI fields
 			id := name // Default to name
 			if server.Properties.BootVolume.URI != "" {
@@ -146,6 +152,7 @@ var cloudserverCreateCmd = &cobra.Command{
 		image, _ := cmd.Flags().GetString("image")
 		keypair, _ := cmd.Flags().GetString("keypair")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
+		userDataFile, _ := cmd.Flags().GetString("user-data-file")
 
 		if name == "" || region == "" || flavor == "" || image == "" {
 			fmt.Println("Error: --name, --region, --flavor, and --image are required")
@@ -197,6 +204,18 @@ var cloudserverCreateCmd = &cobra.Command{
 			}
 		}
 
+		// Handle userData file if provided
+		if userDataFile != "" {
+			fileContent, err := os.ReadFile(userDataFile)
+			if err != nil {
+				fmt.Printf("Error reading user-data file: %v\n", err)
+				return
+			}
+			// Encode file content to base64
+			userDataBase64 := base64.StdEncoding.EncodeToString(fileContent)
+			createRequest.Properties.UserData = &userDataBase64
+		}
+
 		ctx := context.Background()
 		response, err := client.FromCompute().CloudServers().Create(ctx, projectID, createRequest, nil)
 		if err != nil {
@@ -227,18 +246,22 @@ var cloudserverCreateCmd = &cobra.Command{
 			}
 			// CloudServer response may not expose ID in metadata
 			// Use name or extract from URI if needed
-			id := response.Data.Metadata.Name // Fallback to name for display
+			var id, name string
+			if response.Data.Metadata.Name != nil {
+				name = *response.Data.Metadata.Name
+				id = name // Fallback to name for display
+			}
 			flavorName := response.Data.Properties.Flavor.Name
 			cpu := response.Data.Properties.Flavor.CPU
 			ram := response.Data.Properties.Flavor.RAM
 			hd := response.Data.Properties.Flavor.HD
 			regionValue := ""
-			if response.Data.Metadata.Location.Value != "" {
-				regionValue = response.Data.Metadata.Location.Value
+			if response.Data.Metadata.LocationResponse != nil {
+				regionValue = response.Data.Metadata.LocationResponse.Value
 			}
 			row := []string{
 				id,
-				response.Data.Metadata.Name,
+				name,
 				flavorName,
 				fmt.Sprintf("%d", cpu),
 				fmt.Sprintf("%d", ram),
@@ -297,9 +320,11 @@ var cloudserverGetCmd = &cobra.Command{
 
 			// CloudServer response metadata may not expose ID directly
 			// ID can be extracted from URI if needed
-			fmt.Printf("Name:            %s\n", server.Metadata.Name)
-			if server.Metadata.Location.Value != "" {
-				fmt.Printf("Region:          %s\n", server.Metadata.Location.Value)
+			if server.Metadata.Name != nil {
+				fmt.Printf("Name:            %s\n", *server.Metadata.Name)
+			}
+			if server.Metadata.LocationResponse != nil && server.Metadata.LocationResponse.Value != "" {
+				fmt.Printf("Region:          %s\n", server.Metadata.LocationResponse.Value)
 			}
 
 			// Flavor is a direct struct, not a pointer
@@ -384,7 +409,10 @@ var cloudserverUpdateCmd = &cobra.Command{
 		current := getResponse.Data
 
 		// Get region value
-		regionValue := current.Metadata.Location.Value
+		var regionValue string
+		if current.Metadata.LocationResponse != nil {
+			regionValue = current.Metadata.LocationResponse.Value
+		}
 		if regionValue == "" {
 			fmt.Println("Error: Unable to determine region value for cloud server")
 			return
@@ -393,10 +421,15 @@ var cloudserverUpdateCmd = &cobra.Command{
 		// Build the update request, preserving existing values
 		flavorName := current.Properties.Flavor.Name
 
+		var currentName string
+		if current.Metadata.Name != nil {
+			currentName = *current.Metadata.Name
+		}
+
 		updateRequest := types.CloudServerRequest{
 			Metadata: types.RegionalResourceMetadataRequest{
 				ResourceMetadataRequest: types.ResourceMetadataRequest{
-					Name: current.Metadata.Name,
+					Name: currentName,
 					Tags: current.Metadata.Tags,
 				},
 				Location: types.LocationRequest{
@@ -440,7 +473,9 @@ var cloudserverUpdateCmd = &cobra.Command{
 
 		if response != nil && response.Data != nil {
 			fmt.Println("\nCloud server updated successfully!")
-			fmt.Printf("Name:    %s\n", response.Data.Metadata.Name)
+			if response.Data.Metadata.Name != nil {
+				fmt.Printf("Name:    %s\n", *response.Data.Metadata.Name)
+			}
 			if len(response.Data.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:    %v\n", response.Data.Metadata.Tags)
 			}
@@ -557,8 +592,14 @@ var cloudserverListCmd = &cobra.Command{
 
 			var rows [][]string
 			for idx, server := range response.Data.Values {
-				name := server.Metadata.Name
-				location := server.Metadata.Location.Value
+				var name string
+				if server.Metadata.Name != nil {
+					name = *server.Metadata.Name
+				}
+				var location string
+				if server.Metadata.LocationResponse != nil {
+					location = server.Metadata.LocationResponse.Value
+				}
 				flavor := server.Properties.Flavor.Name
 				status := ""
 				if server.Status.State != nil {
@@ -626,7 +667,9 @@ var cloudserverPowerOnCmd = &cobra.Command{
 
 		if response != nil && response.Data != nil {
 			fmt.Println("Cloud server powered on successfully!")
-			fmt.Printf("Server: %s\n", response.Data.Metadata.Name)
+			if response.Data.Metadata.Name != nil {
+				fmt.Printf("Server: %s\n", *response.Data.Metadata.Name)
+			}
 			if response.Data.Status.State != nil {
 				fmt.Printf("Status: %s\n", *response.Data.Status.State)
 			}
@@ -675,7 +718,9 @@ var cloudserverPowerOffCmd = &cobra.Command{
 
 		if response != nil && response.Data != nil {
 			fmt.Println("Cloud server powered off successfully!")
-			fmt.Printf("Server: %s\n", response.Data.Metadata.Name)
+			if response.Data.Metadata.Name != nil {
+				fmt.Printf("Server: %s\n", *response.Data.Metadata.Name)
+			}
 			if response.Data.Status.State != nil {
 				fmt.Printf("Status: %s\n", *response.Data.Status.State)
 			}
@@ -737,7 +782,9 @@ var cloudserverSetPasswordCmd = &cobra.Command{
 			// response.Data is *any, so we need to dereference and assert
 			if data, ok := (*response.Data).(*types.CloudServerResponse); ok && data != nil {
 				fmt.Println("Cloud server password set successfully!")
-				fmt.Printf("Server: %s\n", data.Metadata.Name)
+				if data.Metadata.Name != nil {
+					fmt.Printf("Server: %s\n", *data.Metadata.Name)
+				}
 				if data.Status.State != nil {
 					fmt.Printf("Status: %s\n", *data.Status.State)
 				}

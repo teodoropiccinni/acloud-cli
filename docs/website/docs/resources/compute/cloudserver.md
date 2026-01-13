@@ -29,6 +29,7 @@ acloud compute cloudserver create [flags]
 - `--project-id <string>` - Project ID (uses context if not specified)
 - `--keypair <string>` - Key pair name for SSH access
 - `--tags <stringSlice>` - Tags (comma-separated)
+- `--user-data-file <string>` - Path to cloud-init YAML file (will be base64 encoded)
 
 **Example:**
 ```bash
@@ -38,8 +39,11 @@ acloud compute cloudserver create \
   --flavor "small" \
   --image "ubuntu-22.04" \
   --keypair "my-keypair" \
-  --tags "production,web"
+  --tags "production,web" \
+  --user-data-file "/path/to/cloud-init.yaml"
 ```
+
+**Note:** The `--user-data-file` flag accepts a path to a cloud-init YAML file. The file content will be automatically base64 encoded and included in the cloud server creation request. This allows you to configure the server during initialization using cloud-init scripts.
 
 ### `list`
 
@@ -311,7 +315,8 @@ acloud compute cloudserver connect <TAB>
      --region "ITBG-Bergamo" \
      --flavor "medium" \
      --image "your-image-id" \
-     --keypair "my-keypair"
+     --keypair "my-keypair" \
+     --user-data-file "/path/to/cloud-init.yaml"
    ```
 
 3. **Wait for the server to be ready** and check status:

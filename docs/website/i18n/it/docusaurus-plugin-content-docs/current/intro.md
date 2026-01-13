@@ -1,6 +1,6 @@
 # Introduzione ad Aruba Cloud CLI
 
-Aruba Cloud CLI (`acloud`) è uno strumento ufficiale da riga di comando per gestire e automatizzare la tua infrastruttura Aruba Cloud. Costruito con Go e basato sull'SDK Aruba Cloud, fornisce un'interfaccia potente e scriptabile per interagire con tutti i servizi Aruba Cloud direttamente dal tuo terminale.
+Aruba Cloud CLI (`acloud`) è lo strumento ufficiale da riga di comando per gestire e automatizzare la tua infrastruttura Aruba Cloud. Costruito con Go e basato sull'SDK Aruba Cloud, fornisce un'interfaccia potente e scriptabile per interagire con tutti i servizi Aruba Cloud direttamente dal tuo terminale.
 
 ## Cos'è Aruba Cloud CLI?
 
