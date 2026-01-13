@@ -238,14 +238,28 @@ jobs:
           git config --local advice.addIgnoredFile false
           # Pull latest changes to ensure we're up to date
           git pull origin main || true
-          # Create a branch for the versioned docs
+          # Create or checkout branch for the versioned docs
           BRANCH_NAME="docs/version-${{ steps.extract_version.outputs.version }}"
-          git checkout -b "$BRANCH_NAME"
+          # Check if branch exists on remote
+          if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+            echo "Branch $BRANCH_NAME already exists on remote, checking it out..."
+            git fetch origin "$BRANCH_NAME" || true
+            git checkout -b "$BRANCH_NAME" "origin/$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
+            git pull origin "$BRANCH_NAME" || true
+          else
+            echo "Creating new branch $BRANCH_NAME..."
+            git checkout -b "$BRANCH_NAME"
+          fi
           # Force add versioned docs (they're in .gitignore but should be committed by CI)
           git add -f docs/website/versioned_docs docs/website/versioned_sidebars docs/website/versions.json
           if ! git diff --staged --quiet; then
             git commit -m "docs: add version ${{ steps.extract_version.outputs.version }}"
-            git push origin "$BRANCH_NAME"
+            # Try to push, and if it fails due to non-fast-forward, force push (since we're the only one updating this branch)
+            if ! git push origin "$BRANCH_NAME"; then
+              echo "Push failed, attempting to pull and merge..."
+              git pull origin "$BRANCH_NAME" --rebase || git pull origin "$BRANCH_NAME" --no-rebase || true
+              git push origin "$BRANCH_NAME" || git push origin "$BRANCH_NAME" --force-with-lease
+            fi
           else
             echo "No changes to commit"
           fi
