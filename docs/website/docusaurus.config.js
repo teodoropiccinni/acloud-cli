@@ -113,6 +113,7 @@ const config = {
           srcDark: 'img/logo-cloud.png',
           width: 32,
           height: 32,
+          href: '/intro', // Link logo to intro page (baseUrl will be handled automatically)
         },
         items: [
           {
