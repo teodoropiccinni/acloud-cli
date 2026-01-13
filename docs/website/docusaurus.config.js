@@ -146,14 +146,14 @@ const config = {
               {
                 label: 'Installation',
                 to: process.env.DISABLE_VERSIONING === 'true' 
-                  ? '/docs/installation' 
-                  : '/docs/next/installation',
+                  ? '/installation' 
+                  : '/next/installation',
               },
               {
                 label: 'Resources',
                 to: process.env.DISABLE_VERSIONING === 'true' 
-                  ? '/docs/resources' 
-                  : '/docs/next/resources',
+                  ? '/resources' 
+                  : '/next/resources',
               },
             ],
           },
