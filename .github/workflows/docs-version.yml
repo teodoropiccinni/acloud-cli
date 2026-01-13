@@ -11,7 +11,7 @@ on:
         type: string
 
 jobs:
-  build-docs:
+  deploy-docs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -47,25 +47,15 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "release" ]; then
             VERSION="${{ github.event.release.tag_name }}"
+            # Remove 'v' prefix if present
+            VERSION=${VERSION#v}
           else
             VERSION="${{ github.event.inputs.version }}"
+            # Remove 'v' prefix if present (normalize for manual inputs)
+            VERSION=${VERSION#v}
           fi
-          # Remove 'v' prefix if present (normalize for both release and manual inputs)
-          VERSION=${VERSION#v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Deploying documentation for version: $VERSION (normalized)"
-
-      - name: Normalize existing versions.json (if present)
-        working-directory: docs/website
-        run: |
-          # If versions.json exists (e.g., from an existing branch), normalize it first
-          if [ -f "versions.json" ]; then
-            echo "Normalizing existing versions.json to remove any 'v' prefixes..."
-            jq -r '.[]' versions.json | sed 's/^v//' | sort -V | jq -R . | jq -s . > versions.json.tmp && mv versions.json.tmp versions.json
-            echo "✓ Normalized existing versions.json:"
-            cat versions.json
-            echo ""
-          fi
+          echo "Deploying documentation for version: $VERSION"
 
       - name: Sync versions.json with existing docs
         working-directory: docs/website
@@ -83,17 +73,15 @@ jobs:
             
             # Get all version directories and extract version names
             # Use ls to get directory names, filter for version-* pattern, remove prefix
-            # Also normalize by removing any 'v' prefix that might exist in directory names
             EXISTING_VERSIONS=$(ls -d versioned_docs/version-* 2>/dev/null | \
                                 sed 's|versioned_docs/version-||' | \
-                                sed 's/^v//' | \
                                 sort -V | \
                                 jq -R . | \
                                 jq -s . || echo "[]")
             
             if [ "$EXISTING_VERSIONS" != "[]" ] && [ -n "$EXISTING_VERSIONS" ]; then
               echo "$EXISTING_VERSIONS" > versions.json
-              echo "✓ Updated versions.json with existing versions (normalized, no 'v' prefix):"
+              echo "✓ Updated versions.json with existing versions:"
               cat versions.json | jq -r '.[]' | while read -r v; do echo "    - $v"; done
             else
               echo "✓ No version directories found, keeping empty array"
@@ -123,25 +111,19 @@ jobs:
           
           # Check if version already exists and remove it if it does
           # This allows re-running the workflow for the same version
-          # Docusaurus checks both the directory and versions.json, so we need to remove both
           if [ -d "versioned_docs/version-${VERSION}" ]; then
             echo "Version ${VERSION} already exists, removing it to recreate..."
             rm -rf "versioned_docs/version-${VERSION}"
             rm -f "versioned_sidebars/version-${VERSION}-sidebars.json"
-            echo "✓ Removed existing version ${VERSION} directory and sidebars"
+            echo "✓ Removed existing version ${VERSION}"
           fi
           
           # Also remove the version from versions.json if it exists
-          # Docusaurus checks versions.json to see if a version already exists
           if [ -f "versions.json" ]; then
             echo "Removing version ${VERSION} from versions.json if present..."
-            # Remove the version from the JSON array using jq
-            # Filter out the version from the array
             jq "[.[] | select(. != \"${VERSION}\")]" versions.json > versions.json.tmp && mv versions.json.tmp versions.json || true
-            echo "✓ Updated versions.json (removed ${VERSION} if it was present)"
           fi
           
-          # Create the versioned docs
           npm run version "$VERSION"
           
           # Verify the version was created
@@ -204,13 +186,11 @@ jobs:
             VERSIONS_TO_KEEP=""
             while IFS= read -r version; do
               if [ -n "$version" ]; then
-                # Remove 'v' prefix if present for consistency
-                version_clean=${version#v}
-                if [ -d "versioned_docs/version-${version_clean}" ]; then
-                  echo "  ✓ $version_clean - exists"
-                  VERSIONS_TO_KEEP="${VERSIONS_TO_KEEP}${version_clean}\n"
+                if [ -d "versioned_docs/version-${version}" ]; then
+                  echo "  ✓ $version - exists"
+                  VERSIONS_TO_KEEP="${VERSIONS_TO_KEEP}${version}\n"
                 else
-                  echo "  ✗ $version_clean - MISSING (workflow may not have run for this release)"
+                  echo "  ✗ $version - MISSING (workflow may not have run for this release)"
                 fi
               fi
             done <<< "$RELEASES_TO_KEEP"
@@ -242,144 +222,23 @@ jobs:
           fi
         continue-on-error: true
 
-      - name: Normalize versions.json (ensure no 'v' prefix)
-        working-directory: docs/website
-        run: |
-          # Ensure all versions in versions.json are normalized (no 'v' prefix)
-          if [ -f "versions.json" ]; then
-            echo "Normalizing versions.json to remove any 'v' prefixes..."
-            # Read versions, remove 'v' prefix from each, rebuild JSON array
-            jq -r '.[]' versions.json | sed 's/^v//' | sort -V -r | jq -R . | jq -s . > versions.json.tmp && mv versions.json.tmp versions.json
-            echo "✓ Normalized versions.json:"
-            cat versions.json
-            echo ""
-          fi
-
       - name: Commit versioned docs
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          
-          # Get and normalize version (remove 'v' prefix if present)
-          VERSION="${{ steps.extract_version.outputs.version }}"
-          VERSION=${VERSION#v}  # Safety normalization (should already be normalized)
-          
-          # Determine branch name using normalized version
-          BRANCH_NAME="docs/version-${VERSION}"
-          
-          echo "Using normalized version: $VERSION"
-          echo "Branch name: $BRANCH_NAME"
-          
-          # Verify versioned docs exist before proceeding
-          if [ ! -d "docs/website/versioned_docs/version-${VERSION}" ]; then
-            echo "⚠️  ERROR: versioned_docs/version-${VERSION} does not exist!"
-            echo "Available versioned docs:"
-            ls -la docs/website/versioned_docs/ 2>/dev/null || echo "versioned_docs directory does not exist"
-            exit 1
-          fi
-          echo "✓ Verified versioned_docs/version-${VERSION} exists before branch operations"
-          
-          # Save our current changes before switching branches
-          echo "Saving current changes..."
-          # Create temporary directory to store our changes
-          mkdir -p /tmp/versioned-docs-backup
-          cp -r docs/website/versioned_docs /tmp/versioned-docs-backup/ || {
-            echo "⚠️  ERROR: Failed to backup versioned_docs"
-            exit 1
-          }
-          cp -r docs/website/versioned_sidebars /tmp/versioned-docs-backup/ 2>/dev/null || true
-          cp docs/website/versions.json /tmp/versioned-docs-backup/versions.json || {
-            echo "⚠️  ERROR: Failed to backup versions.json"
-            exit 1
-          }
-          echo "✓ Backed up versioned docs"
-          
-          # Check if branch exists on remote
-          git fetch origin "$BRANCH_NAME" 2>/dev/null || true
-          if git show-ref --verify --quiet "refs/remotes/origin/$BRANCH_NAME"; then
-            echo "Branch $BRANCH_NAME already exists on remote, checking it out..."
-            git checkout -B "$BRANCH_NAME" "origin/$BRANCH_NAME"
-            git pull origin "$BRANCH_NAME" || true
-            echo "Applying our changes to existing branch..."
-            
-            # Restore our changes (overwrite any existing files)
-            echo "Restoring versioned docs from backup..."
-            cp -r /tmp/versioned-docs-backup/versioned_docs docs/website/ || {
-              echo "⚠️  ERROR: Failed to restore versioned_docs"
-              exit 1
-            }
-            echo "✓ Restored versioned_docs"
-            
-            if [ -d "/tmp/versioned-docs-backup/versioned_sidebars" ]; then
-              cp -r /tmp/versioned-docs-backup/versioned_sidebars docs/website/ || {
-                echo "⚠️  ERROR: Failed to restore versioned_sidebars"
-                exit 1
-              }
-              echo "✓ Restored versioned_sidebars"
-            fi
-            
-            cp /tmp/versioned-docs-backup/versions.json docs/website/versions.json || {
-              echo "⚠️  ERROR: Failed to restore versions.json"
-              exit 1
-            }
-            echo "✓ Restored versions.json"
-          else
-            echo "Branch $BRANCH_NAME does not exist, creating it from main..."
-            git pull origin main || true
-            # For new branch, files are already in working directory, just create branch
-            git checkout -b "$BRANCH_NAME"
-            echo "✓ Created new branch - versioned docs are already in working directory"
-          fi
-          
-          rm -rf /tmp/versioned-docs-backup
-          
-          # Verify the versioned docs directory exists
-          if [ ! -d "docs/website/versioned_docs/version-${VERSION}" ]; then
-            echo "⚠️  ERROR: versioned_docs/version-${VERSION} does not exist after branch checkout!"
-            echo "Available versioned docs:"
-            ls -la docs/website/versioned_docs/ 2>/dev/null || echo "versioned_docs directory does not exist"
-            exit 1
-          fi
-          echo "✓ Verified versioned_docs/version-${VERSION} exists"
-          
-          # Normalize versions.json one more time to ensure consistency (no 'v' prefix)
-          cd docs/website
-          if [ -f "versions.json" ]; then
-            echo "Final normalization of versions.json..."
-            jq -r '.[]' versions.json | sed 's/^v//' | sort -V -r | jq -R . | jq -s . > versions.json.tmp && mv versions.json.tmp versions.json
-            echo "✓ Final normalized versions.json:"
-            cat versions.json
-            echo ""
-          fi
-          cd ../..
-          
-          # Add versioned docs (they're now committed to repo, not in .gitignore)
-          echo "Staging versioned docs for commit..."
+          # Pull latest changes to ensure we're up to date
+          git pull origin main || true
+          # Create a branch for the versioned docs
+          BRANCH_NAME="docs/version-${{ steps.extract_version.outputs.version }}"
+          git checkout -b "$BRANCH_NAME"
+          # Add versioned docs
           git add docs/website/versioned_docs docs/website/versioned_sidebars docs/website/versions.json
-          
-          # Show what's staged
-          echo "Staged changes:"
-          git diff --staged --stat || echo "No staged changes"
-          
           if ! git diff --staged --quiet; then
-            echo "Committing versioned docs..."
-            git commit -m "docs: add version ${VERSION}"
-            echo "✓ Committed versioned docs"
-            
-            # Try push, with fallback to force-with-lease if needed
-            echo "Pushing to ${BRANCH_NAME}..."
-            if ! git push origin "$BRANCH_NAME"; then
-              echo "Push failed, trying with force-with-lease..."
-              git push origin "$BRANCH_NAME" --force-with-lease || true
-            fi
-            echo "✓ Pushed to ${BRANCH_NAME}"
+            git commit -m "docs: add version ${{ steps.extract_version.outputs.version }}"
+            git push origin "$BRANCH_NAME"
           else
-            echo "⚠️  No changes to commit - files may already be up to date"
-            echo "This might happen if the versioned docs are identical to what's already in the branch"
+            echo "No changes to commit"
           fi
-          
-          # Clean up any remaining stash
-          git stash drop || true
 
       - name: Create Pull Request
         if: success()
@@ -390,50 +249,18 @@ jobs:
             const branchName = `docs/version-${{ steps.extract_version.outputs.version }}`;
             
             // Check if branch exists
-            let branch;
             try {
-              const { data: branchData } = await github.rest.repos.getBranch({
+              await github.rest.repos.getBranch({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 branch: branchName
               });
-              branch = branchData;
             } catch (error) {
               if (error.status === 404) {
                 console.log('Branch does not exist, skipping PR creation (no changes to commit)');
                 return;
               }
               throw error;
-            }
-            
-            // Check if there are commits between main and the branch
-            // Get the base branch (main) SHA
-            const { data: mainBranch } = await github.rest.repos.getBranch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              branch: 'main'
-            });
-            
-            // Compare the branches to see if there are differences
-            try {
-              const { data: comparison } = await github.rest.repos.compareCommits({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                base: mainBranch.commit.sha,
-                head: branch.commit.sha
-              });
-              
-              // If there are no commits ahead, skip PR creation
-              if (comparison.ahead_by === 0) {
-                console.log(`No commits between main and ${branchName}, skipping PR creation`);
-                return;
-              }
-              
-              console.log(`Branch ${branchName} is ${comparison.ahead_by} commit(s) ahead of main`);
-            } catch (error) {
-              // If comparison fails, it might mean branches are identical
-              console.log(`Could not compare branches, skipping PR creation: ${error.message}`);
-              return;
             }
             
             const title = `docs: add version ${{ steps.extract_version.outputs.version }}`;
@@ -461,66 +288,6 @@ jobs:
               console.log('PR already exists:', existingPRs[0].html_url);
             }
 
-      - name: Verify we're on the correct branch
-        run: |
-          VERSION="${{ steps.extract_version.outputs.version }}"
-          VERSION=${VERSION#v}  # Safety normalization
-          BRANCH_NAME="docs/version-${VERSION}"
-          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-          echo "Current branch: $CURRENT_BRANCH"
-          echo "Expected branch: $BRANCH_NAME"
-          if [ "$CURRENT_BRANCH" != "$BRANCH_NAME" ]; then
-            echo "⚠️  WARNING: Not on expected branch, checking out $BRANCH_NAME..."
-            git checkout "$BRANCH_NAME" || {
-              echo "⚠️  ERROR: Failed to checkout branch $BRANCH_NAME"
-              exit 1
-            }
-          fi
-          echo "✓ On correct branch: $BRANCH_NAME"
-
-      - name: Verify versioned docs exist before build
-        working-directory: docs/website
-        run: |
-          echo "Verifying versioned docs exist before build..."
-          VERSION="${{ steps.extract_version.outputs.version }}"
-          VERSION=${VERSION#v}  # Safety normalization (remove 'v' prefix)
-          
-          echo "Using normalized version: $VERSION"
-          
-          # Check if the versioned docs directory exists
-          if [ ! -d "versioned_docs/version-${VERSION}" ]; then
-            echo "⚠️  ERROR: versioned_docs/version-${VERSION} does not exist!"
-            echo "Current directory contents:"
-            ls -la versioned_docs/ 2>/dev/null || echo "versioned_docs directory does not exist"
-            exit 1
-          fi
-          
-          # Sync versions.json with what actually exists
-          echo "Syncing versions.json with existing versioned docs..."
-          echo "[]" > versions.json
-          if [ -d "versioned_docs" ]; then
-            EXISTING_VERSIONS=$(ls -d versioned_docs/version-* 2>/dev/null | \
-                                sed 's|versioned_docs/version-||' | \
-                                sed 's/^v//' | \
-                                sort -V | \
-                                jq -R . | \
-                                jq -s . || echo "[]")
-            if [ "$EXISTING_VERSIONS" != "[]" ] && [ -n "$EXISTING_VERSIONS" ]; then
-              echo "$EXISTING_VERSIONS" > versions.json
-              echo "✓ Updated versions.json with existing versions:"
-              cat versions.json | jq -r '.[]' | while read -r v; do echo "    - $v"; done
-            fi
-          fi
-          
-          # Verify versions.json is valid
-          if ! jq empty versions.json 2>/dev/null; then
-            echo "⚠️  ERROR: versions.json is invalid JSON!"
-            echo "[]" > versions.json
-            exit 1
-          fi
-          
-          echo "✓ Versioned docs verified and versions.json synced"
-
       - name: Build documentation
         working-directory: docs/website
         run: npm run build
@@ -538,4 +305,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        timeout-minutes: 10
