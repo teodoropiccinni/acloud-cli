@@ -71,10 +71,8 @@ jobs:
             
             # Get all version directories and extract version names
             # Use ls to get directory names, filter for version-* pattern, remove prefix
-            # Also remove any 'v' prefix from version numbers to ensure consistency
             EXISTING_VERSIONS=$(ls -d versioned_docs/version-* 2>/dev/null | \
                                 sed 's|versioned_docs/version-||' | \
-                                sed 's|^v||' | \
                                 sort -V | \
                                 jq -R . | \
                                 jq -s . || echo "[]")
@@ -102,14 +100,6 @@ jobs:
             echo "[]" > versions.json
             exit 1
           fi
-          
-          # Ensure no versions have 'v' prefix (normalize all versions)
-          if [ -f "versions.json" ]; then
-            echo "Normalizing versions.json to remove any 'v' prefixes..."
-            jq 'map(sub("^v"; ""))' versions.json > versions.json.tmp && mv versions.json.tmp versions.json
-            echo "✓ Normalized versions.json:"
-            cat versions.json | jq -r '.[]' | while read -r v; do echo "    - $v"; done
-          fi
 
       - name: Create versioned docs
         working-directory: docs/website
@@ -124,14 +114,6 @@ jobs:
             exit 1
           fi
           echo "✓ Versioned docs created successfully: versioned_docs/version-${VERSION}"
-          
-          # Normalize versions.json to ensure no 'v' prefix (Docusaurus expects versions without 'v')
-          if [ -f "versions.json" ]; then
-            echo "Normalizing versions.json after version creation..."
-            jq 'map(sub("^v"; ""))' versions.json > versions.json.tmp && mv versions.json.tmp versions.json
-            echo "✓ Normalized versions.json:"
-            cat versions.json
-          fi
 
       - name: Sync translations for all versions
         working-directory: docs/website
@@ -198,16 +180,10 @@ jobs:
             done <<< "$RELEASES_TO_KEEP"
             
             # Build versions.json with only existing versions from the last 5, sorted by semantic version (newest first)
-            # Ensure no 'v' prefix in the final versions.json
             if [ -n "$VERSIONS_TO_KEEP" ]; then
               echo -e "$VERSIONS_TO_KEEP" | grep -v '^$' | sort -V -r | jq -R . | jq -s . > versions.json.tmp && mv versions.json.tmp versions.json
             else
               echo "⚠️  No versions found in last $KEEP_LAST releases, keeping current versions.json"
-            fi
-            
-            # Final normalization: ensure no versions have 'v' prefix
-            if [ -f "versions.json" ]; then
-              jq 'map(sub("^v"; ""))' versions.json > versions.json.tmp && mv versions.json.tmp versions.json
             fi
             
             echo ""
@@ -234,42 +210,16 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          # Disable the warning about ignored files since we intentionally want to add them
-          git config --local advice.addIgnoredFile false
           # Pull latest changes to ensure we're up to date
           git pull origin main || true
-          
-          # Create or checkout branch for the versioned docs
+          # Create a branch for the versioned docs
           BRANCH_NAME="docs/version-${{ steps.extract_version.outputs.version }}"
-          
-          # Stash any local changes (like versions.json modifications) before switching branches
-          git stash push -m "Temporary stash before branch checkout" || true
-          
-          # Check if branch exists on remote
-          if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
-            echo "Branch $BRANCH_NAME already exists on remote, checking it out..."
-            git fetch origin "$BRANCH_NAME" || true
-            # Try to checkout existing branch, create if it doesn't exist locally
-            git checkout -b "$BRANCH_NAME" "origin/$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME" || git checkout -b "$BRANCH_NAME" "origin/$BRANCH_NAME"
-            git pull origin "$BRANCH_NAME" || true
-          else
-            echo "Creating new branch $BRANCH_NAME..."
-            git checkout -b "$BRANCH_NAME"
-          fi
-          
-          # Apply stashed changes if any
-          git stash pop || true
-          
-          # Force add versioned docs (they're in .gitignore but should be committed by CI)
-          git add -f docs/website/versioned_docs docs/website/versioned_sidebars docs/website/versions.json
+          git checkout -b "$BRANCH_NAME"
+          # Add versioned docs (they're now committed to repo, not in .gitignore)
+          git add docs/website/versioned_docs docs/website/versioned_sidebars docs/website/versions.json
           if ! git diff --staged --quiet; then
             git commit -m "docs: add version ${{ steps.extract_version.outputs.version }}"
-            # Try to push, and if it fails due to non-fast-forward, pull and push again
-            if ! git push origin "$BRANCH_NAME"; then
-              echo "Push failed, attempting to pull and merge..."
-              git pull origin "$BRANCH_NAME" --rebase || git pull origin "$BRANCH_NAME" --no-rebase || true
-              git push origin "$BRANCH_NAME" || git push origin "$BRANCH_NAME" --force-with-lease
-            fi
+            git push origin "$BRANCH_NAME"
           else
             echo "No changes to commit"
           fi

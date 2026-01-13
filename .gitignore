@@ -72,11 +72,20 @@ docs/website/.yarn/build-state.yml
 docs/website/.yarn/install-state.gz
 docs/website/.pnp.js
 
-# CI-created versioned documentation files
-# These are generated during the release workflow and don't need to be committed
-docs/website/versioned_docs/
-docs/website/versioned_sidebars/
-docs/website/versions.json
-# Versioned translations (created by CI, but keep current/ translations)
-docs/website/i18n/*/docusaurus-plugin-content-docs/version-*/
-docs/website/i18n/*/docusaurus-plugin-content-docs/version-*.json
+# Documentation (docs/website/)
+# Note: versioned_docs, versioned_sidebars, and versions.json are committed to the repo
+# (similar to SDK-go approach) to ensure consistent builds
+docs/website/node_modules/
+docs/website/build/
+docs/website/.docusaurus/
+docs/website/.cache-loader/
+docs/website/.DS_Store
+docs/website/.env.local
+docs/website/npm-debug.log*
+docs/website/yarn-debug.log*
+docs/website/yarn-error.log*
+docs/website/.idea/
+docs/website/.vscode/
+docs/website/*.swp
+docs/website/*.swo
+docs/website/*~
