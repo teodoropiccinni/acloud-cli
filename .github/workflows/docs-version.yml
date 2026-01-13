@@ -1,0 +1,289 @@
+name: Deploy Documentation Version
+
+on:
+  release:
+    types: [published, edited]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (e.g., 0.0.13)'
+        required: true
+        type: string
+
+jobs:
+  deploy-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout main branch
+        run: |
+          # Ensure we're on main branch (release events may checkout tag in detached HEAD)
+          git fetch origin
+          git checkout -B main origin/main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: docs/website/package-lock.json
+
+      - name: Install dependencies
+        working-directory: docs/website
+        run: npm ci
+
+      - name: Extract version from release
+        id: extract_version
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            # Remove 'v' prefix if present
+            VERSION=${VERSION#v}
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Deploying documentation for version: $VERSION"
+
+      - name: Sync versions.json with existing docs
+        working-directory: docs/website
+        run: |
+          # Sync versions.json with actual versioned docs directories
+          # This ensures versions.json only references versions that actually exist
+          echo "=== Syncing versions.json with existing versioned docs ==="
+          
+          # Always start with empty array
+          echo "[]" > versions.json
+          
+          # Check if versioned_docs directory exists and has content
+          if [ -d "versioned_docs" ]; then
+            echo "Checking for version directories..."
+            
+            # Get all version directories and extract version names
+            # Use ls to get directory names, filter for version-* pattern, remove prefix
+            EXISTING_VERSIONS=$(ls -d versioned_docs/version-* 2>/dev/null | \
+                                sed 's|versioned_docs/version-||' | \
+                                sort -V | \
+                                jq -R . | \
+                                jq -s . || echo "[]")
+            
+            if [ "$EXISTING_VERSIONS" != "[]" ] && [ -n "$EXISTING_VERSIONS" ]; then
+              echo "$EXISTING_VERSIONS" > versions.json
+              echo "✓ Updated versions.json with existing versions:"
+              cat versions.json | jq -r '.[]' | while read -r v; do echo "    - $v"; done
+            else
+              echo "✓ No version directories found, keeping empty array"
+            fi
+          else
+            echo "✓ No versioned_docs directory, keeping empty array"
+          fi
+          
+          # Verify and show final state
+          echo ""
+          echo "Final versions.json before creating new version:"
+          cat versions.json
+          echo ""
+          
+          # Verify it's valid JSON
+          if ! jq empty versions.json 2>/dev/null; then
+            echo "⚠️  ERROR: versions.json is invalid JSON! Resetting to empty array."
+            echo "[]" > versions.json
+            exit 1
+          fi
+
+      - name: Create versioned docs
+        working-directory: docs/website
+        run: |
+          VERSION="${{ steps.extract_version.outputs.version }}"
+          echo "Creating versioned docs for version: $VERSION"
+          npm run version "$VERSION"
+          
+          # Verify the version was created
+          if [ ! -d "versioned_docs/version-${VERSION}" ]; then
+            echo "⚠️  ERROR: Version directory was not created: versioned_docs/version-${VERSION}"
+            exit 1
+          fi
+          echo "✓ Versioned docs created successfully: versioned_docs/version-${VERSION}"
+
+      - name: Sync translations for all versions
+        working-directory: docs/website
+        run: |
+          echo "Syncing Italian translations for all versions..."
+          npm run sync-version-translations
+          echo "✓ Translations synced for all versions"
+
+      - name: Cleanup old versions (keep last 5)
+        working-directory: docs/website
+        run: |
+          # Get all releases from GitHub API, sorted by semantic version (newest first)
+          echo "Fetching releases from GitHub..."
+          # Extract tag names, remove 'v' prefix, sort by semantic version (newest first)
+          RELEASES_JSON=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases" | \
+            jq -r '.[].tag_name' | sed 's/^v//' | sort -V -r)
+          
+          if [ -z "$RELEASES_JSON" ]; then
+            echo "Could not fetch releases, skipping cleanup"
+            exit 0
+          fi
+          
+          # Keep only the last 5 releases (newest first after semantic sort)
+          KEEP_LAST=5
+          RELEASES_TO_KEEP=$(echo "$RELEASES_JSON" | head -n $KEEP_LAST)
+          echo "Latest $KEEP_LAST release(s) from GitHub (sorted by semantic version):"
+          echo "$RELEASES_TO_KEEP" | while read -r v; do [ -n "$v" ] && echo "  - $v"; done
+          
+          # Get current versions from versions.json
+          if [ -f "versions.json" ] && [ -d "versioned_docs" ]; then
+            echo ""
+            echo "Existing versioned docs directories:"
+            ls -d versioned_docs/version-* 2>/dev/null | sed 's|versioned_docs/version-||' | while read -r v; do echo "  - $v"; done || echo "  (none)"
+            
+            # Remove versions that are not in the last 5 releases
+            for version_dir in versioned_docs/version-*; do
+              if [ -d "$version_dir" ]; then
+                version=$(basename "$version_dir" | sed 's/version-//')
+                if [ -n "$version" ] && ! echo "$RELEASES_TO_KEEP" | grep -qx "$version"; then
+                  echo "Removing old version: $version (not in last $KEEP_LAST releases)"
+                  rm -rf "versioned_docs/version-${version}" || true
+                  rm -f "versioned_sidebars/version-${version}-sidebars.json" || true
+                fi
+              fi
+            done
+            
+            # Update versions.json to include only versions that exist AND are in the last 5 releases
+            # This ensures we keep the last 5 that were successfully created
+            echo ""
+            echo "Checking which of the last $KEEP_LAST releases have versioned docs:"
+            VERSIONS_TO_KEEP=""
+            while IFS= read -r version; do
+              if [ -n "$version" ]; then
+                if [ -d "versioned_docs/version-${version}" ]; then
+                  echo "  ✓ $version - exists"
+                  VERSIONS_TO_KEEP="${VERSIONS_TO_KEEP}${version}\n"
+                else
+                  echo "  ✗ $version - MISSING (workflow may not have run for this release)"
+                fi
+              fi
+            done <<< "$RELEASES_TO_KEEP"
+            
+            # Build versions.json with only existing versions from the last 5, sorted by semantic version (newest first)
+            if [ -n "$VERSIONS_TO_KEEP" ]; then
+              echo -e "$VERSIONS_TO_KEEP" | grep -v '^$' | sort -V -r | jq -R . | jq -s . > versions.json.tmp && mv versions.json.tmp versions.json
+            else
+              echo "⚠️  No versions found in last $KEEP_LAST releases, keeping current versions.json"
+            fi
+            
+            echo ""
+            echo "✓ Updated versions.json to keep only existing versions from last $KEEP_LAST releases"
+            echo "Final versions.json:"
+            cat versions.json
+            
+            # Update main docs folder to match the latest version
+            # This makes the latest release the "current" version in Docusaurus
+            LATEST_VERSION=$(echo -e "$VERSIONS_TO_KEEP" | grep -v '^$' | sort -V -r | head -n 1)
+            if [ -n "$LATEST_VERSION" ] && [ -d "versioned_docs/version-${LATEST_VERSION}" ]; then
+              echo ""
+              echo "Updating main docs folder to match latest version ($LATEST_VERSION)..."
+              # Remove existing markdown files from docs folder (but keep directory structure)
+              find docs -type f -name "*.md" -delete 2>/dev/null || true
+              # Copy all files from the latest version to the main docs folder
+              cp -r "versioned_docs/version-${LATEST_VERSION}"/* docs/ 2>/dev/null || true
+              echo "✓ Main docs folder updated to version $LATEST_VERSION (now the current version)"
+            fi
+          fi
+        continue-on-error: true
+
+      - name: Commit versioned docs
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          # Pull latest changes to ensure we're up to date
+          git pull origin main || true
+          # Create a branch for the versioned docs
+          BRANCH_NAME="docs/version-${{ steps.extract_version.outputs.version }}"
+          git checkout -b "$BRANCH_NAME"
+          # Add versioned docs
+          git add docs/website/versioned_docs docs/website/versioned_sidebars docs/website/versions.json
+          if ! git diff --staged --quiet; then
+            git commit -m "docs: add version ${{ steps.extract_version.outputs.version }}"
+            git push origin "$BRANCH_NAME"
+          else
+            echo "No changes to commit"
+          fi
+
+      - name: Create Pull Request
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const branchName = `docs/version-${{ steps.extract_version.outputs.version }}`;
+            
+            // Check if branch exists
+            try {
+              await github.rest.repos.getBranch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                branch: branchName
+              });
+            } catch (error) {
+              if (error.status === 404) {
+                console.log('Branch does not exist, skipping PR creation (no changes to commit)');
+                return;
+              }
+              throw error;
+            }
+            
+            const title = `docs: add version ${{ steps.extract_version.outputs.version }}`;
+            const body = `This PR adds versioned documentation for version ${{ steps.extract_version.outputs.version }}.\n\nCreated automatically by the release workflow.`;
+            
+            // Check if PR already exists
+            const { data: existingPRs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${branchName}`,
+              state: 'open'
+            });
+            
+            if (existingPRs.length === 0) {
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                head: branchName,
+                base: 'main'
+              });
+              console.log('Created PR:', pr.html_url);
+            } else {
+              console.log('PR already exists:', existingPRs[0].html_url);
+            }
+
+      - name: Build documentation
+        working-directory: docs/website
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/website/build
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

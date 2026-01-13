@@ -61,7 +61,7 @@ const config = {
           ...(process.env.DISABLE_VERSIONING !== 'true' && {
             versions: {
               current: {
-                label: 'Next 🚧',
+                label: 'Next',
                 path: 'next',
               },
             },
@@ -79,7 +79,7 @@ const config = {
   ],
 
   plugins: [
-      [
+    [
       require.resolve('@easyops-cn/docusaurus-search-local'),
       {
         // Options for the search plugin
@@ -87,6 +87,13 @@ const config = {
         language: ['en', 'it'],
         highlightSearchTermsOnTargetPage: true,
         explicitSearchResultPath: true,
+        // Fix for GitHub Pages deployment
+        indexBlog: false,
+        indexPages: false,
+        docsRouteBasePath: '/',
+        // Ensure search works with baseUrl
+        removeDefaultStopWordFilter: false,
+        removeDefaultStemmer: false,
       },
     ],
   ],

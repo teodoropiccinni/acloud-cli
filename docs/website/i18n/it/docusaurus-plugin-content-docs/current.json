@@ -1,6 +1,6 @@
 {
   "version.label": {
-    "message": "Next 🚧",
+    "message": "Next",
     "description": "The label for the current version in the version dropdown"
   },
   "sidebar.tutorialSidebar.category.Management": {
