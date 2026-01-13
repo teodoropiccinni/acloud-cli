@@ -12,11 +12,13 @@ import (
 
 var (
 	// Cached client and its configuration
-	clientCache     aruba.Client
-	clientCacheLock sync.Mutex
-	cachedClientID  string
-	cachedSecret    string
-	cachedDebug     bool
+	clientCache       aruba.Client
+	clientCacheLock   sync.Mutex
+	cachedClientID    string
+	cachedSecret      string
+	cachedDebug       bool
+	cachedBaseURL     string
+	cachedTokenIssuer string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -61,7 +63,17 @@ func GetArubaClient() (aruba.Client, error) {
 	}
 
 	if config.ClientID == "" || config.ClientSecret == "" {
-		return nil, fmt.Errorf("client ID or client secret not configured. Please run 'acloud config set'")
+		return nil, fmt.Errorf("client ID or client secret not configured. Please run 'acloud config set --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET'")
+	}
+
+	// Get base URL and token issuer URL from config, or use defaults
+	baseURL := config.BaseURL
+	if baseURL == "" {
+		baseURL = DefaultBaseURL
+	}
+	tokenIssuerURL := config.TokenIssuerURL
+	if tokenIssuerURL == "" {
+		tokenIssuerURL = DefaultTokenIssuerURL
 	}
 
 	// Check if debug flag is set on root command
@@ -74,17 +86,30 @@ func GetArubaClient() (aruba.Client, error) {
 	clientCacheLock.Lock()
 	defer clientCacheLock.Unlock()
 
-	// Reuse cached client if credentials and debug flag haven't changed
+	// Reuse cached client if credentials, URLs, and debug flag haven't changed
 	if clientCache != nil &&
 		cachedClientID == config.ClientID &&
 		cachedSecret == config.ClientSecret &&
-		cachedDebug == debugEnabled {
+		cachedDebug == debugEnabled &&
+		cachedBaseURL == baseURL &&
+		cachedTokenIssuer == tokenIssuerURL {
 		return clientCache, nil
 	}
 
 	// Create SDK client with credentials using DefaultOptions
 	// Only enable native logger when debug is enabled
 	options := aruba.DefaultOptions(config.ClientID, config.ClientSecret)
+
+	// Apply base URL if provided
+	if baseURL != "" {
+		options = options.WithBaseURL(baseURL)
+	}
+
+	// Apply token issuer URL if provided
+	if tokenIssuerURL != "" {
+		options = options.WithTokenIssuerURL(tokenIssuerURL)
+	}
+
 	if debugEnabled {
 		options = options.WithNativeLogger()
 		// Configure logger output for debug mode
@@ -106,6 +131,8 @@ func GetArubaClient() (aruba.Client, error) {
 	cachedClientID = config.ClientID
 	cachedSecret = config.ClientSecret
 	cachedDebug = debugEnabled
+	cachedBaseURL = baseURL
+	cachedTokenIssuer = tokenIssuerURL
 
 	return client, nil
 }

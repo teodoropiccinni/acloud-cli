@@ -14,9 +14,16 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	ClientID     string `yaml:"clientId"`
-	ClientSecret string `yaml:"clientSecret"`
+	ClientID       string `yaml:"clientId"`
+	ClientSecret   string `yaml:"clientSecret"`
+	BaseURL        string `yaml:"baseUrl,omitempty"`
+	TokenIssuerURL string `yaml:"tokenIssuerUrl,omitempty"`
 }
+
+const (
+	DefaultBaseURL        = "https://api.arubacloud.com"
+	DefaultTokenIssuerURL = "https://login.aruba.it/auth/realms/cmp-new-apikey/protocol/openid-connect/token"
+)
 
 // configCmd represents the config command
 var configCmd = &cobra.Command{
@@ -33,11 +40,8 @@ var configSetCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		clientID, _ := cmd.Flags().GetString("client-id")
 		clientSecret, _ := cmd.Flags().GetString("client-secret")
-
-		if clientID == "" && clientSecret == "" {
-			fmt.Println("Error: At least one of --client-id or --client-secret must be provided")
-			os.Exit(1)
-		}
+		baseURL, _ := cmd.Flags().GetString("base-url")
+		tokenIssuerURL, _ := cmd.Flags().GetString("token-issuer-url")
 
 		// Load existing config or create new one
 		config, err := LoadConfig()
@@ -46,12 +50,39 @@ var configSetCmd = &cobra.Command{
 			config = &Config{}
 		}
 
+		// Validate required fields
+		// If setting up for the first time, both client-id and client-secret are required
+		// If updating, at least one must be provided, but final config must have both
+		if config.ClientID == "" && clientID == "" {
+			fmt.Println("Error: --client-id is required")
+			fmt.Println("Please run: acloud config set --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET")
+			os.Exit(1)
+		}
+		if config.ClientSecret == "" && clientSecret == "" {
+			fmt.Println("Error: --client-secret is required")
+			fmt.Println("Please run: acloud config set --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET")
+			os.Exit(1)
+		}
+
 		// Update only provided values
 		if clientID != "" {
 			config.ClientID = clientID
 		}
 		if clientSecret != "" {
 			config.ClientSecret = clientSecret
+		}
+		if baseURL != "" {
+			config.BaseURL = baseURL
+		}
+		if tokenIssuerURL != "" {
+			config.TokenIssuerURL = tokenIssuerURL
+		}
+
+		// Final validation: both clientID and clientSecret must be set
+		if config.ClientID == "" || config.ClientSecret == "" {
+			fmt.Println("Error: Both --client-id and --client-secret are required")
+			fmt.Println("Please run: acloud config set --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET")
+			os.Exit(1)
 		}
 
 		// Save config
@@ -66,6 +97,12 @@ var configSetCmd = &cobra.Command{
 		}
 		if clientSecret != "" {
 			fmt.Println("  Client Secret: ********")
+		}
+		if baseURL != "" {
+			fmt.Printf("  Base URL: %s\n", baseURL)
+		}
+		if tokenIssuerURL != "" {
+			fmt.Printf("  Token Issuer URL: %s\n", tokenIssuerURL)
 		}
 	},
 }
@@ -89,6 +126,16 @@ var configShowCmd = &cobra.Command{
 		} else {
 			fmt.Println("  Client Secret: (not set)")
 		}
+		baseURL := config.BaseURL
+		if baseURL == "" {
+			baseURL = DefaultBaseURL + " (default)"
+		}
+		fmt.Printf("  Base URL: %s\n", baseURL)
+		tokenIssuerURL := config.TokenIssuerURL
+		if tokenIssuerURL == "" {
+			tokenIssuerURL = DefaultTokenIssuerURL + " (default)"
+		}
+		fmt.Printf("  Token Issuer URL: %s\n", tokenIssuerURL)
 	},
 }
 
@@ -98,8 +145,10 @@ func init() {
 	configCmd.AddCommand(configShowCmd)
 
 	// Flags for config set command
-	configSetCmd.Flags().String("client-id", "", "Aruba Cloud API client ID")
-	configSetCmd.Flags().String("client-secret", "", "Aruba Cloud API client secret")
+	configSetCmd.Flags().String("client-id", "", "Aruba Cloud API client ID (required)")
+	configSetCmd.Flags().String("client-secret", "", "Aruba Cloud API client secret (required)")
+	configSetCmd.Flags().String("base-url", "", "Base URL for Aruba Cloud API (optional, default: https://api.arubacloud.com)")
+	configSetCmd.Flags().String("token-issuer-url", "", "Token issuer URL for authentication (optional, default: https://login.aruba.it/auth/realms/cmp-new-apikey/protocol/openid-connect/token)")
 }
 
 // GetConfigPath returns the path to the config file

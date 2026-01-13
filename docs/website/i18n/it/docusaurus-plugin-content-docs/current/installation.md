@@ -162,6 +162,90 @@ export ACLOUD_CLIENT_ID="your-client-id"
 export ACLOUD_CLIENT_SECRET="your-client-secret"
 ```
 
+## Configurazione
+
+La configurazione della CLI ti permette di gestire le credenziali API e impostazioni opzionali come endpoint API personalizzati.
+
+### Impostazione della Configurazione
+
+**Impostazioni Richieste:**
+
+Sia `--client-id` che `--client-secret` sono obbligatori e devono essere impostati insieme:
+
+```bash
+acloud config set --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET
+```
+
+**Impostazioni Opzionali:**
+
+Puoi opzionalmente configurare endpoint API personalizzati:
+
+```bash
+# Imposta base URL (default: https://api.arubacloud.com)
+acloud config set --base-url "https://api.arubacloud.com"
+
+# Imposta token issuer URL (default: https://login.aruba.it/auth/realms/cmp-new-apikey/protocol/openid-connect/token)
+acloud config set --token-issuer-url "https://login.aruba.it/auth/realms/cmp-new-apikey/protocol/openid-connect/token"
+```
+
+Puoi anche impostare tutti i valori in una volta:
+
+```bash
+acloud config set \
+  --client-id YOUR_CLIENT_ID \
+  --client-secret YOUR_CLIENT_SECRET \
+  --base-url "https://api.arubacloud.com" \
+  --token-issuer-url "https://login.aruba.it/auth/realms/cmp-new-apikey/protocol/openid-connect/token"
+```
+
+### Visualizzazione della Configurazione
+
+Per visualizzare la tua configurazione corrente:
+
+```bash
+acloud config show
+```
+
+Esempio di output:
+```
+Current configuration:
+  Client ID: your-client-id
+  Client Secret: ********
+  Base URL: https://api.arubacloud.com (default)
+  Token Issuer URL: https://login.aruba.it/auth/realms/cmp-new-apikey/protocol/openid-connect/token (default)
+```
+
+### Formato del File di Configurazione
+
+La configurazione è memorizzata in `~/.acloud.yaml`:
+
+```yaml
+clientId: your-client-id
+clientSecret: your-client-secret
+baseUrl: https://api.arubacloud.com  # Opzionale, usa il default se non impostato
+tokenIssuerUrl: https://login.aruba.it/auth/realms/cmp-new-apikey/protocol/openid-connect/token  # Opzionale, usa il default se non impostato
+```
+
+**Valori Predefiniti:**
+
+Se `baseUrl` e `tokenIssuerUrl` non sono specificati nel file di configurazione, la CLI usa questi valori predefiniti:
+- **Base URL**: `https://api.arubacloud.com`
+- **Token Issuer URL**: `https://login.aruba.it/auth/realms/cmp-new-apikey/protocol/openid-connect/token`
+
+### Aggiornamento della Configurazione
+
+Puoi aggiornare impostazioni individuali senza influenzare le altre:
+
+```bash
+# Aggiorna solo il client secret
+acloud config set --client-secret NEW_SECRET
+
+# Aggiorna solo il base URL
+acloud config set --base-url "https://custom-api.example.com"
+```
+
+**Nota**: Sia `--client-id` che `--client-secret` devono sempre essere presenti nella configurazione. Se stai aggiornando uno, assicurati che l'altro sia già impostato o fornisci entrambi.
+
 ## Gestione del Contesto {#context-management}
 
 La CLI fornisce la gestione del contesto per evitare di passare `--project-id` ripetutamente. I contesti ti permettono di salvare gli ID progetto e passare tra di essi facilmente.
