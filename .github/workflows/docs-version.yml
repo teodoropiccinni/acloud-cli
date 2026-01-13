@@ -240,14 +240,31 @@ jobs:
           
           # Determine branch name
           BRANCH_NAME="docs/version-${{ steps.extract_version.outputs.version }}"
+          VERSION="${{ steps.extract_version.outputs.version }}"
+          
+          # Verify versioned docs exist before proceeding
+          if [ ! -d "docs/website/versioned_docs/version-${VERSION}" ]; then
+            echo "⚠️  ERROR: versioned_docs/version-${VERSION} does not exist!"
+            echo "Available versioned docs:"
+            ls -la docs/website/versioned_docs/ 2>/dev/null || echo "versioned_docs directory does not exist"
+            exit 1
+          fi
+          echo "✓ Verified versioned_docs/version-${VERSION} exists before branch operations"
           
           # Save our current changes before switching branches
           echo "Saving current changes..."
           # Create temporary directory to store our changes
           mkdir -p /tmp/versioned-docs-backup
-          cp -r docs/website/versioned_docs /tmp/versioned-docs-backup/ 2>/dev/null || true
+          cp -r docs/website/versioned_docs /tmp/versioned-docs-backup/ || {
+            echo "⚠️  ERROR: Failed to backup versioned_docs"
+            exit 1
+          }
           cp -r docs/website/versioned_sidebars /tmp/versioned-docs-backup/ 2>/dev/null || true
-          cp docs/website/versions.json /tmp/versioned-docs-backup/versions.json 2>/dev/null || true
+          cp docs/website/versions.json /tmp/versioned-docs-backup/versions.json || {
+            echo "⚠️  ERROR: Failed to backup versions.json"
+            exit 1
+          }
+          echo "✓ Backed up versioned docs"
           
           # Check if branch exists on remote
           git fetch origin "$BRANCH_NAME" 2>/dev/null || true
@@ -256,18 +273,46 @@ jobs:
             git checkout -B "$BRANCH_NAME" "origin/$BRANCH_NAME"
             git pull origin "$BRANCH_NAME" || true
             echo "Applying our changes to existing branch..."
+            
+            # Restore our changes (overwrite any existing files)
+            echo "Restoring versioned docs from backup..."
+            cp -r /tmp/versioned-docs-backup/versioned_docs docs/website/ || {
+              echo "⚠️  ERROR: Failed to restore versioned_docs"
+              exit 1
+            }
+            echo "✓ Restored versioned_docs"
+            
+            if [ -d "/tmp/versioned-docs-backup/versioned_sidebars" ]; then
+              cp -r /tmp/versioned-docs-backup/versioned_sidebars docs/website/ || {
+                echo "⚠️  ERROR: Failed to restore versioned_sidebars"
+                exit 1
+              }
+              echo "✓ Restored versioned_sidebars"
+            fi
+            
+            cp /tmp/versioned-docs-backup/versions.json docs/website/versions.json || {
+              echo "⚠️  ERROR: Failed to restore versions.json"
+              exit 1
+            }
+            echo "✓ Restored versions.json"
           else
             echo "Branch $BRANCH_NAME does not exist, creating it from main..."
             git pull origin main || true
+            # For new branch, files are already in working directory, just create branch
             git checkout -b "$BRANCH_NAME"
-            echo "Applying our changes to new branch..."
+            echo "✓ Created new branch - versioned docs are already in working directory"
           fi
           
-          # Restore our changes (overwrite any existing files)
-          cp -r /tmp/versioned-docs-backup/versioned_docs docs/website/ 2>/dev/null || true
-          cp -r /tmp/versioned-docs-backup/versioned_sidebars docs/website/ 2>/dev/null || true
-          cp /tmp/versioned-docs-backup/versions.json docs/website/versions.json 2>/dev/null || true
           rm -rf /tmp/versioned-docs-backup
+          
+          # Verify the versioned docs directory exists
+          if [ ! -d "docs/website/versioned_docs/version-${VERSION}" ]; then
+            echo "⚠️  ERROR: versioned_docs/version-${VERSION} does not exist after branch checkout!"
+            echo "Available versioned docs:"
+            ls -la docs/website/versioned_docs/ 2>/dev/null || echo "versioned_docs directory does not exist"
+            exit 1
+          fi
+          echo "✓ Verified versioned_docs/version-${VERSION} exists"
           
           # Normalize versions.json one more time to ensure consistency (no 'v' prefix)
           cd docs/website
@@ -343,6 +388,61 @@ jobs:
             } else {
               console.log('PR already exists:', existingPRs[0].html_url);
             }
+
+      - name: Verify we're on the correct branch
+        run: |
+          BRANCH_NAME="docs/version-${{ steps.extract_version.outputs.version }}"
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "Current branch: $CURRENT_BRANCH"
+          echo "Expected branch: $BRANCH_NAME"
+          if [ "$CURRENT_BRANCH" != "$BRANCH_NAME" ]; then
+            echo "⚠️  WARNING: Not on expected branch, checking out $BRANCH_NAME..."
+            git checkout "$BRANCH_NAME" || {
+              echo "⚠️  ERROR: Failed to checkout branch $BRANCH_NAME"
+              exit 1
+            }
+          fi
+          echo "✓ On correct branch: $BRANCH_NAME"
+
+      - name: Verify versioned docs exist before build
+        working-directory: docs/website
+        run: |
+          echo "Verifying versioned docs exist before build..."
+          VERSION="${{ steps.extract_version.outputs.version }}"
+          
+          # Check if the versioned docs directory exists
+          if [ ! -d "versioned_docs/version-${VERSION}" ]; then
+            echo "⚠️  ERROR: versioned_docs/version-${VERSION} does not exist!"
+            echo "Current directory contents:"
+            ls -la versioned_docs/ 2>/dev/null || echo "versioned_docs directory does not exist"
+            exit 1
+          fi
+          
+          # Sync versions.json with what actually exists
+          echo "Syncing versions.json with existing versioned docs..."
+          echo "[]" > versions.json
+          if [ -d "versioned_docs" ]; then
+            EXISTING_VERSIONS=$(ls -d versioned_docs/version-* 2>/dev/null | \
+                                sed 's|versioned_docs/version-||' | \
+                                sed 's/^v//' | \
+                                sort -V | \
+                                jq -R . | \
+                                jq -s . || echo "[]")
+            if [ "$EXISTING_VERSIONS" != "[]" ] && [ -n "$EXISTING_VERSIONS" ]; then
+              echo "$EXISTING_VERSIONS" > versions.json
+              echo "✓ Updated versions.json with existing versions:"
+              cat versions.json | jq -r '.[]' | while read -r v; do echo "    - $v"; done
+            fi
+          fi
+          
+          # Verify versions.json is valid
+          if ! jq empty versions.json 2>/dev/null; then
+            echo "⚠️  ERROR: versions.json is invalid JSON!"
+            echo "[]" > versions.json
+            exit 1
+          fi
+          
+          echo "✓ Versioned docs verified and versions.json synced"
 
       - name: Build documentation
         working-directory: docs/website
