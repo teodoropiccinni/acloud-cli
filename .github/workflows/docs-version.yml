@@ -73,9 +73,10 @@ jobs:
             
             # Get all version directories and extract version names
             # Use ls to get directory names, filter for version-* pattern, remove prefix
+            # Sort in descending order (newest first) as Docusaurus expects for versions.json
             EXISTING_VERSIONS=$(ls -d versioned_docs/version-* 2>/dev/null | \
                                 sed 's|versioned_docs/version-||' | \
-                                sort -V | \
+                                sort -V -r | \
                                 jq -R . | \
                                 jq -s . || echo "[]")
             

@@ -66,7 +66,8 @@ jobs:
         if [ -d "versioned_docs" ]; then
           echo "Checking for version directories..."
           # Use find to reliably get all version directories (handles empty case)
-          VERSIONS=$(find versioned_docs -maxdepth 1 -type d -name "version-*" 2>/dev/null | sed 's|.*/version-||' | sort -V)
+          # Sort in descending order (newest first) as Docusaurus expects for versions.json
+          VERSIONS=$(find versioned_docs -maxdepth 1 -type d -name "version-*" 2>/dev/null | sed 's|.*/version-||' | sort -V -r)
           
           if [ -n "$VERSIONS" ]; then
             # Build JSON array from existing directories
