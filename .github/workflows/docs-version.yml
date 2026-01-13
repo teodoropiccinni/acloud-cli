@@ -47,13 +47,13 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "release" ]; then
             VERSION="${{ github.event.release.tag_name }}"
-            # Remove 'v' prefix if present
-            VERSION=${VERSION#v}
           else
             VERSION="${{ github.event.inputs.version }}"
           fi
+          # Remove 'v' prefix if present (normalize for both release and manual inputs)
+          VERSION=${VERSION#v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Deploying documentation for version: $VERSION"
+          echo "Deploying documentation for version: $VERSION (normalized)"
 
       - name: Normalize existing versions.json (if present)
         working-directory: docs/website
@@ -238,9 +238,15 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
-          # Determine branch name
-          BRANCH_NAME="docs/version-${{ steps.extract_version.outputs.version }}"
+          # Get and normalize version (remove 'v' prefix if present)
           VERSION="${{ steps.extract_version.outputs.version }}"
+          VERSION=${VERSION#v}  # Safety normalization (should already be normalized)
+          
+          # Determine branch name using normalized version
+          BRANCH_NAME="docs/version-${VERSION}"
+          
+          echo "Using normalized version: $VERSION"
+          echo "Branch name: $BRANCH_NAME"
           
           # Verify versioned docs exist before proceeding
           if [ ! -d "docs/website/versioned_docs/version-${VERSION}" ]; then
@@ -328,7 +334,7 @@ jobs:
           # Add versioned docs (they're now committed to repo, not in .gitignore)
           git add docs/website/versioned_docs docs/website/versioned_sidebars docs/website/versions.json
           if ! git diff --staged --quiet; then
-            git commit -m "docs: add version ${{ steps.extract_version.outputs.version }}"
+            git commit -m "docs: add version ${VERSION}"
             # Try push, with fallback to force-with-lease if needed
             if ! git push origin "$BRANCH_NAME"; then
               echo "Push failed, trying with force-with-lease..."
@@ -391,7 +397,9 @@ jobs:
 
       - name: Verify we're on the correct branch
         run: |
-          BRANCH_NAME="docs/version-${{ steps.extract_version.outputs.version }}"
+          VERSION="${{ steps.extract_version.outputs.version }}"
+          VERSION=${VERSION#v}  # Safety normalization
+          BRANCH_NAME="docs/version-${VERSION}"
           CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
           echo "Current branch: $CURRENT_BRANCH"
           echo "Expected branch: $BRANCH_NAME"
@@ -409,6 +417,9 @@ jobs:
         run: |
           echo "Verifying versioned docs exist before build..."
           VERSION="${{ steps.extract_version.outputs.version }}"
+          VERSION=${VERSION#v}  # Safety normalization (remove 'v' prefix)
+          
+          echo "Using normalized version: $VERSION"
           
           # Check if the versioned docs directory exists
           if [ ! -d "versioned_docs/version-${VERSION}" ]; then
