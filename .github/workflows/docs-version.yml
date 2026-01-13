@@ -354,16 +354,28 @@ jobs:
           cd ../..
           
           # Add versioned docs (they're now committed to repo, not in .gitignore)
+          echo "Staging versioned docs for commit..."
           git add docs/website/versioned_docs docs/website/versioned_sidebars docs/website/versions.json
+          
+          # Show what's staged
+          echo "Staged changes:"
+          git diff --staged --stat || echo "No staged changes"
+          
           if ! git diff --staged --quiet; then
+            echo "Committing versioned docs..."
             git commit -m "docs: add version ${VERSION}"
+            echo "✓ Committed versioned docs"
+            
             # Try push, with fallback to force-with-lease if needed
+            echo "Pushing to ${BRANCH_NAME}..."
             if ! git push origin "$BRANCH_NAME"; then
               echo "Push failed, trying with force-with-lease..."
               git push origin "$BRANCH_NAME" --force-with-lease || true
             fi
+            echo "✓ Pushed to ${BRANCH_NAME}"
           else
-            echo "No changes to commit"
+            echo "⚠️  No changes to commit - files may already be up to date"
+            echo "This might happen if the versioned docs are identical to what's already in the branch"
           fi
           
           # Clean up any remaining stash
@@ -378,18 +390,50 @@ jobs:
             const branchName = `docs/version-${{ steps.extract_version.outputs.version }}`;
             
             // Check if branch exists
+            let branch;
             try {
-              await github.rest.repos.getBranch({
+              const { data: branchData } = await github.rest.repos.getBranch({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 branch: branchName
               });
+              branch = branchData;
             } catch (error) {
               if (error.status === 404) {
                 console.log('Branch does not exist, skipping PR creation (no changes to commit)');
                 return;
               }
               throw error;
+            }
+            
+            // Check if there are commits between main and the branch
+            // Get the base branch (main) SHA
+            const { data: mainBranch } = await github.rest.repos.getBranch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: 'main'
+            });
+            
+            // Compare the branches to see if there are differences
+            try {
+              const { data: comparison } = await github.rest.repos.compareCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                base: mainBranch.commit.sha,
+                head: branch.commit.sha
+              });
+              
+              // If there are no commits ahead, skip PR creation
+              if (comparison.ahead_by === 0) {
+                console.log(`No commits between main and ${branchName}, skipping PR creation`);
+                return;
+              }
+              
+              console.log(`Branch ${branchName} is ${comparison.ahead_by} commit(s) ahead of main`);
+            } catch (error) {
+              // If comparison fails, it might mean branches are identical
+              console.log(`Could not compare branches, skipping PR creation: ${error.message}`);
+              return;
             }
             
             const title = `docs: add version ${{ steps.extract_version.outputs.version }}`;
