@@ -208,13 +208,15 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          # Disable the warning about ignored files since we intentionally want to add them
+          git config --local advice.addIgnoredFile false
           # Pull latest changes to ensure we're up to date
           git pull origin main || true
           # Create a branch for the versioned docs
           BRANCH_NAME="docs/version-${{ steps.extract_version.outputs.version }}"
           git checkout -b "$BRANCH_NAME"
-          # Add versioned docs
-          git add docs/website/versioned_docs docs/website/versioned_sidebars docs/website/versions.json
+          # Force add versioned docs (they're in .gitignore but should be committed by CI)
+          git add -f docs/website/versioned_docs docs/website/versioned_sidebars docs/website/versions.json
           if ! git diff --staged --quiet; then
             git commit -m "docs: add version ${{ steps.extract_version.outputs.version }}"
             git push origin "$BRANCH_NAME"
