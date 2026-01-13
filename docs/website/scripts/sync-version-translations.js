@@ -92,9 +92,10 @@ versions.forEach(version => {
   });
   
   // Copy and update current.json if it exists (it's in the parent directory, not in current/)
+  // Docusaurus expects the JSON file at the same level as the version directory, not inside it
   if (fs.existsSync(currentJsonSource)) {
     const destFileName = `version-${version}.json`;
-    const finalDestFile = path.join(versionDir, destFileName);
+    const finalDestFile = path.join(i18nBase, destFileName);
     
     // Read and update the JSON content
     const content = JSON.parse(fs.readFileSync(currentJsonSource, 'utf8'));
@@ -104,7 +105,7 @@ versions.forEach(version => {
     }
     
     fs.writeFileSync(finalDestFile, JSON.stringify(content, null, 2) + '\n');
-    console.log(`  Copied and updated current.json -> version-${version}/${destFileName}`);
+    console.log(`  Copied and updated current.json -> ${destFileName}`);
   }
 });
 
