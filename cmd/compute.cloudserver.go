@@ -13,6 +13,11 @@ import (
 )
 
 func init() {
+	cloudserverCreateCmd.Flags().String("boot-disk-uri", "", "Bootable block storage URI (required, e.g., /projects/{project-id}/providers/Aruba.Storage/blockStorages/{volume-id})")
+	cloudserverCreateCmd.MarkFlagRequired("boot-disk-uri")
+	cloudserverCreateCmd.MarkFlagRequired("vpc-uri")
+	cloudserverCreateCmd.MarkFlagRequired("subnet-uri")
+	cloudserverCreateCmd.MarkFlagRequired("security-group-uri")
 	// CloudServer commands
 	computeCmd.AddCommand(cloudserverCmd)
 	cloudserverCmd.AddCommand(cloudserverCreateCmd)
@@ -29,15 +34,22 @@ func init() {
 	cloudserverCreateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	cloudserverCreateCmd.Flags().String("name", "", "Name for the cloud server (required)")
 	cloudserverCreateCmd.Flags().String("region", "", "Region code (required)")
+	cloudserverCreateCmd.Flags().String("zone", "", "Zone code (required, e.g., itbg1-a)")
 	cloudserverCreateCmd.Flags().String("flavor", "", "Flavor name (required)")
 	cloudserverCreateCmd.Flags().String("image", "", "Image ID or name (required)")
-	cloudserverCreateCmd.Flags().String("keypair", "", "Keypair name")
+	cloudserverCreateCmd.Flags().String("keypair-uri", "", "Keypair URI (e.g., /projects/{project-id}/providers/Aruba.Compute/keyPairs/{keypair-name})")
 	cloudserverCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
 	cloudserverCreateCmd.Flags().String("user-data-file", "", "Path to cloud-init YAML file (will be base64 encoded)")
+	cloudserverCreateCmd.Flags().String("vpc-uri", "", "VPC URI (required, e.g., /projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id})")
+	cloudserverCreateCmd.Flags().StringSlice("subnet-uri", []string{}, "Subnet URI(s) (required, comma-separated)")
+	cloudserverCreateCmd.Flags().StringSlice("security-group-uri", []string{}, "Security Group URI(s) (required, comma-separated)")
+	cloudserverCreateCmd.Flags().String("elasticip-uri", "", "Elastic IP URI (optional)")
+	cloudserverCreateCmd.Flags().String("billing-period", "Hour", "Billing period: Hour, Month, Year (optional, default: Hour)")
 	cloudserverCreateCmd.MarkFlagRequired("name")
 	cloudserverCreateCmd.MarkFlagRequired("region")
 	cloudserverCreateCmd.MarkFlagRequired("flavor")
 	cloudserverCreateCmd.MarkFlagRequired("image")
+	cloudserverCreateCmd.MarkFlagRequired("zone")
 
 	cloudserverGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 
@@ -140,6 +152,11 @@ var cloudserverCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new cloud server",
 	Run: func(cmd *cobra.Command, args []string) {
+		// Get new network flags
+		vpcURI, _ := cmd.Flags().GetString("vpc-uri")
+		subnetURIs, _ := cmd.Flags().GetStringSlice("subnet-uri")
+		securityGroupURIs, _ := cmd.Flags().GetStringSlice("security-group-uri")
+		elasticIPURI, _ := cmd.Flags().GetString("elasticip-uri")
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -148,14 +165,15 @@ var cloudserverCreateCmd = &cobra.Command{
 
 		name, _ := cmd.Flags().GetString("name")
 		region, _ := cmd.Flags().GetString("region")
+		zone, _ := cmd.Flags().GetString("zone")
 		flavor, _ := cmd.Flags().GetString("flavor")
-		image, _ := cmd.Flags().GetString("image")
-		keypair, _ := cmd.Flags().GetString("keypair")
+		bootDiskURI, _ := cmd.Flags().GetString("boot-disk-uri")
+		keypairURI, _ := cmd.Flags().GetString("keypair-uri")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 		userDataFile, _ := cmd.Flags().GetString("user-data-file")
 
-		if name == "" || region == "" || flavor == "" || image == "" {
-			fmt.Println("Error: --name, --region, --flavor, and --image are required")
+		if name == "" || region == "" || flavor == "" || bootDiskURI == "" || vpcURI == "" || len(subnetURIs) == 0 || len(securityGroupURIs) == 0 {
+			fmt.Println("Error: --name, --region, --flavor, --boot-disk-uri, --vpc-uri, --subnet-uri, and --security-group-uri are required")
 			return
 		}
 
@@ -168,11 +186,8 @@ var cloudserverCreateCmd = &cobra.Command{
 		// Build the create request
 		// Note: Template (image) should be provided as a ReferenceResource URI
 		// Format: /projects/{projectId}/providers/Aruba.Compute/templates/{templateId}
-		templateURI := image
-		if !strings.HasPrefix(templateURI, "/") {
-			// If image is just an ID, construct the URI
-			templateURI = fmt.Sprintf("/projects/%s/providers/Aruba.Compute/templates/%s", projectID, image)
-		}
+		// Use bootDiskURI for BootVolume
+		bootVolumeURI := bootDiskURI
 
 		createRequest := types.CloudServerRequest{
 			Metadata: types.RegionalResourceMetadataRequest{
@@ -185,20 +200,35 @@ var cloudserverCreateCmd = &cobra.Command{
 				},
 			},
 			Properties: types.CloudServerPropertiesRequest{
+				Zone:       zone,
 				FlavorName: &flavor,
 				BootVolume: types.ReferenceResource{
-					URI: templateURI,
+					URI: bootVolumeURI,
 				},
+				VPC: types.ReferenceResource{URI: vpcURI},
+				Subnets: func() []types.ReferenceResource {
+					var refs []types.ReferenceResource
+					for _, s := range subnetURIs {
+						refs = append(refs, types.ReferenceResource{URI: s})
+					}
+					return refs
+				}(),
+				SecurityGroups: func() []types.ReferenceResource {
+					var refs []types.ReferenceResource
+					for _, sg := range securityGroupURIs {
+						refs = append(refs, types.ReferenceResource{URI: sg})
+					}
+					return refs
+				}(),
 			},
 		}
 
-		if keypair != "" {
-			// KeyPair should be a ReferenceResource URI
-			// Format: /projects/{projectId}/providers/Aruba.Compute/keyPairs/{keypairName}
-			keypairURI := keypair
-			if !strings.HasPrefix(keypairURI, "/") {
-				keypairURI = fmt.Sprintf("/projects/%s/providers/Aruba.Compute/keyPairs/%s", projectID, keypair)
-			}
+		// Optionally set Elastic IP
+		if elasticIPURI != "" {
+			createRequest.Properties.ElastcIP = types.ReferenceResource{URI: elasticIPURI}
+		}
+
+		if keypairURI != "" {
 			createRequest.Properties.KeyPair = types.ReferenceResource{
 				URI: keypairURI,
 			}

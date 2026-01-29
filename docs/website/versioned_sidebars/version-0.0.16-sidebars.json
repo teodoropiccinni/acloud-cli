@@ -99,6 +99,14 @@
         "resources/container/kaas",
         "resources/container/containerregistry"
       ]
+    },
+    {
+      "type": "category",
+      "label": "Use Cases",
+      "items": [
+        "examples",
+        "examples/basic-usage"
+      ]
     }
   ]
 }

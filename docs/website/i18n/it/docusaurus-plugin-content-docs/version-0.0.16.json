@@ -1,4 +1,8 @@
 {
+  "sidebar.tutorialSidebar.category.Use Cases": {
+    "message": "Casi d'Uso",
+    "description": "The label for category Use Cases in sidebar tutorialSidebar"
+  },
   "version.label": {
     "message": "0.0.16",
     "description": "The label for the current version in the version dropdown"

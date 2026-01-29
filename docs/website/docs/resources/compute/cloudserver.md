@@ -19,17 +19,23 @@ Create a new cloud server instance.
 acloud compute cloudserver create [flags]
 ```
 
+
 **Required Flags:**
 - `--name <string>` - Name for the cloud server
 - `--region <string>` - Region code (e.g., `ITBG-Bergamo`)
 - `--flavor <string>` - Flavor name (e.g., `small`, `medium`, `large`)
 - `--image <string>` - Image ID or name
+- `--vpc-uri <string>` - VPC URI (e.g., `/projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id}`)
+- `--subnet-uri <stringSlice>` - Subnet URI(s) (comma-separated)
+- `--security-group-uri <stringSlice>` - Security Group URI(s) (comma-separated)
 
 **Optional Flags:**
 - `--project-id <string>` - Project ID (uses context if not specified)
 - `--keypair <string>` - Key pair name for SSH access
 - `--tags <stringSlice>` - Tags (comma-separated)
 - `--user-data-file <string>` - Path to cloud-init YAML file (will be base64 encoded)
+- `--elasticip-uri <string>` - Elastic IP URI (optional)
+- `--billing-period <string>` - Billing period: Hour, Month, Year (optional, default: Hour)
 
 **Example:**
 ```bash
