@@ -115,6 +115,15 @@ const sidebars = {
         'resources/container/containerregistry',
       ],
     },
+    {
+      type: 'category',
+      label: 'Use Cases',
+      items: [
+        'examples',
+        'examples/basic-usage',
+        'examples/cloudserver-provisioning',
+      ],
+    },
   ],
 };
 

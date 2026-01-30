@@ -216,6 +216,8 @@ var keypairGetCmd = &cobra.Command{
 			if keypair.Properties.Value != "" {
 				fmt.Printf("Public Key:      %s\n", keypair.Properties.Value)
 			}
+			// Show status as 'Active' for consistency
+			fmt.Printf("Status:          Active\n")
 
 			if !keypair.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", keypair.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
@@ -333,6 +335,7 @@ var keypairListCmd = &cobra.Command{
 				{Header: "NAME", Width: 40},
 				{Header: "ID", Width: 30},
 				{Header: "PUBLIC_KEY", Width: 60},
+				{Header: "STATUS", Width: 10},
 			}
 
 			// Extract IDs from raw JSON response if available
@@ -376,7 +379,9 @@ var keypairListCmd = &cobra.Command{
 					}
 				}
 
-				rows = append(rows, []string{name, id, publicKey})
+				// Show status as 'Active' for all keypairs (API does not provide status)
+				status := "Active"
+				rows = append(rows, []string{name, id, publicKey, status})
 			}
 
 			PrintTable(headers, rows)

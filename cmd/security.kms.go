@@ -57,7 +57,7 @@ func completeKMSID(cmd *cobra.Command, args []string, toComplete string) ([]stri
 	}
 
 	ctx := context.Background()
-	response, err := client.FromSecurity().KMSKeys().List(ctx, projectID, nil)
+	response, err := client.FromSecurity().KMS().List(ctx, projectID, nil)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -121,14 +121,12 @@ var kmsCreateCmd = &cobra.Command{
 				},
 			},
 			Properties: types.KmsPropertiesRequest{
-				BillingPeriod: types.BillingPeriodResource{
-					BillingPeriod: billingPeriod,
-				},
+				BillingPeriod: billingPeriod,
 			},
 		}
 
 		ctx := context.Background()
-		response, err := client.FromSecurity().KMSKeys().Create(ctx, projectID, createRequest, nil)
+		response, err := client.FromSecurity().KMS().Create(ctx, projectID, createRequest, nil)
 		if err != nil {
 			fmt.Printf("Error creating KMS: %v\n", err)
 			return
@@ -205,7 +203,7 @@ var kmsGetCmd = &cobra.Command{
 		}
 
 		ctx := context.Background()
-		resp, err := client.FromSecurity().KMSKeys().Get(ctx, projectID, kmsID, nil)
+		resp, err := client.FromSecurity().KMS().Get(ctx, projectID, kmsID, nil)
 		if err != nil {
 			fmt.Printf("Error getting KMS: %v\n", err)
 			return
@@ -278,7 +276,7 @@ var kmsListCmd = &cobra.Command{
 		}
 
 		ctx := context.Background()
-		resp, err := client.FromSecurity().KMSKeys().List(ctx, projectID, nil)
+		resp, err := client.FromSecurity().KMS().List(ctx, projectID, nil)
 		if err != nil {
 			fmt.Printf("Error listing KMS: %v\n", err)
 			return
@@ -368,7 +366,7 @@ var kmsUpdateCmd = &cobra.Command{
 		}
 
 		ctx := context.Background()
-		getResp, err := client.FromSecurity().KMSKeys().Get(ctx, projectID, kmsID, nil)
+		getResp, err := client.FromSecurity().KMS().Get(ctx, projectID, kmsID, nil)
 		if err != nil {
 			fmt.Printf("Error getting KMS: %v\n", err)
 			return
@@ -413,7 +411,7 @@ var kmsUpdateCmd = &cobra.Command{
 			updateRequest.Metadata.ResourceMetadataRequest.Tags = tags
 		}
 
-		response, err := client.FromSecurity().KMSKeys().Update(ctx, projectID, kmsID, updateRequest, nil)
+		response, err := client.FromSecurity().KMS().Update(ctx, projectID, kmsID, updateRequest, nil)
 		if err != nil {
 			fmt.Printf("Error updating KMS: %v\n", err)
 			return
@@ -475,7 +473,7 @@ var kmsDeleteCmd = &cobra.Command{
 		}
 
 		ctx := context.Background()
-		_, err = client.FromSecurity().KMSKeys().Delete(ctx, projectID, kmsID, nil)
+		_, err = client.FromSecurity().KMS().Delete(ctx, projectID, kmsID, nil)
 		if err != nil {
 			fmt.Printf("Error deleting KMS: %v\n", err)
 			return

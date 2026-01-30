@@ -10,6 +10,9 @@ import (
 )
 
 func init() {
+	blockstorageCreateCmd.Flags().String("snapshot-uri", "", "URI of the snapshot to use (optional)")
+	blockstorageCreateCmd.Flags().Bool("set-bootable", false, "Set block storage as bootable (optional)")
+	blockstorageCreateCmd.Flags().String("image", "", "Image string to use for the block storage (optional)")
 	// Block storage commands
 	storageCmd.AddCommand(blockstorageCmd)
 	blockstorageCmd.AddCommand(blockstorageCreateCmd)
@@ -21,8 +24,9 @@ func init() {
 	// Add flags for blockstorage commands
 	blockstorageCreateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	blockstorageCreateCmd.Flags().String("name", "", "Name for the block storage (required)")
-	blockstorageCreateCmd.Flags().String("region", "ITBG-Bergamo", "Region code")
-	blockstorageCreateCmd.Flags().String("zone", "", "Zone/datacenter (optional)")
+	blockstorageCreateCmd.Flags().String("region", "ITBG-Bergamo", "Region code (required)")
+	blockstorageCreateCmd.Flags().String("zone", "", "Zone/datacenter (optional, only for zonal block storage)")
+	blockstorageCreateCmd.MarkFlagRequired("region")
 	blockstorageCreateCmd.Flags().Int("size", 0, "Size in GB (required)")
 	blockstorageCreateCmd.Flags().String("type", "Standard", "Type: Standard or Performance")
 	blockstorageCreateCmd.Flags().String("billing-period", "Hour", "Billing period: Hour, Month, Year")
@@ -113,6 +117,9 @@ var blockstorageCreateCmd = &cobra.Command{
 		volumeType, _ := cmd.Flags().GetString("type")
 		billingPeriod, _ := cmd.Flags().GetString("billing-period")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
+		snapshotURI, _ := cmd.Flags().GetString("snapshot-uri")
+		setBootable, _ := cmd.Flags().GetBool("set-bootable")
+		image, _ := cmd.Flags().GetString("image")
 
 		// Validate required fields
 		if name == "" {
@@ -158,6 +165,27 @@ var blockstorageCreateCmd = &cobra.Command{
 			createRequest.Properties.Zone = &zone
 		}
 
+		// Add snapshot if provided
+		if snapshotURI != "" {
+			createRequest.Properties.Snapshot = &types.ReferenceResource{URI: snapshotURI}
+		}
+
+		// Add bootable if --set-bootable is provided (always true)
+		if setBootable {
+			bootable := true
+			createRequest.Properties.Bootable = &bootable
+		}
+
+		// Add image if provided
+		if image != "" {
+			createRequest.Properties.Image = &image
+		}
+
+		// Add zone only if provided
+		if zone != "" {
+			createRequest.Properties.Zone = &zone
+		}
+
 		// Get verbose flag
 		verbose, _ := cmd.Flags().GetBool("verbose")
 
@@ -172,6 +200,15 @@ var blockstorageCreateCmd = &cobra.Command{
 			fmt.Printf("  Size:           %d GB\n", size)
 			fmt.Printf("  Type:           %s\n", volumeType)
 			fmt.Printf("  Billing Period: %s\n", billingPeriod)
+			if snapshotURI != "" {
+				fmt.Printf("  Snapshot URI:   %s\n", snapshotURI)
+			}
+			if setBootable {
+				fmt.Printf("  Bootable:       true\n")
+			}
+			if image != "" {
+				fmt.Printf("  Image:          %s\n", image)
+			}
 			fmt.Printf("  Project ID:     %s\n", projectID)
 			fmt.Println()
 		}
