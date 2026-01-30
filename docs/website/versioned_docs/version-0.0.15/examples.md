@@ -11,6 +11,7 @@ This section provides practical scenarios and step-by-step guides for using the 
 
 
 - [Basic Usage](examples/basic-usage)
-- [Cloud Server Provisioning](examples/cloudserver-provisioning)
+- [Cloud Server Provisioning (EN)](examples/cloudserver-provisioning)
+- [Provisioning CloudServer (IT)](examples/cloudserver-provisioning-it)
 
 Choose a scenario to get started.
