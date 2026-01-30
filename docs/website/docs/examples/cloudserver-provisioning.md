@@ -1,29 +1,9 @@
-## Connecting to Your Cloud Server via SSH
-
-To connect to your cloud server using SSH, you can use the CLI connect command. The server must have an Elastic IP assigned to be accessible from the public internet.
-
-Example usage:
-
-```bash
-acloud compute cloudserver connect 697b4bd0377bb8332d771b39 --user ubuntu
-```
-
-If the server has an Elastic IP, you will see a message like:
-
-```
-Connect by running: ssh ubuntu@95.110.142.229
-```
-
-If the server does not have an Elastic IP, you will see:
-
-```
-No Elastic IP found for this cloud server.
-The server must have an Elastic IP linked to use the connect command.
-```
-
-> **Note:**
-> - The `--user` flag should match the default username for the image you used (e.g., `ubuntu` for Ubuntu images).
-> - To connect, ensure you have assigned an Elastic IP to your server during or after creation. You can add an Elastic IP by updating the server or specifying the `--elasticip-uri` flag at creation time.
+---
+id: cloudserver-provisioning
+title: CloudServer Provisioning
+sidebar_label: CloudServer Provisioning
+description: Learn the essential commands to create, manage and use Aruba Cloud Server using the acloud CLI.
+---
 # Cloud Server Provisioning Example
 
 This example demonstrates how to provision a new cloud server using the CLI with all required networking flags.
@@ -157,7 +137,7 @@ URI:             /projects/68398923fb2cb026400d4d31/providers/Aruba.Network/elas
 
 ---
 
-## Step 6: Create a Bootable Block Storage (Optional, for Custom Images)
+## Step 6: Create a Bootable Block Storage
 
 
 If you want to create a bootable block storage volume (for example, to use a custom image), use the following command. The `--region` and `--zone` flags are required:
@@ -294,8 +274,28 @@ URI:             /projects/68398923fb2cb026400d4d31/providers/Aruba.Storage/bloc
 
 ---
 
-## Command
 
+## Step 9: (Optional) Create a user-data file for cloud-init
+
+If you want to customize your server at boot (e.g., create users, install packages), create a `cloud-init.yaml` file before provisioning. Example:
+
+```yaml
+#cloud-config
+users:
+  - name: demo
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: users, admin
+    home: /home/demo
+    shell: /bin/bash
+    lock_passwd: false
+    passwd: <hashed-password>
+```
+
+Replace `<hashed-password>` with a valid hashed password (see cloud-init docs for details). You can add more cloud-init options as needed.
+
+---
+
+## Step 10: Create the Cloud Server - Command
 
 ```bash
 acloud compute cloudserver create \
@@ -307,9 +307,11 @@ acloud compute cloudserver create \
   --image "ubuntu-22.04" \
   --vpc-uri "/projects/68398923fb2cb026400d4d31/providers/Aruba.Network/vpcs/69495ef64d0cdc87949b71ec" \
   --subnet-uri "/projects/68398923fb2cb026400d4d31/providers/Aruba.Network/vpcs/69495ef64d0cdc87949b71ec/subnets/694ba1737712ac0032dbe50a" \
-  --security-group-uri "/projects/68398923fb2cb026400d4d31/providers/Aruba.Network/vpcs/69495ef64d0cdc87949b71ec/securityGroups/694b05ac4d0cdc87949b75f9" \
+  --security-group-uri "/projects/68398923fb2cb026400d4d31/providers/Aruba.Network/vpcs/69495ef64d0cdc87949b75f9" \
   --keypair-uri "/projects/68398923fb2cb026400d4d31/providers/Aruba.Compute/keyPairs/69007ebf4e7d691466d8621e" \
+  --user-data-file "cloud-init.yaml" \
   --tags "production"
+
 ```
 
 Example output:
@@ -322,7 +324,112 @@ my-server                      my-server    CSO4A8    4     8         0        I
 - The `--user-data-file` flag is optional and can be omitted if not needed.
 - You can specify multiple subnets or security groups by repeating the flag or using comma-separated values.
 
-## Notes
 - All networking flags (`--vpc-uri`, `--subnet-uri`, `--security-group-uri`) and the `--zone` flag are required.
 - The server will be provisioned in the specified region and attached to the provided network resources.
 <!-- For more details, see the documentation for cloud server creation. (Link removed: file not found) -->
+
+---
+
+## Step 11: Wait for the Cloud Server to Become Active
+
+After running the create command, your server will be provisioned. You can check its status with:
+
+```bash
+acloud compute cloudserver list | grep "my-server"
+```
+
+
+When the status shows `Active`, the server is ready for use:
+
+```
+my-server                 697c62605b79733376b3386a       ITBG-Bergamo    CSO4A8          Active
+```
+
+---
+
+## Step 12: Connect to the Cloud Server
+
+To connect to your cloud server, use the `acloud compute cloudserver connect` command. You must specify the user according to the boot image. For Ubuntu images, use the `ubuntu` user:
+
+```bash
+acloud compute cloudserver connect 697c62605b79733376b3386a --user ubuntu
+```
+
+Example output:
+```
+Connect by running: ssh ubuntu@85.235.152.94
+```
+### Connecting to Your Cloud Server via SSH
+
+To connect to your cloud server using SSH, you can use the CLI connect command. The server must have an Elastic IP assigned to be accessible from the public internet.
+
+Example usage:
+
+```bash
+acloud compute cloudserver connect 697b4bd0377bb8332d771b39 --user ubuntu
+```
+
+If the server has an Elastic IP, you will see a message like:
+
+```
+Connect by running: ssh ubuntu@95.110.142.229
+```
+
+If the server does not have an Elastic IP, you will see:
+
+```
+No Elastic IP found for this cloud server.
+The server must have an Elastic IP linked to use the connect command.
+```
+
+> **Note:**
+> - The `--user` flag should match the default username for the image you used (e.g., `ubuntu` for Ubuntu images).
+> - To connect from public Internet, ensure you have assigned an Elastic IP to your server during or after creation. 
+You can add an Elastic IP by updating the server or specifying the `--elasticip-uri` flag at creation time.
+> - The connect command will print the SSH command to use.
+
+## Step 13: Power Off or Power On the Cloud Server
+
+You can power off or power on your cloud server at any time using the following commands:
+
+To power off:
+
+```bash
+acloud compute cloudserver power-off 697c62605b79733376b3386a
+```
+
+Example output:
+```
+Cloud server powered off successfully!
+Server: my-server
+Status: Updating
+```
+
+To power on:
+
+```bash
+acloud compute cloudserver power-on 697c62605b79733376b3386a
+```
+
+Example output:
+```
+Cloud server powered on successfully!
+Server: my-server
+Status: Updating
+```
+
+## Step 14: Delete the Cloud Server
+
+To delete your cloud server when it is no longer needed, use the following command:
+
+```bash
+acloud compute cloudserver delete 697c62605b79733376b3386a
+```
+
+You will be prompted for confirmation:
+
+```
+Are you sure you want to delete cloud server '697c62605b79733376b3386a'? (yes/no): yes
+Cloud server '697c62605b79733376b3386a' deleted successfully.
+```
+---
