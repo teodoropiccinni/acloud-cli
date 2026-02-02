@@ -105,7 +105,9 @@
       "label": "Use Cases",
       "items": [
         "examples",
-        "examples/basic-usage"
+        "examples/basic-usage",
+        "examples/cloudserver",
+        "examples/kubernetes"
       ]
     }
   ]
