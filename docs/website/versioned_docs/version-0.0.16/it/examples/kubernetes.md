@@ -1,10 +1,10 @@
 ---
 id: kubernetes-it
-title: Provisioning Kubernetes
-sidebar_label: Provisioning Kubernetes
+title: Kubernetes
+sidebar_label: Kubernetes
 description: Scopri come creare e gestire cluster Kubernetes usando acloud CLI.
 ---
-# Esempio di Provisioning Kubernetes
+# Esempio di Kubernetes
 
 Questa guida mostra come effettuare il provisioning e la gestione di un cluster Kubernetes tramite Aruba Cloud CLI.
 

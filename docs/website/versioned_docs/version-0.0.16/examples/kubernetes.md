@@ -1,10 +1,10 @@
 ---
 id: kubernetes
-title: Kubernetes Provisioning
-sidebar_label: Kubernetes Provisioning
+title: Kubernetes
+sidebar_label: Kubernetes
 description: Learn how to create and manage Kubernetes clusters using the acloud CLI.
 ---
-# Kubernetes Provisioning Example
+# Kubernetes Example
 
 This guide demonstrates how to provision and manage a Kubernetes cluster using the Aruba Cloud CLI.
 
@@ -170,6 +170,7 @@ Creation Date:   27-12-2025 14:54:51
 Created By:      aru-297647
 Tags:            []
 ```
+
 
 ## Step 7: Connect to the KaaS Cluster
 

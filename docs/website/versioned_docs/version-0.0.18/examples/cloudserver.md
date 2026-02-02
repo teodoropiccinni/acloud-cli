@@ -1,10 +1,10 @@
 ---
-id: cloudserver-provisioning
-title: CloudServer Provisioning
-sidebar_label: CloudServer Provisioning
+id: cloudserver
+title: CloudServer
+sidebar_label: CloudServer
 description: Learn the essential commands to create, manage and use Aruba Cloud Server using the acloud CLI.
 ---
-# Cloud Server Provisioning Example
+# Cloud Server Example
 
 This example demonstrates how to provision a new cloud server using the CLI with all required networking flags.
 

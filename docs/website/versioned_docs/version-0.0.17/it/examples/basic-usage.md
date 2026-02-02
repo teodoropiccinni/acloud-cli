@@ -1,5 +1,5 @@
 ---
-id: basic-usage
+id: basic-usage-it
 title: Basic Usage
 sidebar_label: Basic Usage
 description: Learn the essential commands to list, create and manage Aruba Cloud projects using the acloud CLI.

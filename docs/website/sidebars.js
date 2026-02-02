@@ -121,7 +121,7 @@ const sidebars = {
       items: [
         'examples',
         'examples/basic-usage',
-        'examples/cloudserver-provisioning',
+        'examples/cloudserver',
         'examples/kubernetes',
       ],
     },

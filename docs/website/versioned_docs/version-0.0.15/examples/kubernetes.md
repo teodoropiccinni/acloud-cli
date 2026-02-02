@@ -1,63 +1,63 @@
 ---
 id: kubernetes
-title: Kubernetes Provisioning
-sidebar_label: Kubernetes Provisioning
-description: Learn how to create and manage Kubernetes clusters using the acloud CLI.
+title: Kubernetes
+sidebar_label: Kubernetes
+description: Scopri come creare e gestire cluster Kubernetes usando acloud CLI.
 ---
-# Kubernetes Provisioning Example
+# Esempio di Kubernetes
 
-This guide demonstrates how to provision and manage a Kubernetes cluster using the Aruba Cloud CLI.
+Questa guida mostra come effettuare il provisioning e la gestione di un cluster Kubernetes tramite Aruba Cloud CLI.
 
-## Step 0: List Available VPCs
+## Step 0: Elenca le VPC disponibili
 
-First, determine which VPC you want to use for your Kubernetes cluster. List all available VPCs with:
+Per prima cosa, individua la VPC da usare per il cluster Kubernetes. Elenca tutte le VPC disponibili con:
 
 ```bash
 acloud network vpc list
 ```
 
-Example output:
+Esempio output:
 ```
 NAME       ID                        REGION         SUBNETS    STATUS
 prova      689307f4745108d3c6343b5a  ITBG-Bergamo   5          Active
 test-cli   69495ef64d0cdc87949b71ec  ITBG-Bergamo   0          Active
 ```
 
-Choose a VPC with `STATUS` as `Active` and note its `ID` for the next step.
+Scegli una VPC con `STATUS` pari a `Active` e annota il suo `ID` per il prossimo step.
 
 ---
 
-## Step 1: Retrieve the VPC URI and Status
+## Step 1: Recupera URI e stato della VPC
 
-Before provisioning a Kubernetes cluster, ensure your VPC is already created and its status is **Active**.
+Prima di creare un cluster Kubernetes, assicurati che la VPC sia già creata e in stato **Active**.
 
-Run the following command to get the VPC URI and check its status:
+Esegui il seguente comando per ottenere l'URI della VPC e verificarne lo stato:
 
 ```bash
 acloud network vpc get {vpc-id} | grep -E "URI|Status"
 ```
 
-Example output:
+Esempio output:
 ```
 URI:             /projects/68398923fb2cb026400d4d31/providers/Aruba.Network/vpcs/69495ef64d0cdc87949b71ec
 Status:          Active
 ```
 
-> **Note:** Only proceed if the status is `Active`. If not, wait until the VPC becomes active before continuing.
+> **Nota:** Procedi solo se lo stato è `Active`. Se non lo è, attendi che la VPC diventi attiva prima di continuare.
 
 ---
 
-## Step 2: List or Create a Subnet in the VPC
+## Step 2: Elenca o crea una Subnet nella VPC
 
-After selecting your VPC, you need a subnet within it. You can list existing subnets for the VPC or create a new one.
+Dopo aver selezionato la VPC, serve una subnet al suo interno. Puoi elencare le subnet esistenti o crearne una nuova.
 
-To list subnets in your chosen VPC, use the VPC ID:
+Per elencare le subnet nella VPC scelta, usa l'ID della VPC:
 
 ```bash
 acloud network subnet list {vpc-id}
 ```
 
-Example output:
+Esempio output:
 ```
 NAME                       ID                         REGION         CIDR             STATUS
 test-cli                   694ba1737712ac0032dbe50a   ITBG-Bergamo   192.168.0.0/24   Active
@@ -67,55 +67,55 @@ e2e-test-1766569838-subnet 694bb7767712ac0032dbe5fc   ITBG-Bergamo   192.168.3.0
 e2e-test-1766570350-subnet 694bb9767712ac0032dbe640   ITBG-Bergamo   192.168.4.0/24   Active
 ```
 
-Choose a subnet with `STATUS` as `Active` and note its `ID` and `CIDR`. If no suitable subnet exists, create a new one using the CLI (see documentation for subnet creation).
+Scegli una subnet con `STATUS` pari a `Active` e annota il suo `ID` e `CIDR`. Se non esiste una subnet adatta, creane una nuova tramite CLI (vedi documentazione subnet).
 
 ---
 
-## Step 3: Extract the Subnet URI
+## Step 3: Estrai l'URI della Subnet
 
-Once you have chosen a subnet, extract its URI for use in the provisioning command. Run:
+Una volta scelta la subnet, estrai il suo URI per usarlo nel comando di provisioning. Esegui:
 
 ```bash
 acloud network subnet get <vpc-id> <subnet-id> | grep URI
 ```
 
-Example:
+Esempio:
 ```bash
 acloud network subnet get 69495ef64d0cdc87949b71ec 694ba1737712ac0032dbe50a | grep URI
 ```
 
-Example output:
+Esempio output:
 ```
 URI:             /projects/68398923fb2cb026400d4d31/providers/Aruba.Network/vpcs/69495ef64d0cdc87949b71ec/subnets/694ba1737712ac0032dbe50a
 ```
 
-> **Note:** Save this URI for the Kubernetes provisioning step.
+> **Nota:** Salva questo URI per il provisioning Kubernetes.
 
 ---
 
 
-## Step 4: Determine Kubernetes Version and List Available Nodepool Flavors
+## Step 4: Determina la versione Kubernetes e i flavor disponibili per i nodepool
 
-Before creating your cluster, check which Kubernetes versions are available and which nodepool flavors you can use:
+Prima di creare il cluster, verifica quali versioni Kubernetes sono disponibili e quali flavor di nodepool puoi usare:
 
-- **Check available Kubernetes versions:**
-  - Visit: [Kubernetes Versions Metadata](https://api.arubacloud.com/docs/metadata/#kubernetes-version)
-  - Review the list and select a supported version for your cluster (e.g., `1.27`).
+- **Verifica le versioni Kubernetes disponibili:**
+  - Visita: [Metadata Versioni Kubernetes](https://api.arubacloud.com/docs/metadata/#kubernetes-version)
+  - Consulta l'elenco e scegli una versione supportata per il cluster (es. `1.27`).
 
-- **Check available nodepool flavors:**
-  - Visit: [KaaS Nodepool Flavors Metadata](https://api.arubacloud.com/docs/metadata/#kaas-flavors)
-  - Review the available flavors and choose the one that fits your needs (e.g., `K8S-Standard`).
+- **Verifica i flavor disponibili per i nodepool:**
+  - Visita: [Metadata Flavor Nodepool KaaS](https://api.arubacloud.com/docs/metadata/#kaas-flavors)
+  - Consulta i flavor disponibili e scegli quello più adatto alle tue esigenze (es. `K8S-Standard`).
 
-You can also list available flavors using the CLI:
+Puoi anche elencare i flavor disponibili tramite CLI:
 
 ```bash
 acloud container kaas flavor list
 ```
 
 
-## Step 5: Create a Kubernetes Cluster
+## Step 5: Crea un cluster Kubernetes
 
-Here is a real example of creating a Kubernetes cluster with a single node pool:
+Esempio reale di creazione di un cluster Kubernetes con un singolo node pool:
 
 ```bash
 acloud container kaas create \
@@ -139,7 +139,7 @@ acloud container kaas create \
   --billing-period "Hour"
 ```
 
-Example output:
+Esempio output:
 
 ```
 ID                             NAME                                     VERSION              REGION               
@@ -147,15 +147,15 @@ ID                             NAME                                     VERSION 
 ```
 
 
-## Step 6: Get Cluster Details
+## Step 6: Ottieni i dettagli del cluster
 
-Here is a real example of retrieving Kubernetes cluster details:
+Esempio reale di recupero dettagli di un cluster Kubernetes:
 
 ```bash
 acloud container kaas get 694ff33bc2682f8c02f4956e
 ```
 
-Example output:
+Esempio output:
 
 ```
 KaaS Cluster Details:
@@ -171,15 +171,15 @@ Created By:      aru-297647
 Tags:            []
 ```
 
-## Step 7: Connect to the KaaS Cluster
+## Step 7: Connetti al cluster KaaS
 
-To connect and configure your kubeconfig for the cluster, use:
+Per connetterti e configurare il kubeconfig per il cluster, usa:
 
 ```bash
 acloud container kaas connect 694ff33bc2682f8c02f4956e
 ```
 
-Example output:
+Esempio output:
 
 ```
 KaaS successfully connected
@@ -187,9 +187,9 @@ Kubeconfig saved to: /home/amedeopalopoli/.kube/kubeconfig_694ff33bc2682f8c02f49
 Default config updated: /home/amedeopalopoli/.kube/config
 ```
 
-> **Note:** You must have `kubectl` installed locally. The `acloud` CLI will automatically configure your `kubectl` client to use the created cluster when you connect.
+> **Nota:** Devi avere `kubectl` installato localmente. Il comando `acloud` configurerà automaticamente il client `kubectl` per usare il cluster creato quando ti connetti.
 
-## Step 8: Delete the Kubernetes Cluster
+## Step 8: Elimina il cluster Kubernetes
 
 ```bash
 acloud container kaas delete <cluster-id>

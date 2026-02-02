@@ -106,9 +106,8 @@
       "items": [
         "examples",
         "examples/basic-usage",
-        "examples/cloudserver-provisioning",
-        "examples/kubernetes",
-        "examples/kubernetes-it"
+        "examples/cloudserver",
+        "examples/kubernetes"
       ]
     }
   ]
