@@ -3,15 +3,14 @@ id: basic-usage
 title: Basic Usage
 sidebar_label: Basic Usage
 description: Learn the essential commands to list, create and manage Aruba Cloud projects using the acloud CLI.
+---
+
 # Basic CLI Usage
 
----
----
-Prossimi Passi
+The **Aruba Cloud CLI** (`acloud`) allows you to manage your Aruba Cloud environment directly from the command line.  
+With it, you can **list**, **inspect**, and **create** projects, as well as **configure and switch** between multiple CLI contexts.
 
-- Scopri come effettuare il deploy di istanze compute
-- Esplora la configurazione avanzata dei contesti
-- Consulta la reference CLI per tutti i comandi disponibili
+---
 
 ## Project Management
 

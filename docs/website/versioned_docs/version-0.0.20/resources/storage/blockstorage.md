@@ -69,6 +69,60 @@ Status:          NotUsed
 Creation Date:   18-12-2025 18:49:06
 ```
 
+## Create a Bootable Block Storage (for Custom Images)
+
+To create a bootable block storage volume (for example, to use a custom image), use the following command. The `--region` flag is required, and the `--zone` flag is optional:
+
+```bash
+acloud storage blockstorage create \
+  --name boot-ubuntu \
+  --region ITBG-Bergamo \
+  --set-bootable \
+  --billing-period Hour \
+  --size 20 \
+  --tags boot \
+  --type Performance \
+  --image LU22-001
+```
+
+Example output:
+```
+Block storage created successfully!
+ID:              697b389bce7dfeef91532563
+Name:            boot-ubuntu
+Size (GB):       20
+Type:            Performance
+Zone:            
+Region:          ITBG-Bergamo
+Status:          InCreation
+Creation Date:   29-01-2026 10:38:19
+```
+
+> **Note:**
+> - The `--region` flag is required. The `--zone` flag is optional and only needed for zonal block storage.
+> - Use `--set-bootable` to ensure the volume is created as bootable (required when using the `--image` flag).
+> - Replace `LU22-001` with the desired image code.
+> - Adjust other parameters as needed for your use case.
+
+### List of Available Images for Bootable Block Storage
+
+Below are some of the available image codes you can use with the `--image` flag when creating a bootable block storage. For the full and up-to-date list, see the [official ArubaCloud API documentation](https://api.arubacloud.com/docs/metadata/#cloud-server-bootvolume).
+
+| Image Code         | Description           | OS Flavor        |
+|--------------------|----------------------|------------------|
+| alma8              | AlmaLinux 8 64bit    | Linux            |
+| alma9              | AlmaLinux 9 64bit    | Linux            |
+| DE11-001           | Debian 11 64bit      | Linux            |
+| DE12-001           | Debian 12 64bit      | Linux            |
+| LU20-001           | Ubuntu 20.04 64bit   | Linux            |
+| LU22-001           | Ubuntu 22.04 64bit   | Linux            |
+| LU24-001           | Ubuntu 24.04 64bit   | Linux            |
+| osuse15_2_x64_1_0  | openSUSE 15 64bit    | Linux            |
+| WS19-001_W2K19_1_0 | Windows Server 2019  | Windows          |
+| WS22-001_W2K22_1_0 | Windows Server 2022  | Windows          |
+
+> **Note:** Use the value in the "Image Code" column with the `--image` flag. For example: `--image LU22-001` for Ubuntu 22.04.
+
 ## List Block Storage
 
 List all block storage volumes in your project.
