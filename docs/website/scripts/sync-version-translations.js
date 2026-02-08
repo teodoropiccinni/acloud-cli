@@ -88,8 +88,8 @@ versions.forEach(version => {
     
     // For markdown files and other files, copy as-is
     fs.copyFileSync(sourceFile, destFile);
-    console.log(`  Copied ${file} -> version-${version}/${file}`);
   });
+  console.log(`  version-${version}: ${sourceFiles.length} files synced`);
   
   // Copy and update current.json if it exists (it's in the parent directory, not in current/)
   // Docusaurus expects the JSON file at the same level as the version directory, not inside it
@@ -105,7 +105,7 @@ versions.forEach(version => {
     }
     
     fs.writeFileSync(finalDestFile, JSON.stringify(content, null, 2) + '\n');
-    console.log(`  Copied and updated current.json -> ${destFileName}`);
+    console.log(`  version-${version}: ${destFileName} updated`);
   }
 });
 
