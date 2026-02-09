@@ -227,16 +227,37 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          # Pull latest changes to ensure we're up to date
-          git pull origin main || true
-          # Create a branch for the versioned docs
+          git pull origin main --rebase || true
           BRANCH_NAME="docs/version-${{ steps.extract_version.outputs.version }}"
           git checkout -b "$BRANCH_NAME"
-          # Add versioned docs
           git add docs/website/versioned_docs docs/website/versioned_sidebars docs/website/versions.json
+          # Include Italian i18n versioned docs and version-*.json so all locales deploy correctly
+          git add docs/website/i18n/it/docusaurus-plugin-content-docs/ 2>/dev/null || true
           if ! git diff --staged --quiet; then
             git commit -m "docs: add version ${{ steps.extract_version.outputs.version }}"
-            git push origin "$BRANCH_NAME"
+            # Push with retries; use --force-with-lease if remote branch already exists (e.g. after merged PR) or GitHub returns "fatal error in commit_refs"
+            set +e
+            for i in 1 2 3; do
+              if git push origin "$BRANCH_NAME"; then
+                echo "Push succeeded"
+                set -e
+                break
+              fi
+              if git push --force-with-lease origin "$BRANCH_NAME"; then
+                echo "Push succeeded with --force-with-lease (branch may have existed from merged PR)"
+                set -e
+                break
+              fi
+              if [ "$i" -lt 3 ]; then
+                echo "Push attempt $i failed, retrying in 15s (transient GitHub errors can cause 'fatal error in commit_refs')..."
+                sleep 15
+              else
+                echo "Push failed after 3 attempts"
+                set -e
+                exit 1
+              fi
+            done
+            set -e
           else
             echo "No changes to commit"
           fi
