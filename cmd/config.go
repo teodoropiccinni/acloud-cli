@@ -22,7 +22,7 @@ type Config struct {
 
 const (
 	DefaultBaseURL        = "https://api.arubacloud.com"
-	DefaultTokenIssuerURL = "https://login.aruba.it/auth/realms/cmp-new-apikey/protocol/openid-connect/token"
+	DefaultTokenIssuerURL = "https://mylogin.aruba.it/auth/realms/cmp-new-apikey/protocol/openid-connect/token"
 )
 
 // configCmd represents the config command
