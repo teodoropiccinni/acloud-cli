@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -36,6 +37,9 @@ func init() {
 	// Add flags for project update command
 	projectUpdateCmd.Flags().String("description", "", "New description for the project")
 	projectUpdateCmd.Flags().StringSlice("tags", []string{}, "Tags for the project (comma-separated)")
+
+	// Add flags for project list command (if needed, e.g., filtering)
+	projectListCmd.Flags().String("format", "table", "Output format (table, json, yaml)")
 }
 
 // completeProjectID provides completion for project IDs
@@ -457,6 +461,12 @@ var projectListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all projects",
 	Run: func(cmd *cobra.Command, args []string) {
+		// Get format flag (defaults to "table" if not provided)
+		format, _ := cmd.Flags().GetString("format")
+		if format == "" {
+			format = "table"
+		}
+
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
@@ -484,37 +494,55 @@ var projectListCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil && len(response.Data.Values) > 0 {
-			// Define table columns
-			headers := []TableColumn{
-				{Header: "NAME", Width: 40},
-				{Header: "ID", Width: 30},
-				{Header: "CREATION DATE", Width: 15},
+			switch format {
+			case "json":
+				// Output as JSON
+				jsonData, err := json.MarshalIndent(response.Data.Values, "", "  ")
+				if err != nil {
+					fmt.Printf("Error marshaling to JSON: %v\n", err)
+					return
+				}
+				fmt.Println(string(jsonData))
+
+			case "table":
+				// Define table columns
+				headers := []TableColumn{
+					{Header: "NAME", Width: 40},
+					{Header: "ID", Width: 30},
+					{Header: "CREATION DATE", Width: 15},
+				}
+
+				// Build rows
+				var rows [][]string
+				for _, project := range response.Data.Values {
+					name := ""
+					if project.Metadata.Name != nil && *project.Metadata.Name != "" {
+						name = *project.Metadata.Name
+					}
+
+					id := ""
+					if project.Metadata.ID != nil && *project.Metadata.ID != "" {
+						id = *project.Metadata.ID
+					}
+
+					// Format creation date as dd-mm-yyyy
+					creationDate := "N/A"
+					if !project.Metadata.CreationDate.IsZero() {
+						creationDate = project.Metadata.CreationDate.Format("02-01-2006")
+					}
+
+					rows = append(rows, []string{name, id, creationDate})
+				}
+
+				// Print the table
+				PrintTable(headers, rows)
+
+			case "yaml":
+				fmt.Println("YAML format not yet supported. Please use 'table' or 'json' format.")
+
+			default:
+				fmt.Printf("Unknown format: %s. Supported formats: table, json, yaml\n", format)
 			}
-
-			// Build rows
-			var rows [][]string
-			for _, project := range response.Data.Values {
-				name := ""
-				if project.Metadata.Name != nil && *project.Metadata.Name != "" {
-					name = *project.Metadata.Name
-				}
-
-				id := ""
-				if project.Metadata.ID != nil && *project.Metadata.ID != "" {
-					id = *project.Metadata.ID
-				}
-
-				// Format creation date as dd-mm-yyyy
-				creationDate := "N/A"
-				if !project.Metadata.CreationDate.IsZero() {
-					creationDate = project.Metadata.CreationDate.Format("02-01-2006")
-				}
-
-				rows = append(rows, []string{name, id, creationDate})
-			}
-
-			// Print the table
-			PrintTable(headers, rows)
 		} else {
 			fmt.Println("No projects found")
 		}
