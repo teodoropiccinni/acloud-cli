@@ -12,6 +12,7 @@ import (
 
     "github.com/spf13/cobra"
     "golang.org/x/oauth2/clientcredentials"
+    "gopkg.in/yaml.v3"
 )
 
 type folderCreateRequest struct {
@@ -26,6 +27,7 @@ func init() {
     folderCreateCmd.Flags().String("name", "", "Name for the folder (required)")
     folderCreateCmd.Flags().Bool("default", false, "Set as default folder")
     folderCreateCmd.Flags().String("api-version", "1", "API version for folder endpoint")
+    folderCreateCmd.Flags().String("format", "table", "Output format (table, json, yaml)")
     folderCreateCmd.MarkFlagRequired("name")
 }
 
@@ -42,6 +44,8 @@ var folderCreateCmd = &cobra.Command{
         folderName, _ := cmd.Flags().GetString("name")
         setDefault, _ := cmd.Flags().GetBool("default")
         apiVersion, _ := cmd.Flags().GetString("api-version")
+        outputFormat, _ := cmd.Flags().GetString("format")
+        outputFormat = strings.ToLower(strings.TrimSpace(outputFormat))
 
         if folderName == "" {
             fmt.Println("Error: --name is required")
@@ -122,7 +126,53 @@ var folderCreateCmd = &cobra.Command{
         respBody, _ := io.ReadAll(resp.Body)
 
         if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-            fmt.Printf("Folder created successfully: %s\n", folderName)
+            output := map[string]any{
+                "status":     "created",
+                "name":       folderName,
+                "default":    setDefault,
+                "apiVersion": apiVersion,
+            }
+
+            if len(respBody) > 0 {
+                var responseBody any
+                if err := json.Unmarshal(respBody, &responseBody); err == nil {
+                    output["response"] = responseBody
+                } else {
+                    output["response"] = string(respBody)
+                }
+            }
+
+            switch outputFormat {
+            case "json":
+                b, err := json.MarshalIndent(output, "", "  ")
+                if err != nil {
+                    fmt.Printf("Error serializing JSON output: %v\n", err)
+                    return
+                }
+                fmt.Println(string(b))
+            case "yaml":
+                b, err := yaml.Marshal(output)
+                if err != nil {
+                    fmt.Printf("Error serializing YAML output: %v\n", err)
+                    return
+                }
+                fmt.Print(string(b))
+            case "table":
+                headers := []TableColumn{
+                    {Header: "NAME", Width: 40},
+                    {Header: "DEFAULT", Width: 10},
+                    {Header: "STATUS", Width: 12},
+                }
+                defaultValue := "No"
+                if setDefault {
+                    defaultValue = "Yes"
+                }
+                PrintTable(headers, [][]string{{folderName, defaultValue, "created"}})
+            default:
+                fmt.Printf("Error: unsupported format '%s'. Use one of: table, json, yaml\n", outputFormat)
+                return
+            }
+
             return
         }
 
