@@ -114,6 +114,9 @@ acloud context use my-prod
 
 ### 3. Explore Resources
 ```bash
+# List folders
+acloud management folder list
+
 # List projects
 acloud management project list
 
