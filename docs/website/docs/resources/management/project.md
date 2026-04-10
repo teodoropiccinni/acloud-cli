@@ -37,6 +37,9 @@ Display all projects in a table format.
 acloud management project list
 ```
 
+**Optional Flags:**
+- `--format <string>`: Desired output format for the list (table/json)
+
 **Output:**
 ```
 ID                             NAME                                     CREATION DATE   
