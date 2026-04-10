@@ -14,6 +14,31 @@ With it, you can **list**, **inspect**, and **create** projects, as well as **co
 
 ## Project Management
 
+### List Folders
+
+To list all folders available in your Aruba Cloud tenant, run:
+
+```bash
+acloud management folder list
+```
+
+Example output:
+```text
+NAME                              ID                                CREATION DATE
+develop                           66a10244f62b99c686572a9f          24-07-2024
+github-runner                     68398923fb2cb026400d4d31          30-05-2025
+terraform-test-project            69788486c533abe1c22eda36          27-01-2026
+```
+
+:::note
+You must be authenticated before you can list projects.
+If not logged in, run `acloud login`.
+
+If you need JSON output add `--format json` as parameter.
+:::
+
+
+
 ### List Projects
 
 To list all projects available in your Aruba Cloud tenant, run:
