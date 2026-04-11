@@ -114,11 +114,11 @@ var containerregistryCmd = &cobra.Command{
 var containerregistryCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new container registry",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get metadata flags
@@ -140,8 +140,7 @@ var containerregistryCreateCmd = &cobra.Command{
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Build the create request
@@ -189,33 +188,23 @@ var containerregistryCreateCmd = &cobra.Command{
 			createRequest.Properties.ConcurrentUsers = &concurrentUsers
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		containerClient := client.FromContainer()
 		if containerClient == nil {
-			fmt.Println("Error: Container client is not available")
-			return
+			return fmt.Errorf("container client is not available")
 		}
 		registryClient := containerClient.ContainerRegistry()
 		if registryClient == nil {
-			fmt.Println("Error: Container Registry client returned nil")
-			fmt.Println("This may indicate that Container Registry is not available in your SDK version")
-			return
+			return fmt.Errorf("container Registry client returned nil — this may indicate that Container Registry is not available in your SDK version")
 		}
 		response, err := registryClient.Create(ctx, projectID, createRequest, nil)
 		if err != nil {
-			fmt.Printf("Error creating container registry: %v\n", err)
-			return
+			return fmt.Errorf("creating container registry: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to create container registry - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -235,6 +224,7 @@ var containerregistryCreateCmd = &cobra.Command{
 		} else {
 			fmt.Println("Container registry creation initiated. Use 'list' or 'get' to check status.")
 		}
+		return nil
 	},
 }
 
@@ -242,48 +232,36 @@ var containerregistryGetCmd = &cobra.Command{
 	Use:   "get [containerregistry-id]",
 	Short: "Get container registry details",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		registryID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		containerClient := client.FromContainer()
 		if containerClient == nil {
-			fmt.Println("Error: Container client is not available")
-			return
+			return fmt.Errorf("container client is not available")
 		}
 		registryClient := containerClient.ContainerRegistry()
 		if registryClient == nil {
-			fmt.Println("Error: Container Registry client returned nil")
-			fmt.Println("This may indicate that Container Registry is not available in your SDK version")
-			return
+			return fmt.Errorf("container Registry client returned nil — this may indicate that Container Registry is not available in your SDK version")
 		}
 		resp, err := registryClient.Get(ctx, projectID, registryID, nil)
 		if err != nil {
-			fmt.Printf("Error getting container registry: %v\n", err)
-			return
+			return fmt.Errorf("getting container registry: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to get container registry - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		if resp != nil && resp.Data != nil {
@@ -336,7 +314,7 @@ var containerregistryGetCmd = &cobra.Command{
 			}
 
 			if !registry.Metadata.CreationDate.IsZero() {
-				fmt.Printf("Creation Date:   %s\n", registry.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", registry.Metadata.CreationDate.Format(DateLayout))
 			}
 			if registry.Metadata.CreatedBy != nil {
 				fmt.Printf("Created By:      %s\n", *registry.Metadata.CreatedBy)
@@ -350,6 +328,7 @@ var containerregistryGetCmd = &cobra.Command{
 		} else {
 			fmt.Println("Container registry not found or no data returned.")
 		}
+		return nil
 	},
 }
 
@@ -357,13 +336,12 @@ var containerregistryUpdateCmd = &cobra.Command{
 	Use:   "update [containerregistry-id]",
 	Short: "Update a container registry",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		registryID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		name, _ := cmd.Flags().GetString("name")
@@ -372,40 +350,34 @@ var containerregistryUpdateCmd = &cobra.Command{
 		concurrentUsers, _ := cmd.Flags().GetString("concurrent-users")
 
 		if name == "" && len(tags) == 0 && billingPeriod == "" && concurrentUsers == "" {
-			fmt.Println("Error: at least one of --name, --tags, --billing-period, or --concurrent-users must be provided")
-			return
+			return fmt.Errorf("at least one of --name, --tags, --billing-period, or --concurrent-users must be provided")
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 
 		containerClient := client.FromContainer()
 		if containerClient == nil {
-			fmt.Println("Error: Container client is not available")
-			return
+			return fmt.Errorf("container client is not available")
 		}
 		registryClient := containerClient.ContainerRegistry()
 		if registryClient == nil {
-			fmt.Println("Error: Container Registry client returned nil")
-			fmt.Println("This may indicate that Container Registry is not available in your SDK version")
-			return
+			return fmt.Errorf("container Registry client returned nil — this may indicate that Container Registry is not available in your SDK version")
 		}
 
 		// Get current registry to preserve existing values
 		getResponse, err := registryClient.Get(ctx, projectID, registryID, nil)
 		if err != nil {
-			fmt.Printf("Error getting container registry: %v\n", err)
-			return
+			return fmt.Errorf("getting container registry: %w", err)
 		}
 
 		if getResponse == nil || getResponse.Data == nil {
-			fmt.Println("Container registry not found")
-			return
+			return fmt.Errorf("container registry not found")
 		}
 
 		current := getResponse.Data
@@ -421,6 +393,10 @@ var containerregistryUpdateCmd = &cobra.Command{
 			updateTags = current.Metadata.Tags
 		}
 
+		registryRegion := ""
+		if current.Metadata.LocationResponse != nil {
+			registryRegion = current.Metadata.LocationResponse.Value
+		}
 		updateRequest := types.ContainerRegistryRequest{
 			Metadata: types.RegionalResourceMetadataRequest{
 				ResourceMetadataRequest: types.ResourceMetadataRequest{
@@ -428,7 +404,7 @@ var containerregistryUpdateCmd = &cobra.Command{
 					Tags: updateTags,
 				},
 				Location: types.LocationRequest{
-					Value: current.Metadata.LocationResponse.Value,
+					Value: registryRegion,
 				},
 			},
 			Properties: types.ContainerRegistryPropertiesRequest{
@@ -464,19 +440,11 @@ var containerregistryUpdateCmd = &cobra.Command{
 
 		response, err := registryClient.Update(ctx, projectID, registryID, updateRequest, nil)
 		if err != nil {
-			fmt.Printf("Error updating container registry: %v\n", err)
-			return
+			return fmt.Errorf("updating container registry: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to update container registry - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -493,6 +461,7 @@ var containerregistryUpdateCmd = &cobra.Command{
 		} else {
 			fmt.Println("Container registry update initiated. Use 'get' to check status.")
 		}
+		return nil
 	},
 }
 
@@ -500,115 +469,93 @@ var containerregistryDeleteCmd = &cobra.Command{
 	Use:   "delete [containerregistry-id]",
 	Short: "Delete a container registry",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		registryID := args[0]
-
-		projectID, err := GetProjectID(cmd)
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
-		}
-
-		client, err := GetArubaClient()
-		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
-		}
 
 		// Confirmation prompt
 		skipConfirm, _ := cmd.Flags().GetBool("yes")
 		if !skipConfirm {
-			fmt.Printf("Are you sure you want to delete container registry '%s'? (yes/no): ", registryID)
-			var confirmation string
-			fmt.Scanln(&confirmation)
-			if confirmation != "yes" && confirmation != "y" {
-				fmt.Println("Deletion cancelled.")
-				return
+			ok, err := confirmDelete("container registry", registryID)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
 			}
 		}
 
-		ctx := context.Background()
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			return err
+		}
+
+		client, err := GetArubaClient()
+		if err != nil {
+			return fmt.Errorf("initializing client: %w", err)
+		}
+
+		ctx, cancel := newCtx()
+		defer cancel()
 		containerClient := client.FromContainer()
 		if containerClient == nil {
-			fmt.Println("Error: Container client is not available")
-			return
+			return fmt.Errorf("container client is not available")
 		}
 		registryClient := containerClient.ContainerRegistry()
 		if registryClient == nil {
-			fmt.Println("Error: Container Registry client returned nil")
-			fmt.Println("This may indicate that Container Registry is not available in your SDK version")
-			return
+			return fmt.Errorf("container Registry client returned nil — this may indicate that Container Registry is not available in your SDK version")
 		}
 		response, err := registryClient.Delete(ctx, projectID, registryID, nil)
 		if err != nil {
-			fmt.Printf("Error deleting container registry: %v\n", err)
-			return
+			return fmt.Errorf("deleting container registry: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to delete container registry - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		fmt.Printf("\nContainer registry '%s' deleted successfully!\n", registryID)
+		return nil
 	},
 }
 
 var containerregistryListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all container registries",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 
 		containerClient := client.FromContainer()
 		if containerClient == nil {
-			fmt.Println("Error: Container client is not available")
-			return
+			return fmt.Errorf("container client is not available")
 		}
 		registryClient := containerClient.ContainerRegistry()
 		if registryClient == nil {
-			fmt.Println("Error: Container Registry client returned nil")
-			fmt.Println("This may indicate that Container Registry is not available in your SDK version")
-			return
+			return fmt.Errorf("container Registry client returned nil — this may indicate that Container Registry is not available in your SDK version")
 		}
 		response, err := registryClient.List(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error listing container registries: %v\n", err)
-			return
+			return fmt.Errorf("listing container registries: %w", err)
 		}
 
 		if response == nil {
 			fmt.Println("No response received from server")
-			return
+			return nil
 		}
 
 		if response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to list container registries - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response.Data != nil && len(response.Data.Values) > 0 {
@@ -653,5 +600,6 @@ var containerregistryListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No container registries found")
 		}
+		return nil
 	},
 }

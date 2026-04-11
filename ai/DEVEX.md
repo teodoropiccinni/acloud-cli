@@ -1,0 +1,48 @@
+# DEVEX.md — Development & Testing
+
+## Build
+
+```bash
+make build              # Build for current platform
+make build-all          # Build for all platforms (Windows, Linux, macOS Intel/ARM)
+```
+
+## Lint & Format
+
+```bash
+make lint               # Run fmt + vet
+make lint-check         # CI-mode formatting check (fails if code needs formatting)
+```
+
+## Test
+
+```bash
+make test               # Run all unit tests (verbose)
+make test-short         # Quick test run
+make test-coverage      # Generate HTML coverage report
+make test-race          # Run with race detector
+make test-skip-client   # Skip tests requiring live API credentials
+```
+
+## E2E Tests
+
+```bash
+make e2e-test           # All E2E tests (requires credentials)
+make e2e-management     # E2E tests for management resources
+make e2e-storage        # E2E tests for storage resources
+make e2e-network        # E2E tests for network resources
+```
+
+## CI
+
+```bash
+make ci                 # lint + mod-verify + test-skip-client
+make pre-commit         # fmt + vet + tests
+```
+
+## Testing Conventions
+
+- Unit tests use `t.TempDir()` for file isolation.
+- Set `ACLOUD_TEST_SKIP_CLIENT=true` to skip tests that require live API credentials (used in CI).
+- E2E tests are bash scripts under `e2e/` organized by resource category.
+- Test files: `<file>_test.go` for standard tests; `<file>_test_enhanced.go` for extended fixtures/scenarios.

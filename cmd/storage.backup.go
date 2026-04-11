@@ -86,14 +86,13 @@ var storageBackupCmd = &cobra.Command{
 	Short: "Create a storage backup of a block storage volume",
 	Long:  `Create a storage backup resource (Aruba.Storage/backup) for a block storage volume.`,
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		volumeID := args[0]
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get flags
@@ -104,34 +103,22 @@ var storageBackupCmd = &cobra.Command{
 		billingPeriod, _ := cmd.Flags().GetString("billing-period")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 
-		// Validate required fields
-		if name == "" {
-			fmt.Println("Error: --name is required")
-			return
-		}
-		if region == "" {
-			fmt.Println("Error: --region is required")
-			return
-		}
-
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// First, get the volume details to get the full URI
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		volumeResponse, err := client.FromStorage().Volumes().Get(ctx, projectID, volumeID, nil)
 		if err != nil {
-			fmt.Printf("Error getting volume details: %v\n", err)
-			return
+			return fmt.Errorf("getting volume details: %w", err)
 		}
 
 		if volumeResponse == nil || volumeResponse.Data == nil {
-			fmt.Println("Volume not found")
-			return
+			return fmt.Errorf("volume not found")
 		}
 
 		volumeURI := *volumeResponse.Data.Metadata.URI
@@ -189,27 +176,17 @@ var storageBackupCmd = &cobra.Command{
 		// Create the backup using the SDK
 		response, err := client.FromStorage().Backups().Create(ctx, projectID, createRequest, nil)
 		if err != nil {
-			fmt.Printf("Error creating backup: %v\n", err)
-			return
+			return fmt.Errorf("creating backup: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to create backup - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			if verbose {
-				if response.RawBody != nil {
-					var errorDetail map[string]interface{}
-					if err := json.Unmarshal(response.RawBody, &errorDetail); err == nil {
-						fmt.Printf("Full Error Response: %+v\n", errorDetail)
-					}
+			if verbose && response.RawBody != nil {
+				var errorDetail map[string]interface{}
+				if err := json.Unmarshal(response.RawBody, &errorDetail); err == nil {
+					fmt.Printf("Full Error Response: %+v\n", errorDetail)
 				}
 			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response.Data != nil {
@@ -218,9 +195,10 @@ var storageBackupCmd = &cobra.Command{
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			fmt.Printf("Type:            %s\n", response.Data.Properties.Type)
 			if !response.Data.Metadata.CreationDate.IsZero() {
-				fmt.Printf("Creation Date:   %s\n", response.Data.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", response.Data.Metadata.CreationDate.Format(DateLayout))
 			}
 		}
+		return nil
 	},
 }
 
@@ -228,24 +206,23 @@ var storageBackupCmd = &cobra.Command{
 var storageBackupListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List storage backups",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromStorage().Backups().List(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error listing backups: %v\n", err)
-			return
+			return fmt.Errorf("listing backups: %w", err)
 		}
 
 		if response != nil && response.Data != nil && len(response.Data.Values) > 0 {
@@ -282,6 +259,7 @@ var storageBackupListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No backups found")
 		}
+		return nil
 	},
 }
 
@@ -290,26 +268,24 @@ var storageBackupGetCmd = &cobra.Command{
 	Use:   "get [backup-id]",
 	Short: "Get storage backup details",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		backupID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromStorage().Backups().Get(ctx, projectID, backupID, nil)
 		if err != nil {
-			fmt.Printf("Error getting backup details: %v\n", err)
-			return
+			return fmt.Errorf("getting backup details: %w", err)
 		}
 
 		if response != nil && response.Data != nil {
@@ -349,7 +325,7 @@ var storageBackupGetCmd = &cobra.Command{
 			}
 
 			if !backup.Metadata.CreationDate.IsZero() {
-				fmt.Printf("Creation Date:   %s\n", backup.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", backup.Metadata.CreationDate.Format(DateLayout))
 			}
 
 			if backup.Metadata.CreatedBy != nil {
@@ -364,6 +340,7 @@ var storageBackupGetCmd = &cobra.Command{
 		} else {
 			fmt.Println("Backup not found")
 		}
+		return nil
 	},
 }
 
@@ -372,13 +349,12 @@ var storageBackupUpdateCmd = &cobra.Command{
 	Use:   "update [backup-id]",
 	Short: "Update a storage backup (name and/or tags)",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		backupID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get flags
@@ -387,27 +363,24 @@ var storageBackupUpdateCmd = &cobra.Command{
 
 		// At least one field must be provided
 		if name == "" && !cmd.Flags().Changed("tags") {
-			fmt.Println("Error: at least one of --name or --tags must be provided")
-			return
+			return fmt.Errorf("at least one of --name or --tags must be provided")
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// First, get the current backup details
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		getResponse, err := client.FromStorage().Backups().Get(ctx, projectID, backupID, nil)
 		if err != nil {
-			fmt.Printf("Error getting backup details: %v\n", err)
-			return
+			return fmt.Errorf("getting backup details: %w", err)
 		}
 
 		if getResponse == nil || getResponse.Data == nil {
-			fmt.Println("Backup not found")
-			return
+			return fmt.Errorf("backup not found")
 		}
 
 		currentBackup := getResponse.Data
@@ -418,8 +391,7 @@ var storageBackupUpdateCmd = &cobra.Command{
 			regionValue = currentBackup.Metadata.LocationResponse.Value
 		}
 		if regionValue == "" {
-			fmt.Println("Error: Unable to determine region value for backup")
-			return
+			return fmt.Errorf("unable to determine region value for backup")
 		}
 
 		// Build the update request with current values as defaults
@@ -461,19 +433,11 @@ var storageBackupUpdateCmd = &cobra.Command{
 		// Update the backup using the SDK
 		response, err := client.FromStorage().Backups().Update(ctx, projectID, backupID, updateRequest, nil)
 		if err != nil {
-			fmt.Printf("Error updating backup: %v\n", err)
-			return
+			return fmt.Errorf("updating backup: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to update backup - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -486,6 +450,7 @@ var storageBackupUpdateCmd = &cobra.Command{
 		} else {
 			fmt.Println("Warning: Update may have succeeded but response is empty")
 		}
+		return nil
 	},
 }
 
@@ -494,39 +459,38 @@ var storageBackupDeleteCmd = &cobra.Command{
 	Use:   "delete [backup-id]",
 	Short: "Delete a storage backup",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		backupID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		confirm, _ := cmd.Flags().GetBool("yes")
 		if !confirm {
-			fmt.Printf("Are you sure you want to delete backup %s? (yes/no): ", backupID)
-			var response string
-			fmt.Scanln(&response)
-			if response != "yes" && response != "y" {
-				fmt.Println("Delete cancelled")
-				return
+			ok, err := confirmDelete("backup", backupID)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
 			}
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		_, err = client.FromStorage().Backups().Delete(ctx, projectID, backupID, nil)
 		if err != nil {
-			fmt.Printf("Error deleting backup: %v\n", err)
-			return
+			return fmt.Errorf("deleting backup: %w", err)
 		}
 
 		fmt.Printf("\nBackup %s deleted successfully!\n", backupID)
+		return nil
 	},
 }

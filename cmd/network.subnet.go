@@ -53,7 +53,7 @@ var subnetCreateCmd = &cobra.Command{
 	Short: "Create a new subnet",
 	Args:  cobra.ExactArgs(1),
 	Long:  `Create a new subnet in a VPC. Usage: acloud network subnet create <vpc-id> --name <name> --cidr <cidr>`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		name, _ := cmd.Flags().GetString("name")
 		cidr, _ := cmd.Flags().GetString("cidr")
@@ -63,20 +63,18 @@ var subnetCreateCmd = &cobra.Command{
 		dhcpRoutes, _ := cmd.Flags().GetStringSlice("dhcp-routes")
 		dhcpDNS, _ := cmd.Flags().GetStringSlice("dhcp-dns")
 		if name == "" || region == "" {
-			fmt.Println("Error: --name and --region are required")
-			return
+			return fmt.Errorf("--name and --region are required")
 		}
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 
 		// Determine SubnetType: Advanced if CIDR is provided, Basic otherwise
 		var subnetType types.SubnetType = types.SubnetTypeBasic
@@ -84,8 +82,7 @@ var subnetCreateCmd = &cobra.Command{
 			subnetType = types.SubnetTypeAdvanced
 			// For Advanced subnet type, DHCP enabled is required
 			if !dhcpEnabled {
-				fmt.Println("Error: --dhcp-enabled is required when creating an Advanced subnet (CIDR provided)")
-				return
+				return fmt.Errorf("--dhcp-enabled is required when creating an Advanced subnet (CIDR provided)")
 			}
 		}
 
@@ -147,18 +144,10 @@ var subnetCreateCmd = &cobra.Command{
 		}
 		resp, err := client.FromNetwork().Subnets().Create(ctx, projectID, vpcID, req, nil)
 		if err != nil {
-			fmt.Printf("Error creating subnet: %v\n", err)
-			return
+			return fmt.Errorf("creating subnet: %w", err)
 		}
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to create subnet - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 		if resp != nil && resp.Data != nil && resp.Data.Metadata.ID != nil {
 			headers := []TableColumn{
@@ -177,10 +166,14 @@ var subnetCreateCmd = &cobra.Command{
 				displayCIDR = "N/A (Basic)"
 			}
 
+			createRegion := ""
+			if resp.Data.Metadata.LocationResponse != nil {
+				createRegion = resp.Data.Metadata.LocationResponse.Value
+			}
 			row := []string{
 				name,
 				*resp.Data.Metadata.ID,
-				resp.Data.Metadata.LocationResponse.Value,
+				createRegion,
 				displayCIDR,
 				func() string {
 					if resp.Data.Status.State != nil {
@@ -194,6 +187,7 @@ var subnetCreateCmd = &cobra.Command{
 		} else {
 			fmt.Println("Subnet created, but no ID returned.")
 		}
+		return nil
 	},
 }
 
@@ -201,34 +195,25 @@ var subnetGetCmd = &cobra.Command{
 	Use:   "get [vpc-id] [subnet-id]",
 	Short: "Get subnet details",
 	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		subnetID := args[1]
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
 		if err != nil {
-			fmt.Printf("Error getting subnet: %v\n", err)
-			return
+			return fmt.Errorf("getting subnet: %w", err)
 		}
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to get subnet - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 		if resp != nil && resp.Data != nil {
 			subnet := resp.Data
@@ -266,7 +251,7 @@ var subnetGetCmd = &cobra.Command{
 				}
 			}
 			if subnet.Metadata.CreationDate != nil {
-				fmt.Printf("Creation Date:   %s\n", subnet.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", subnet.Metadata.CreationDate.Format(DateLayout))
 			}
 			if subnet.Metadata.CreatedBy != nil {
 				fmt.Printf("Created By:      %s\n", *subnet.Metadata.CreatedBy)
@@ -282,6 +267,7 @@ var subnetGetCmd = &cobra.Command{
 		} else {
 			fmt.Println("Subnet not found or no data returned.")
 		}
+		return nil
 	},
 }
 
@@ -289,33 +275,24 @@ var subnetListCmd = &cobra.Command{
 	Use:   "list [vpc-id]",
 	Short: "List subnets for a VPC",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromNetwork().Subnets().List(ctx, projectID, vpcID, nil)
 		if err != nil {
-			fmt.Printf("Error listing subnets: %v\n", err)
-			return
+			return fmt.Errorf("listing subnets: %w", err)
 		}
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to list subnets - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 		if resp != nil && resp.Data != nil && len(resp.Data.Values) > 0 {
 			headers := []TableColumn{
@@ -335,7 +312,10 @@ var subnetListCmd = &cobra.Command{
 				if subnet.Metadata.ID != nil {
 					id = *subnet.Metadata.ID
 				}
-				region := subnet.Metadata.LocationResponse.Value
+				region := ""
+				if subnet.Metadata.LocationResponse != nil {
+					region = subnet.Metadata.LocationResponse.Value
+				}
 				cidr := ""
 				if subnet.Properties.Network != nil {
 					cidr = subnet.Properties.Network.Address
@@ -350,6 +330,7 @@ var subnetListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No subnets found.")
 		}
+		return nil
 	},
 }
 
@@ -357,7 +338,7 @@ var subnetUpdateCmd = &cobra.Command{
 	Use:   "update [vpc-id] [subnet-id]",
 	Short: "Update a subnet",
 	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		subnetID := args[1]
 		name, _ := cmd.Flags().GetString("name")
@@ -367,35 +348,31 @@ var subnetUpdateCmd = &cobra.Command{
 		dhcpRoutes, _ := cmd.Flags().GetStringSlice("dhcp-routes")
 		dhcpDNS, _ := cmd.Flags().GetStringSlice("dhcp-dns")
 		if name == "" && cidr == "" && !cmd.Flags().Changed("tags") && !cmd.Flags().Changed("dhcp-enabled") && len(dhcpRoutes) == 0 && len(dhcpDNS) == 0 {
-			fmt.Println("Error: at least one of --name, --cidr, --tags, --dhcp-enabled, --dhcp-routes, or --dhcp-dns must be provided")
-			return
+			return fmt.Errorf("at least one of --name, --cidr, --tags, --dhcp-enabled, --dhcp-routes, or --dhcp-dns must be provided")
 		}
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 		// Enable debug logging if supported
 		if logger, ok := interface{}(client).(interface{ SetDebug(bool) }); ok {
 			logger.SetDebug(true)
 		}
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		// Fetch current subnet details
 		getResp, err := client.FromNetwork().Subnets().Get(ctx, projectID, vpcID, subnetID, nil)
 		if err != nil || getResp == nil || getResp.Data == nil {
-			fmt.Printf("Error fetching current subnet: %v\n", err)
-			return
+			return fmt.Errorf("fetching current subnet: %w", err)
 		}
 		current := getResp.Data
 		// Block update if subnet is in 'InCreation' state
-		if current.Status.State != nil && *current.Status.State == "InCreation" {
-			fmt.Println("Error: Cannot update subnet while it is in 'InCreation' state. Please wait until the subnet is fully created.")
-			return
+		if current.Status.State != nil && *current.Status.State == StateInCreation {
+			return fmt.Errorf("cannot update subnet while it is in 'InCreation' state. Please wait until the subnet is fully created")
 		}
 
 		// Get region value
@@ -404,8 +381,7 @@ var subnetUpdateCmd = &cobra.Command{
 			regionValue = current.Metadata.LocationResponse.Value
 		}
 		if regionValue == "" {
-			fmt.Println("Error: Unable to determine region value for subnet")
-			return
+			return fmt.Errorf("unable to determine region value for subnet")
 		}
 
 		// Determine if this is an Advanced subnet
@@ -501,18 +477,10 @@ var subnetUpdateCmd = &cobra.Command{
 
 		resp, err := client.FromNetwork().Subnets().Update(ctx, projectID, vpcID, subnetID, req, nil)
 		if err != nil {
-			fmt.Printf("Error updating subnet: %v\n", err)
-			return
+			return fmt.Errorf("updating subnet: %w", err)
 		}
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to update subnet - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 		if resp != nil && resp.Data != nil {
 			headers := []TableColumn{
@@ -541,6 +509,7 @@ var subnetUpdateCmd = &cobra.Command{
 		} else {
 			fmt.Printf("Subnet '%s' updated.\n", subnetID)
 		}
+		return nil
 	},
 }
 
@@ -548,7 +517,7 @@ var subnetDeleteCmd = &cobra.Command{
 	Use:   "delete [vpc-id] [subnet-id]",
 	Short: "Delete a subnet",
 	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		subnetID := args[1]
 
@@ -557,41 +526,31 @@ var subnetDeleteCmd = &cobra.Command{
 
 		// Prompt for confirmation unless --yes flag is used
 		if !skipConfirm {
-			fmt.Printf("Are you sure you want to delete subnet %s? This action cannot be undone.\n", subnetID)
-			fmt.Print("Type 'yes' to confirm: ")
-			var response string
-			fmt.Scanln(&response)
-			if response != "yes" && response != "y" {
-				fmt.Println("Delete cancelled")
-				return
+			ok, err := confirmDelete("subnet", subnetID)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
 			}
 		}
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromNetwork().Subnets().Delete(ctx, projectID, vpcID, subnetID, nil)
 		if err != nil {
-			fmt.Printf("Error deleting subnet: %v\n", err)
-			return
+			return fmt.Errorf("deleting subnet: %w", err)
 		}
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to delete subnet - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 		headers := []TableColumn{
 			{Header: "ID", Width: 26},
@@ -599,5 +558,6 @@ var subnetDeleteCmd = &cobra.Command{
 		}
 		status := "deleted"
 		PrintTable(headers, [][]string{{subnetID, status}})
+		return nil
 	},
 }

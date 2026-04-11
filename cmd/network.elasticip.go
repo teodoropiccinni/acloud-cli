@@ -87,7 +87,7 @@ var elasticipCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new Elastic IP",
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get flags
 		name, _ := cmd.Flags().GetString("name")
 		region, _ := cmd.Flags().GetString("region")
@@ -96,26 +96,22 @@ var elasticipCreateCmd = &cobra.Command{
 
 		// Validate required fields
 		if name == "" {
-			fmt.Println("Error: --name is required")
-			return
+			return fmt.Errorf("--name is required")
 		}
 		if region == "" {
-			fmt.Println("Error: --region is required")
-			return
+			return fmt.Errorf("--region is required")
 		}
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Build the create request
@@ -137,22 +133,15 @@ var elasticipCreateCmd = &cobra.Command{
 		}
 
 		// Create the Elastic IP using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromNetwork().ElasticIPs().Create(ctx, projectID, createRequest, nil)
 		if err != nil {
-			fmt.Printf("Error creating Elastic IP: %v\n", err)
-			return
+			return fmt.Errorf("creating Elastic IP: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to create Elastic IP - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -172,33 +161,33 @@ var elasticipCreateCmd = &cobra.Command{
 		} else {
 			fmt.Println("Elastic IP creation initiated. Use 'list' or 'get' to check status.")
 		}
+		return nil
 	},
 }
 
 var elasticipListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all Elastic IPs",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// List Elastic IPs using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromNetwork().ElasticIPs().List(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error listing Elastic IPs: %v\n", err)
-			return
+			return fmt.Errorf("listing Elastic IPs: %w", err)
 		}
 
 		if response != nil && response.Data != nil && len(response.Data.Values) > 0 {
@@ -224,7 +213,10 @@ var elasticipListCmd = &cobra.Command{
 					id = *eip.Metadata.ID
 				}
 
-				region := eip.Metadata.LocationResponse.Value
+				region := ""
+				if eip.Metadata.LocationResponse != nil {
+					region = eip.Metadata.LocationResponse.Value
+				}
 
 				address := ""
 				if eip.Properties.Address != nil {
@@ -244,6 +236,7 @@ var elasticipListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No Elastic IPs found")
 		}
+		return nil
 	},
 }
 
@@ -251,29 +244,27 @@ var elasticipGetCmd = &cobra.Command{
 	Use:   "get <elastic-ip-id>",
 	Short: "Get Elastic IP details",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		eipID := args[0]
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Get Elastic IP details using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
 		if err != nil {
-			fmt.Printf("Error getting Elastic IP details: %v\n", err)
-			return
+			return fmt.Errorf("getting Elastic IP details: %w", err)
 		}
 
 		if response != nil && response.Data != nil {
@@ -303,7 +294,7 @@ var elasticipGetCmd = &cobra.Command{
 			fmt.Printf("Linked Resources: %d\n", len(eip.Properties.LinkedResources))
 
 			if eip.Metadata.CreationDate != nil {
-				fmt.Printf("Creation Date:   %s\n", eip.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", eip.Metadata.CreationDate.Format(DateLayout))
 			}
 			if eip.Metadata.CreatedBy != nil {
 				fmt.Printf("Created By:      %s\n", *eip.Metadata.CreatedBy)
@@ -319,6 +310,7 @@ var elasticipGetCmd = &cobra.Command{
 				fmt.Printf("Status:          %s\n", *eip.Status.State)
 			}
 		}
+		return nil
 	},
 }
 
@@ -326,7 +318,7 @@ var elasticipUpdateCmd = &cobra.Command{
 	Use:   "update <elastic-ip-id>",
 	Short: "Update an Elastic IP",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		eipID := args[0]
 
 		// Get flags
@@ -335,41 +327,36 @@ var elasticipUpdateCmd = &cobra.Command{
 
 		// At least one update flag must be provided
 		if name == "" && len(tags) == 0 {
-			fmt.Println("Error: at least one of --name or --tags must be provided")
-			return
+			return fmt.Errorf("at least one of --name or --tags must be provided")
 		}
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// First, get the current Elastic IP to preserve existing properties
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		getResponse, err := client.FromNetwork().ElasticIPs().Get(ctx, projectID, eipID, nil)
 		if err != nil {
-			fmt.Printf("Error getting Elastic IP details: %v\n", err)
-			return
+			return fmt.Errorf("getting Elastic IP details: %w", err)
 		}
 
 		if getResponse == nil || getResponse.Data == nil {
-			fmt.Println("Error: Elastic IP not found")
-			return
+			return fmt.Errorf("Elastic IP not found")
 		}
 
 		// Check if Elastic IP is in InCreation state
-		if getResponse.Data.Status.State != nil && *getResponse.Data.Status.State == "InCreation" {
-			fmt.Println("Error: Cannot update Elastic IP while it is in 'InCreation' state. Please wait until the Elastic IP is fully created.")
-			return
+		if getResponse.Data.Status.State != nil && *getResponse.Data.Status.State == StateInCreation {
+			return fmt.Errorf("cannot update Elastic IP while it is in 'InCreation' state. Please wait until the Elastic IP is fully created")
 		}
 
 		// Get region value
@@ -378,8 +365,7 @@ var elasticipUpdateCmd = &cobra.Command{
 			regionValue = getResponse.Data.Metadata.LocationResponse.Value
 		}
 		if regionValue == "" {
-			fmt.Println("Error: Unable to determine region value for Elastic IP")
-			return
+			return fmt.Errorf("unable to determine region value for Elastic IP")
 		}
 
 		// Build the update request, preserving existing values
@@ -409,8 +395,7 @@ var elasticipUpdateCmd = &cobra.Command{
 		// Update the Elastic IP using the SDK
 		response, err := client.FromNetwork().ElasticIPs().Update(ctx, projectID, eipID, updateRequest, nil)
 		if err != nil {
-			fmt.Printf("Error updating Elastic IP: %v\n", err)
-			return
+			return fmt.Errorf("updating Elastic IP: %w", err)
 		}
 
 		if response != nil && response.Data != nil {
@@ -427,6 +412,7 @@ var elasticipUpdateCmd = &cobra.Command{
 		} else {
 			fmt.Printf("\nElastic IP %s update completed.\n", eipID)
 		}
+		return nil
 	},
 }
 
@@ -434,7 +420,7 @@ var elasticipDeleteCmd = &cobra.Command{
 	Use:   "delete <elastic-ip-id>",
 	Short: "Delete an Elastic IP",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		eipID := args[0]
 
 		// Get skip confirmation flag
@@ -442,38 +428,36 @@ var elasticipDeleteCmd = &cobra.Command{
 
 		// Prompt for confirmation unless --yes flag is used
 		if !skipConfirm {
-			fmt.Printf("Are you sure you want to delete Elastic IP %s? This action cannot be undone.\n", eipID)
-			fmt.Print("Type 'yes' to confirm: ")
-			var response string
-			fmt.Scanln(&response)
-			if response != "yes" && response != "y" {
-				fmt.Println("Delete cancelled")
-				return
+			ok, err := confirmDelete("Elastic IP", eipID)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
 			}
 		}
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Delete the Elastic IP using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		_, err = client.FromNetwork().ElasticIPs().Delete(ctx, projectID, eipID, nil)
 		if err != nil {
-			fmt.Printf("Error deleting Elastic IP: %v\n", err)
-			return
+			return fmt.Errorf("deleting Elastic IP: %w", err)
 		}
 
 		fmt.Printf("\nElastic IP %s deleted successfully!\n", eipID)
+		return nil
 	},
 }

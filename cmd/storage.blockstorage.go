@@ -101,12 +101,12 @@ var blockstorageCmd = &cobra.Command{
 var blockstorageCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new block storage",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get flags
@@ -123,23 +123,19 @@ var blockstorageCreateCmd = &cobra.Command{
 
 		// Validate required fields
 		if name == "" {
-			fmt.Println("Error: --name is required")
-			return
+			return fmt.Errorf("--name is required")
 		}
 		if region == "" {
-			fmt.Println("Error: --region is required")
-			return
+			return fmt.Errorf("--region is required")
 		}
 		if size <= 0 {
-			fmt.Println("Error: --size must be greater than 0")
-			return
+			return fmt.Errorf("--size must be greater than 0")
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Build the create request
@@ -181,11 +177,6 @@ var blockstorageCreateCmd = &cobra.Command{
 			createRequest.Properties.Image = &image
 		}
 
-		// Add zone only if provided
-		if zone != "" {
-			createRequest.Properties.Zone = &zone
-		}
-
 		// Get verbose flag
 		verbose, _ := cmd.Flags().GetBool("verbose")
 
@@ -214,25 +205,18 @@ var blockstorageCreateCmd = &cobra.Command{
 		}
 
 		// Create the block storage using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromStorage().Volumes().Create(ctx, projectID, createRequest, nil)
 		if err != nil {
-			fmt.Printf("Error creating block storage: %v\n", err)
-			return
+			return fmt.Errorf("creating block storage: %w", err)
 		}
 
-		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to create block storage - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
+		if response != nil && response.IsError() {
+			if response.Error != nil {
+				return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			if verbose {
-				fmt.Printf("Full Error Response: %+v\n", response.Error)
-			}
-			return
+			return fmt.Errorf("API error (status %d)", response.StatusCode)
 		}
 
 		if response.Data != nil {
@@ -247,11 +231,12 @@ var blockstorageCreateCmd = &cobra.Command{
 				fmt.Printf("Status:          %s\n", *response.Data.Status.State)
 			}
 			if !response.Data.Metadata.CreationDate.IsZero() {
-				fmt.Printf("Creation Date:   %s\n", response.Data.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", response.Data.Metadata.CreationDate.Format(DateLayout))
 			}
 		} else {
 			fmt.Println("Block storage created but no details returned")
 		}
+		return nil
 	},
 }
 
@@ -259,29 +244,27 @@ var blockstorageGetCmd = &cobra.Command{
 	Use:   "get [volume-id]",
 	Short: "Get block storage details",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		volumeID := args[0]
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Get block storage details using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromStorage().Volumes().Get(ctx, projectID, volumeID, nil)
 		if err != nil {
-			fmt.Printf("Error getting block storage details: %v\n", err)
-			return
+			return fmt.Errorf("getting block storage details: %w", err)
 		}
 
 		if response != nil && response.Data != nil {
@@ -320,7 +303,7 @@ var blockstorageGetCmd = &cobra.Command{
 			}
 
 			if !volume.Metadata.CreationDate.IsZero() {
-				fmt.Printf("Creation Date:   %s\n", volume.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", volume.Metadata.CreationDate.Format(DateLayout))
 			}
 
 			if volume.Metadata.CreatedBy != nil {
@@ -337,6 +320,7 @@ var blockstorageGetCmd = &cobra.Command{
 		} else {
 			fmt.Println("Block storage not found")
 		}
+		return nil
 	},
 }
 
@@ -344,14 +328,13 @@ var blockstorageUpdateCmd = &cobra.Command{
 	Use:   "update [volume-id]",
 	Short: "Update block storage (name and/or tags)",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		volumeID := args[0]
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get flags
@@ -362,27 +345,26 @@ var blockstorageUpdateCmd = &cobra.Command{
 		if name == "" && !cmd.Flags().Changed("tags") {
 			fmt.Println("Error: at least one of --name or --tags must be provided")
 			fmt.Println("Note: Size update is not supported by the API yet")
-			return
+			return nil
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// First, get the current volume details to preserve existing values
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		getResponse, err := client.FromStorage().Volumes().Get(ctx, projectID, volumeID, nil)
 		if err != nil {
-			fmt.Printf("Error getting block storage details: %v\n", err)
-			return
+			return fmt.Errorf("getting block storage details: %w", err)
 		}
 
 		if getResponse == nil || getResponse.Data == nil {
 			fmt.Println("Block storage not found")
-			return
+			return nil
 		}
 
 		currentVolume := getResponse.Data
@@ -391,9 +373,7 @@ var blockstorageUpdateCmd = &cobra.Command{
 		if currentVolume.Status.State != nil {
 			status := *currentVolume.Status.State
 			if status != "Used" && status != "NotUsed" {
-				fmt.Printf("Error: Cannot update block storage with status '%s'\n", status)
-				fmt.Println("Block storage can only be updated when status is 'Used' or 'NotUsed'")
-				return
+				return fmt.Errorf("cannot update block storage with status '%s': block storage can only be updated when status is 'Used' or 'NotUsed'", status)
 			}
 		}
 
@@ -403,8 +383,7 @@ var blockstorageUpdateCmd = &cobra.Command{
 			regionValue = currentVolume.Metadata.LocationResponse.Value
 		}
 		if regionValue == "" {
-			fmt.Println("Error: Unable to determine region value for block storage")
-			return
+			return fmt.Errorf("unable to determine region value for block storage")
 		}
 
 		// Handle zone - if empty, set to nil
@@ -444,19 +423,14 @@ var blockstorageUpdateCmd = &cobra.Command{
 		// Update the block storage using the SDK
 		response, err := client.FromStorage().Volumes().Update(ctx, projectID, volumeID, updateRequest, nil)
 		if err != nil {
-			fmt.Printf("Error updating block storage: %v\n", err)
-			return
+			return fmt.Errorf("updating block storage: %w", err)
 		}
 
-		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to update block storage - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
+		if response != nil && response.IsError() {
+			if response.Error != nil {
+				return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmt.Errorf("API error (status %d)", response.StatusCode)
 		}
 
 		if response != nil && response.Data != nil {
@@ -471,6 +445,7 @@ var blockstorageUpdateCmd = &cobra.Command{
 		} else {
 			fmt.Println("Warning: Update may have succeeded but response is empty")
 		}
+		return nil
 	},
 }
 
@@ -478,14 +453,13 @@ var blockstorageDeleteCmd = &cobra.Command{
 	Use:   "delete [volume-id]",
 	Short: "Delete block storage",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		volumeID := args[0]
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get flags
@@ -493,61 +467,60 @@ var blockstorageDeleteCmd = &cobra.Command{
 
 		// If not confirmed, ask for confirmation
 		if !confirm {
-			fmt.Printf("Are you sure you want to delete block storage %s? (yes/no): ", volumeID)
-			var response string
-			fmt.Scanln(&response)
-			if response != "yes" && response != "y" {
-				fmt.Println("Delete cancelled")
-				return
+			ok, err := confirmDelete("block storage", volumeID)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
 			}
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Delete the block storage using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		_, err = client.FromStorage().Volumes().Delete(ctx, projectID, volumeID, nil)
 		if err != nil {
-			fmt.Printf("Error deleting block storage: %v\n", err)
-			return
+			return fmt.Errorf("deleting block storage: %w", err)
 		}
 
 		fmt.Printf("\nBlock storage %s deleted successfully!\n", volumeID)
+		return nil
 	},
 }
 
 var blockstorageListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all block storage",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get flags
 		verbose, _ := cmd.Flags().GetBool("verbose")
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// List block storage using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromStorage().Volumes().List(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error listing block storage: %v\n", err)
-			return
+			return fmt.Errorf("listing block storage: %w", err)
 		}
 
 		// Debug output
@@ -628,5 +601,6 @@ var blockstorageListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No block storage found")
 		}
+		return nil
 	},
 }

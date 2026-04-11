@@ -151,7 +151,8 @@ var cloudserverCmd = &cobra.Command{
 var cloudserverCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new cloud server",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get new network flags
 		vpcURI, _ := cmd.Flags().GetString("vpc-uri")
 		subnetURIs, _ := cmd.Flags().GetStringSlice("subnet-uri")
@@ -159,8 +160,7 @@ var cloudserverCreateCmd = &cobra.Command{
 		elasticIPURI, _ := cmd.Flags().GetString("elasticip-uri")
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		name, _ := cmd.Flags().GetString("name")
@@ -173,14 +173,12 @@ var cloudserverCreateCmd = &cobra.Command{
 		userDataFile, _ := cmd.Flags().GetString("user-data-file")
 
 		if name == "" || region == "" || flavor == "" || bootDiskURI == "" || vpcURI == "" || len(subnetURIs) == 0 || len(securityGroupURIs) == 0 {
-			fmt.Println("Error: --name, --region, --flavor, --boot-disk-uri, --vpc-uri, --subnet-uri, and --security-group-uri are required")
-			return
+			return fmt.Errorf("--name, --region, --flavor, --boot-disk-uri, --vpc-uri, --subnet-uri, and --security-group-uri are required")
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Build the create request
@@ -238,30 +236,22 @@ var cloudserverCreateCmd = &cobra.Command{
 		if userDataFile != "" {
 			fileContent, err := os.ReadFile(userDataFile)
 			if err != nil {
-				fmt.Printf("Error reading user-data file: %v\n", err)
-				return
+				return fmt.Errorf("reading user-data file: %w", err)
 			}
 			// Encode file content to base64
 			userDataBase64 := base64.StdEncoding.EncodeToString(fileContent)
 			createRequest.Properties.UserData = &userDataBase64
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromCompute().CloudServers().Create(ctx, projectID, createRequest, nil)
 		if err != nil {
-			fmt.Printf("Error creating cloud server: %v\n", err)
-			return
+			return fmt.Errorf("creating cloud server: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to create cloud server - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -302,6 +292,7 @@ var cloudserverCreateCmd = &cobra.Command{
 		} else {
 			fmt.Println("Cloud server created, but no data returned.")
 		}
+		return nil
 	},
 }
 
@@ -309,37 +300,28 @@ var cloudserverGetCmd = &cobra.Command{
 	Use:   "get [cloudserver-id]",
 	Short: "Get cloud server details",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		serverID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
 		if err != nil {
-			fmt.Printf("Error getting cloud server: %v\n", err)
-			return
+			return fmt.Errorf("getting cloud server: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to get cloud server - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		if resp != nil && resp.Data != nil {
@@ -394,6 +376,7 @@ var cloudserverGetCmd = &cobra.Command{
 		} else {
 			fmt.Println("Cloud server not found or no data returned.")
 		}
+		return nil
 	},
 }
 
@@ -401,39 +384,35 @@ var cloudserverUpdateCmd = &cobra.Command{
 	Use:   "update [cloudserver-id]",
 	Short: "Update a cloud server",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		serverID := args[0]
 
 		name, _ := cmd.Flags().GetString("name")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 
 		if name == "" && len(tags) == 0 {
-			fmt.Println("Error: at least one of --name or --tags must be provided")
-			return
+			return fmt.Errorf("at least one of --name or --tags must be provided")
 		}
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		getResponse, err := client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
 		if err != nil {
-			fmt.Printf("Error getting cloud server details: %v\n", err)
-			return
+			return fmt.Errorf("getting cloud server details: %w", err)
 		}
 
 		if getResponse == nil || getResponse.Data == nil {
-			fmt.Println("Error: Cloud server not found")
-			return
+			return fmt.Errorf("cloud server not found")
 		}
 
 		current := getResponse.Data
@@ -444,8 +423,7 @@ var cloudserverUpdateCmd = &cobra.Command{
 			regionValue = current.Metadata.LocationResponse.Value
 		}
 		if regionValue == "" {
-			fmt.Println("Error: Unable to determine region value for cloud server")
-			return
+			return fmt.Errorf("unable to determine region value for cloud server")
 		}
 
 		// Build the update request, preserving existing values
@@ -486,19 +464,11 @@ var cloudserverUpdateCmd = &cobra.Command{
 
 		response, err := client.FromCompute().CloudServers().Update(ctx, projectID, serverID, updateRequest, nil)
 		if err != nil {
-			fmt.Printf("Error updating cloud server: %v\n", err)
-			return
+			return fmt.Errorf("updating cloud server: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to update cloud server - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -512,6 +482,7 @@ var cloudserverUpdateCmd = &cobra.Command{
 		} else {
 			fmt.Println("Cloud server update initiated. Use 'get' to check status.")
 		}
+		return nil
 	},
 }
 
@@ -519,76 +490,67 @@ var cloudserverDeleteCmd = &cobra.Command{
 	Use:   "delete [cloudserver-id]",
 	Short: "Delete a cloud server",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		serverID := args[0]
-
-		projectID, err := GetProjectID(cmd)
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
-		}
-
-		client, err := GetArubaClient()
-		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
-		}
 
 		// Confirmation prompt
 		skipConfirm, _ := cmd.Flags().GetBool("yes")
 		if !skipConfirm {
-			fmt.Printf("Are you sure you want to delete cloud server '%s'? (yes/no): ", serverID)
-			var confirmation string
-			fmt.Scanln(&confirmation)
-			if confirmation != "yes" && confirmation != "y" {
-				fmt.Println("Deletion cancelled.")
-				return
+			ok, err := confirmDelete("cloud server", serverID)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
 			}
 		}
 
-		ctx := context.Background()
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			return err
+		}
+
+		client, err := GetArubaClient()
+		if err != nil {
+			return fmt.Errorf("initializing client: %w", err)
+		}
+
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromCompute().CloudServers().Delete(ctx, projectID, serverID, nil)
 		if err != nil {
-			fmt.Printf("Error deleting cloud server: %v\n", err)
-			return
+			return fmt.Errorf("deleting cloud server: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to delete cloud server - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		fmt.Printf("Cloud server '%s' deleted successfully.\n", serverID)
+		return nil
 	},
 }
 
 var cloudserverListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all cloud servers",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromCompute().CloudServers().List(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error listing cloud servers: %v\n", err)
-			return
+			return fmt.Errorf("listing cloud servers: %w", err)
 		}
 
 		if response != nil && response.Data != nil && len(response.Data.Values) > 0 {
@@ -655,6 +617,7 @@ var cloudserverListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No cloud servers found")
 		}
+		return nil
 	},
 }
 
@@ -662,37 +625,28 @@ var cloudserverPowerOnCmd = &cobra.Command{
 	Use:   "power-on [cloudserver-id]",
 	Short: "Power on a cloud server",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		serverID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromCompute().CloudServers().PowerOn(ctx, projectID, serverID, nil)
 		if err != nil {
-			fmt.Printf("Error powering on cloud server: %v\n", err)
-			return
+			return fmt.Errorf("powering on cloud server: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to power on cloud server - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -706,6 +660,7 @@ var cloudserverPowerOnCmd = &cobra.Command{
 		} else {
 			fmt.Println("Cloud server power-on initiated. Use 'get' to check status.")
 		}
+		return nil
 	},
 }
 
@@ -713,37 +668,28 @@ var cloudserverPowerOffCmd = &cobra.Command{
 	Use:   "power-off [cloudserver-id]",
 	Short: "Power off a cloud server",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		serverID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromCompute().CloudServers().PowerOff(ctx, projectID, serverID, nil)
 		if err != nil {
-			fmt.Printf("Error powering off cloud server: %v\n", err)
-			return
+			return fmt.Errorf("powering off cloud server: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to power off cloud server - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -757,6 +703,7 @@ var cloudserverPowerOffCmd = &cobra.Command{
 		} else {
 			fmt.Println("Cloud server power-off initiated. Use 'get' to check status.")
 		}
+		return nil
 	},
 }
 
@@ -764,47 +711,37 @@ var cloudserverSetPasswordCmd = &cobra.Command{
 	Use:   "set-password [cloudserver-id]",
 	Short: "Set password for a cloud server",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		serverID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		password, _ := cmd.Flags().GetString("password")
 		if password == "" {
-			fmt.Println("Error: --password is required")
-			return
+			return fmt.Errorf("--password is required")
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		passwordRequest := types.CloudServerPasswordRequest{
 			Password: password,
 		}
 
 		response, err := client.FromCompute().CloudServers().SetPassword(ctx, projectID, serverID, passwordRequest, nil)
 		if err != nil {
-			fmt.Printf("Error setting password for cloud server: %v\n", err)
-			return
+			return fmt.Errorf("setting password for cloud server: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to set password for cloud server - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -827,6 +764,7 @@ var cloudserverSetPasswordCmd = &cobra.Command{
 			fmt.Println("Cloud server password set successfully!")
 			fmt.Printf("Server ID: %s\n", serverID)
 		}
+		return nil
 	},
 }
 
@@ -834,13 +772,12 @@ var cloudserverConnectCmd = &cobra.Command{
 	Use:   "connect [cloudserver-id]",
 	Short: "Get SSH connection information for a cloud server",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		serverID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		user, _ := cmd.Flags().GetString("user")
@@ -851,38 +788,30 @@ var cloudserverConnectCmd = &cobra.Command{
 			fmt.Println("  - CentOS/RHEL: centos or root")
 			fmt.Println("  - Other Linux: root or check image documentation")
 			fmt.Println("\nFor more information, see: https://kb.arubacloud.com/cmp/en/computing/cloud-server.aspx")
-			return
+			return fmt.Errorf("--user is required")
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 
 		// First, get the cloud server details
 		serverResp, err := client.FromCompute().CloudServers().Get(ctx, projectID, serverID, nil)
 		if err != nil {
-			fmt.Printf("Error getting cloud server: %v\n", err)
-			return
+			return fmt.Errorf("getting cloud server: %w", err)
 		}
 
 		if serverResp != nil && serverResp.IsError() && serverResp.Error != nil {
-			fmt.Printf("Failed to get cloud server - Status: %d\n", serverResp.StatusCode)
-			if serverResp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *serverResp.Error.Title)
-			}
-			if serverResp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *serverResp.Error.Detail)
-			}
-			return
+			return fmtAPIError(serverResp.StatusCode, serverResp.Error.Title, serverResp.Error.Detail)
 		}
 
 		if serverResp == nil || serverResp.Data == nil {
 			fmt.Println("Cloud server not found or no data returned.")
-			return
+			return nil
 		}
 
 		server := serverResp.Data
@@ -899,46 +828,38 @@ var cloudserverConnectCmd = &cobra.Command{
 		if elasticIPURI == "" {
 			fmt.Println("No Elastic IP found for this cloud server.")
 			fmt.Println("The server must have an Elastic IP linked to use the connect command.")
-			return
+			return nil
 		}
 
 		// Extract ElasticIP ID from URI
 		elasticIPID := extractIDFromURI(elasticIPURI)
 		if elasticIPID == "" {
-			fmt.Printf("Error: Could not extract Elastic IP ID from URI: %s\n", elasticIPURI)
-			return
+			return fmt.Errorf("could not extract Elastic IP ID from URI: %s", elasticIPURI)
 		}
 
 		// Get ElasticIP details
 		eipResp, err := client.FromNetwork().ElasticIPs().Get(ctx, projectID, elasticIPID, nil)
 		if err != nil {
-			fmt.Printf("Error getting Elastic IP details: %v\n", err)
-			return
+			return fmt.Errorf("getting Elastic IP details: %w", err)
 		}
 
 		if eipResp != nil && eipResp.IsError() && eipResp.Error != nil {
-			fmt.Printf("Failed to get Elastic IP - Status: %d\n", eipResp.StatusCode)
-			if eipResp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *eipResp.Error.Title)
-			}
-			if eipResp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *eipResp.Error.Detail)
-			}
-			return
+			return fmtAPIError(eipResp.StatusCode, eipResp.Error.Title, eipResp.Error.Detail)
 		}
 
 		if eipResp == nil || eipResp.Data == nil {
 			fmt.Println("Elastic IP not found or no data returned.")
-			return
+			return nil
 		}
 
 		eip := eipResp.Data
 		if eip.Properties.Address == nil || *eip.Properties.Address == "" {
 			fmt.Println("Elastic IP address not available.")
-			return
+			return nil
 		}
 
 		// Print SSH connection command
 		fmt.Printf("Connect by running: ssh %s@%s\n", user, *eip.Properties.Address)
+		return nil
 	},
 }

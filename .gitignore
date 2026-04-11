@@ -35,6 +35,19 @@ go.work.sum
 *~
 .DS_Store
 
+# AI agent tools (user-local config/cache, not project docs)
+.claude/
+.cursor/
+.cursorignore
+.cursorrules
+.windsurf/
+.aider*
+.continue/
+.copilot-instructions
+
+# Project AI context folder is intentionally tracked — do not ignore ai/
+!ai/
+
 # Build output - acloud binaries
 acloud
 acloud-*

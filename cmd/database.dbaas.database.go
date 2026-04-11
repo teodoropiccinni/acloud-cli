@@ -88,59 +88,50 @@ var dbaasDatabaseCreateCmd = &cobra.Command{
 	Use:   "create [dbaas-id]",
 	Short: "Create a new database in DBaaS",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		dbaasID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		name, _ := cmd.Flags().GetString("name")
 
 		if name == "" {
-			fmt.Println("Error: --name is required")
-			return
+			return fmt.Errorf("--name is required")
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		createRequest := types.DatabaseRequest{
 			Name: name,
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromDatabase().Databases().Create(ctx, projectID, dbaasID, createRequest, nil)
 		if err != nil {
-			fmt.Printf("Error creating database: %v\n", err)
-			return
+			return fmt.Errorf("creating database: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to create database - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
 			fmt.Println("\nDatabase created successfully!")
 			fmt.Printf("Name:            %s\n", response.Data.Name)
 			if response.Data.CreationDate != nil {
-				fmt.Printf("Creation Date:   %s\n", response.Data.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", response.Data.CreationDate.Format(DateLayout))
 			}
 		} else {
 			fmt.Println("Database created, but no data returned.")
 		}
+		return nil
 	},
 }
 
@@ -148,38 +139,29 @@ var dbaasDatabaseGetCmd = &cobra.Command{
 	Use:   "get [dbaas-id] [database-name]",
 	Short: "Get database details",
 	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		dbaasID := args[0]
 		databaseName := args[1]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromDatabase().Databases().Get(ctx, projectID, dbaasID, databaseName, nil)
 		if err != nil {
-			fmt.Printf("Error getting database: %v\n", err)
-			return
+			return fmt.Errorf("getting database: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to get database - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		if resp != nil && resp.Data != nil {
@@ -190,7 +172,7 @@ var dbaasDatabaseGetCmd = &cobra.Command{
 
 			fmt.Printf("Name:            %s\n", db.Name)
 			if db.CreationDate != nil {
-				fmt.Printf("Creation Date:   %s\n", db.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", db.CreationDate.Format(DateLayout))
 			}
 			if db.CreatedBy != nil {
 				fmt.Printf("Created By:      %s\n", *db.CreatedBy)
@@ -199,6 +181,7 @@ var dbaasDatabaseGetCmd = &cobra.Command{
 		} else {
 			fmt.Println("Database not found")
 		}
+		return nil
 	},
 }
 
@@ -206,37 +189,28 @@ var dbaasDatabaseListCmd = &cobra.Command{
 	Use:   "list [dbaas-id]",
 	Short: "List all databases in DBaaS",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		dbaasID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromDatabase().Databases().List(ctx, projectID, dbaasID, nil)
 		if err != nil {
-			fmt.Printf("Error listing databases: %v\n", err)
-			return
+			return fmt.Errorf("listing databases: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to list databases - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		if resp != nil && resp.Data != nil && len(resp.Data.Values) > 0 {
@@ -252,7 +226,7 @@ var dbaasDatabaseListCmd = &cobra.Command{
 					db.Name,
 					func() string {
 						if db.CreationDate != nil {
-							return db.CreationDate.Format("02-01-2006 15:04:05")
+							return db.CreationDate.Format(DateLayout)
 						}
 						return ""
 					}(),
@@ -269,6 +243,7 @@ var dbaasDatabaseListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No databases found")
 		}
+		return nil
 	},
 }
 
@@ -276,49 +251,39 @@ var dbaasDatabaseUpdateCmd = &cobra.Command{
 	Use:   "update [dbaas-id] [database-name]",
 	Short: "Update a database",
 	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		dbaasID := args[0]
 		databaseName := args[1]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		name, _ := cmd.Flags().GetString("name")
 
 		if name == "" {
-			fmt.Println("Error: --name is required")
-			return
+			return fmt.Errorf("--name is required")
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		updateRequest := types.DatabaseRequest{
 			Name: name,
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromDatabase().Databases().Update(ctx, projectID, dbaasID, databaseName, updateRequest, nil)
 		if err != nil {
-			fmt.Printf("Error updating database: %v\n", err)
-			return
+			return fmt.Errorf("updating database: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to update database - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -327,6 +292,7 @@ var dbaasDatabaseUpdateCmd = &cobra.Command{
 		} else {
 			fmt.Println("Warning: Update may have succeeded but response is empty")
 		}
+		return nil
 	},
 }
 
@@ -334,41 +300,40 @@ var dbaasDatabaseDeleteCmd = &cobra.Command{
 	Use:   "delete [dbaas-id] [database-name]",
 	Short: "Delete a database",
 	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		dbaasID := args[0]
 		databaseName := args[1]
-
-		projectID, err := GetProjectID(cmd)
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
-		}
 
 		confirm, _ := cmd.Flags().GetBool("yes")
 
 		if !confirm {
-			fmt.Printf("Are you sure you want to delete database '%s' in DBaaS instance %s? (yes/no): ", databaseName, dbaasID)
-			var response string
-			fmt.Scanln(&response)
-			if response != "yes" && response != "y" {
-				fmt.Println("Delete cancelled")
-				return
+			ok, err := confirmDelete(fmt.Sprintf("database '%s' in DBaaS instance", databaseName), dbaasID)
+			if err != nil {
+				return err
 			}
+			if !ok {
+				return nil
+			}
+		}
+
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		_, err = client.FromDatabase().Databases().Delete(ctx, projectID, dbaasID, databaseName, nil)
 		if err != nil {
-			fmt.Printf("Error deleting database: %v\n", err)
-			return
+			return fmt.Errorf("deleting database: %w", err)
 		}
 
 		fmt.Printf("\nDatabase '%s' deleted successfully!\n", databaseName)
+		return nil
 	},
 }

@@ -31,13 +31,15 @@ var contextSetCmd = &cobra.Command{
 	Use:   "set [context-name]",
 	Short: "Set a context with a project ID",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		contextName := args[0]
-		projectID, _ := cmd.Flags().GetString("project-id")
+		projectID, err := cmd.Flags().GetString("project-id")
+		if err != nil {
+			return err
+		}
 
 		if projectID == "" {
-			fmt.Println("Error: --project-id is required")
-			return
+			return fmt.Errorf("--project-id is required")
 		}
 
 		// Load existing context or create new
@@ -56,11 +58,11 @@ var contextSetCmd = &cobra.Command{
 
 		// Save context
 		if err := SaveContext(ctx); err != nil {
-			fmt.Printf("Error saving context: %v\n", err)
-			return
+			return fmt.Errorf("saving context: %w", err)
 		}
 
 		fmt.Printf("Context '%s' set with project ID: %s\n", contextName, projectID)
+		return nil
 	},
 }
 
@@ -68,24 +70,22 @@ var contextUseCmd = &cobra.Command{
 	Use:   "use [context-name]",
 	Short: "Switch to a different context",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		contextName := args[0]
 
 		// Load context
 		ctx, err := LoadContext()
 		if err != nil {
-			fmt.Printf("Error loading context: %v\n", err)
-			return
+			return fmt.Errorf("loading context: %w", err)
 		}
 
 		// Check if context exists
 		if _, exists := ctx.Contexts[contextName]; !exists {
-			fmt.Printf("Context '%s' not found. Available contexts: ", contextName)
+			available := make([]string, 0, len(ctx.Contexts))
 			for name := range ctx.Contexts {
-				fmt.Printf("%s ", name)
+				available = append(available, name)
 			}
-			fmt.Println()
-			return
+			return fmt.Errorf("context '%s' not found; available contexts: %v", contextName, available)
 		}
 
 		// Set current context
@@ -93,29 +93,30 @@ var contextUseCmd = &cobra.Command{
 
 		// Save context
 		if err := SaveContext(ctx); err != nil {
-			fmt.Printf("Error saving context: %v\n", err)
-			return
+			return fmt.Errorf("saving context: %w", err)
 		}
 
 		fmt.Printf("Switched to context '%s'\n", contextName)
 		fmt.Printf("Project ID: %s\n", ctx.Contexts[contextName].ProjectID)
+		return nil
 	},
 }
 
 var contextListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all contexts",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Load context
 		ctx, err := LoadContext()
 		if err != nil {
 			fmt.Println("No contexts found")
-			return
+			return nil
 		}
 
 		if len(ctx.Contexts) == 0 {
 			fmt.Println("No contexts found")
-			return
+			return nil
 		}
 
 		fmt.Println("\nContexts:")
@@ -130,28 +131,30 @@ var contextListCmd = &cobra.Command{
 		if ctx.CurrentContext != "" {
 			fmt.Printf("\n* = current context\n")
 		}
+		return nil
 	},
 }
 
 var contextCurrentCmd = &cobra.Command{
 	Use:   "current",
 	Short: "Show current context",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Load context
 		ctx, err := LoadContext()
 		if err != nil || ctx.CurrentContext == "" {
 			fmt.Println("No current context set")
-			return
+			return nil
 		}
 
 		info, exists := ctx.Contexts[ctx.CurrentContext]
 		if !exists {
 			fmt.Println("Current context not found")
-			return
+			return nil
 		}
 
 		fmt.Printf("Current context: %s\n", ctx.CurrentContext)
 		fmt.Printf("Project ID:      %s\n", info.ProjectID)
+		return nil
 	},
 }
 
@@ -159,20 +162,18 @@ var contextDeleteCmd = &cobra.Command{
 	Use:   "delete [context-name]",
 	Short: "Delete a context",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		contextName := args[0]
 
 		// Load context
 		ctx, err := LoadContext()
 		if err != nil {
-			fmt.Printf("Error loading context: %v\n", err)
-			return
+			return fmt.Errorf("loading context: %w", err)
 		}
 
 		// Check if context exists
 		if _, exists := ctx.Contexts[contextName]; !exists {
-			fmt.Printf("Context '%s' not found\n", contextName)
-			return
+			return fmt.Errorf("context '%s' not found", contextName)
 		}
 
 		// Delete context
@@ -185,17 +186,20 @@ var contextDeleteCmd = &cobra.Command{
 
 		// Save context
 		if err := SaveContext(ctx); err != nil {
-			fmt.Printf("Error saving context: %v\n", err)
-			return
+			return fmt.Errorf("saving context: %w", err)
 		}
 
 		fmt.Printf("Context '%s' deleted\n", contextName)
+		return nil
 	},
 }
 
 // LoadContext loads the context configuration
 func LoadContext() (*Context, error) {
-	contextFile := getContextFilePath()
+	contextFile, err := getContextFilePath()
+	if err != nil {
+		return nil, err
+	}
 	data, err := os.ReadFile(contextFile)
 	if err != nil {
 		return nil, err
@@ -203,7 +207,7 @@ func LoadContext() (*Context, error) {
 
 	var ctx Context
 	if err := yaml.Unmarshal(data, &ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("context file %s is corrupted (%w). Delete it and run 'acloud context set' to reconfigure", contextFile, err)
 	}
 
 	return &ctx, nil
@@ -211,11 +215,14 @@ func LoadContext() (*Context, error) {
 
 // SaveContext saves the context configuration
 func SaveContext(ctx *Context) error {
-	contextFile := getContextFilePath()
+	contextFile, err := getContextFilePath()
+	if err != nil {
+		return err
+	}
 
 	// Ensure directory exists
 	dir := filepath.Dir(contextFile)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, FilePermDirAll); err != nil {
 		return err
 	}
 
@@ -224,7 +231,7 @@ func SaveContext(ctx *Context) error {
 		return err
 	}
 
-	return os.WriteFile(contextFile, data, 0600)
+	return os.WriteFile(contextFile, data, FilePermConfig)
 }
 
 // GetCurrentProjectID returns the project ID from the current context
@@ -246,13 +253,13 @@ func GetCurrentProjectID() (string, error) {
 	return info.ProjectID, nil
 }
 
-// getContextFilePath returns the path to the context file
-func getContextFilePath() string {
+// getContextFilePath returns the path to the context file (TD-007).
+func getContextFilePath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ".acloud-context.yaml"
+		return "", fmt.Errorf("cannot determine home directory: %w", err)
 	}
-	return filepath.Join(home, ".acloud-context.yaml")
+	return filepath.Join(home, ".acloud-context.yaml"), nil
 }
 
 func init() {

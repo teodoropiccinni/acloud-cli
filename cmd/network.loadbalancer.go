@@ -70,27 +70,26 @@ var loadbalancerCmd = &cobra.Command{
 var loadbalancerListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all Load Balancers",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// List Load Balancers using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromNetwork().LoadBalancers().List(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error listing Load Balancers: %v\n", err)
-			return
+			return fmt.Errorf("listing Load Balancers: %w", err)
 		}
 
 		if response != nil && response.Data != nil && len(response.Data.Values) > 0 {
@@ -116,7 +115,10 @@ var loadbalancerListCmd = &cobra.Command{
 					id = *lb.Metadata.ID
 				}
 
-				region := lb.Metadata.LocationResponse.Value
+				region := ""
+				if lb.Metadata.LocationResponse != nil {
+					region = lb.Metadata.LocationResponse.Value
+				}
 
 				address := ""
 				if lb.Properties.Address != nil {
@@ -136,6 +138,7 @@ var loadbalancerListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No Load Balancers found")
 		}
+		return nil
 	},
 }
 
@@ -143,29 +146,27 @@ var loadbalancerGetCmd = &cobra.Command{
 	Use:   "get <loadbalancer-id>",
 	Short: "Get Load Balancer details",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		lbID := args[0]
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Get Load Balancer details using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromNetwork().LoadBalancers().Get(ctx, projectID, lbID, nil)
 		if err != nil {
-			fmt.Printf("Error getting Load Balancer details: %v\n", err)
-			return
+			return fmt.Errorf("getting Load Balancer details: %w", err)
 		}
 
 		if response != nil && response.Data != nil {
@@ -194,7 +195,7 @@ var loadbalancerGetCmd = &cobra.Command{
 			fmt.Printf("Linked Resources: %d\n", len(lb.Properties.LinkedResources))
 
 			if lb.Metadata.CreationDate != nil {
-				fmt.Printf("Creation Date:   %s\n", lb.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", lb.Metadata.CreationDate.Format(DateLayout))
 			}
 			if lb.Metadata.CreatedBy != nil {
 				fmt.Printf("Created By:      %s\n", *lb.Metadata.CreatedBy)
@@ -210,5 +211,6 @@ var loadbalancerGetCmd = &cobra.Command{
 				fmt.Printf("Status:          %s\n", *lb.Status.State)
 			}
 		}
+		return nil
 	},
 }

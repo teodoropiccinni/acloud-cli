@@ -37,11 +37,23 @@ var configSetCmd = &cobra.Command{
 	Use:   "set",
 	Short: "Set configuration values",
 	Long:  `Set configuration values for acloud, such as clientId and clientSecret.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		clientID, _ := cmd.Flags().GetString("client-id")
-		clientSecret, _ := cmd.Flags().GetString("client-secret")
-		baseURL, _ := cmd.Flags().GetString("base-url")
-		tokenIssuerURL, _ := cmd.Flags().GetString("token-issuer-url")
+	RunE: func(cmd *cobra.Command, args []string) error {
+		clientID, err := cmd.Flags().GetString("client-id")
+		if err != nil {
+			return err
+		}
+		clientSecret, err := cmd.Flags().GetString("client-secret")
+		if err != nil {
+			return err
+		}
+		baseURL, err := cmd.Flags().GetString("base-url")
+		if err != nil {
+			return err
+		}
+		tokenIssuerURL, err := cmd.Flags().GetString("token-issuer-url")
+		if err != nil {
+			return err
+		}
 
 		// Load existing config or create new one
 		config, err := LoadConfig()
@@ -51,17 +63,11 @@ var configSetCmd = &cobra.Command{
 		}
 
 		// Validate required fields
-		// If setting up for the first time, both client-id and client-secret are required
-		// If updating, at least one must be provided, but final config must have both
 		if config.ClientID == "" && clientID == "" {
-			fmt.Println("Error: --client-id is required")
-			fmt.Println("Please run: acloud config set --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET")
-			os.Exit(1)
+			return fmt.Errorf("--client-id is required\nPlease run: acloud config set --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET")
 		}
 		if config.ClientSecret == "" && clientSecret == "" {
-			fmt.Println("Error: --client-secret is required")
-			fmt.Println("Please run: acloud config set --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET")
-			os.Exit(1)
+			return fmt.Errorf("--client-secret is required\nPlease run: acloud config set --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET")
 		}
 
 		// Update only provided values
@@ -80,15 +86,12 @@ var configSetCmd = &cobra.Command{
 
 		// Final validation: both clientID and clientSecret must be set
 		if config.ClientID == "" || config.ClientSecret == "" {
-			fmt.Println("Error: Both --client-id and --client-secret are required")
-			fmt.Println("Please run: acloud config set --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET")
-			os.Exit(1)
+			return fmt.Errorf("both --client-id and --client-secret are required\nPlease run: acloud config set --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET")
 		}
 
 		// Save config
 		if err := SaveConfig(config); err != nil {
-			fmt.Printf("Error saving configuration: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("saving configuration: %w", err)
 		}
 
 		fmt.Println("Configuration updated successfully")
@@ -104,6 +107,7 @@ var configSetCmd = &cobra.Command{
 		if tokenIssuerURL != "" {
 			fmt.Printf("  Token Issuer URL: %s\n", tokenIssuerURL)
 		}
+		return nil
 	},
 }
 
@@ -112,11 +116,11 @@ var configShowCmd = &cobra.Command{
 	Use:   "show",
 	Short: "Show current configuration",
 	Long:  `Display the current acloud configuration.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		config, err := LoadConfig()
 		if err != nil {
 			fmt.Println("No configuration found. Please run 'acloud config set' to create one.")
-			return
+			return nil
 		}
 
 		fmt.Println("Current configuration:")
@@ -136,6 +140,7 @@ var configShowCmd = &cobra.Command{
 			tokenIssuerURL = DefaultTokenIssuerURL + " (default)"
 		}
 		fmt.Printf("  Token Issuer URL: %s\n", tokenIssuerURL)
+		return nil
 	},
 }
 
@@ -174,7 +179,7 @@ func LoadConfig() (*Config, error) {
 
 	var config Config
 	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("config file %s is corrupted (%w). Delete it and run 'acloud config set' to reconfigure", configPath, err)
 	}
 
 	return &config, nil
@@ -192,5 +197,5 @@ func SaveConfig(config *Config) error {
 		return err
 	}
 
-	return os.WriteFile(configPath, data, 0600)
+	return os.WriteFile(configPath, data, FilePermConfig)
 }

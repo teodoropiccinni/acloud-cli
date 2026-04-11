@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/Arubacloud/sdk-go/pkg/types"
@@ -48,27 +47,25 @@ var vpcpeeringCreateCmd = &cobra.Command{
 	Use:   "create [vpc-id]",
 	Short: "Create a new VPC peering",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		name, _ := cmd.Flags().GetString("name")
 		peerVPCID, _ := cmd.Flags().GetString("peer-vpc-id")
 		region, _ := cmd.Flags().GetString("region")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 		if name == "" || peerVPCID == "" || region == "" {
-			fmt.Println("Error: --name, --peer-vpc-id, and --region are required")
-			return
+			return fmt.Errorf("--name, --peer-vpc-id, and --region are required")
 		}
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		req := types.VPCPeeringRequest{
 			Metadata: types.RegionalResourceMetadataRequest{
 				ResourceMetadataRequest: types.ResourceMetadataRequest{
@@ -83,18 +80,10 @@ var vpcpeeringCreateCmd = &cobra.Command{
 		}
 		resp, err := client.FromNetwork().VPCPeerings().Create(ctx, projectID, vpcID, req, nil)
 		if err != nil {
-			fmt.Printf("Error creating VPC peering: %v\n", err)
-			return
+			return fmt.Errorf("creating VPC peering: %w", err)
 		}
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to create VPC peering - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 		if resp != nil && resp.Data != nil && resp.Data.Metadata.ID != nil {
 			headers := []TableColumn{
@@ -131,6 +120,7 @@ var vpcpeeringCreateCmd = &cobra.Command{
 		} else {
 			fmt.Println("VPC peering created, but no ID returned.")
 		}
+		return nil
 	},
 }
 
@@ -138,34 +128,25 @@ var vpcpeeringGetCmd = &cobra.Command{
 	Use:   "get [vpc-id] [peering-id]",
 	Short: "Get VPC peering details",
 	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		peeringID := args[1]
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromNetwork().VPCPeerings().Get(ctx, projectID, vpcID, peeringID, nil)
 		if err != nil {
-			fmt.Printf("Error getting VPC peering: %v\n", err)
-			return
+			return fmt.Errorf("getting VPC peering: %w", err)
 		}
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to get VPC peering - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 		if resp != nil && resp.Data != nil {
 			peering := resp.Data
@@ -184,7 +165,7 @@ var vpcpeeringGetCmd = &cobra.Command{
 				fmt.Printf("Region:          %s\n", peering.Metadata.LocationResponse.Value)
 			}
 			if peering.Metadata.CreationDate != nil {
-				fmt.Printf("Creation Date:   %s\n", peering.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", peering.Metadata.CreationDate.Format(DateLayout))
 			}
 			if peering.Metadata.CreatedBy != nil {
 				fmt.Printf("Created By:      %s\n", *peering.Metadata.CreatedBy)
@@ -200,6 +181,7 @@ var vpcpeeringGetCmd = &cobra.Command{
 		} else {
 			fmt.Println("VPC peering not found or no data returned.")
 		}
+		return nil
 	},
 }
 
@@ -207,33 +189,24 @@ var vpcpeeringListCmd = &cobra.Command{
 	Use:   "list [vpc-id]",
 	Short: "List VPC peerings for a VPC",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromNetwork().VPCPeerings().List(ctx, projectID, vpcID, nil)
 		if err != nil {
-			fmt.Printf("Error listing VPC peerings: %v\n", err)
-			return
+			return fmt.Errorf("listing VPC peerings: %w", err)
 		}
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to list VPC peerings - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 		if resp != nil && resp.Data != nil && len(resp.Data.Values) > 0 {
 			headers := []TableColumn{
@@ -271,6 +244,7 @@ var vpcpeeringListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No VPC peerings found.")
 		}
+		return nil
 	},
 }
 
@@ -278,37 +252,33 @@ var vpcpeeringUpdateCmd = &cobra.Command{
 	Use:   "update [vpc-id] [peering-id]",
 	Short: "Update a VPC peering",
 	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		peeringID := args[1]
 		name, _ := cmd.Flags().GetString("name")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 		if name == "" && !cmd.Flags().Changed("tags") {
-			fmt.Println("Error: at least one of --name or --tags must be provided")
-			return
+			return fmt.Errorf("at least one of --name or --tags must be provided")
 		}
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		// Fetch current peering details
 		getResp, err := client.FromNetwork().VPCPeerings().Get(ctx, projectID, vpcID, peeringID, nil)
 		if err != nil || getResp == nil || getResp.Data == nil {
-			fmt.Printf("Error fetching current VPC peering: %v\n", err)
-			return
+			return fmt.Errorf("fetching current VPC peering: %w", err)
 		}
 		current := getResp.Data
 		// Block update if peering is in 'InCreation' state
-		if current.Status.State != nil && *current.Status.State == "InCreation" {
-			fmt.Println("Error: Cannot update VPC peering while it is in 'InCreation' state. Please wait until the VPC peering is fully created.")
-			return
+		if current.Status.State != nil && *current.Status.State == StateInCreation {
+			return fmt.Errorf("cannot update VPC peering while it is in 'InCreation' state. Please wait until the VPC peering is fully created")
 		}
 		// Build update request by merging user input with all current valid fields
 		req := types.VPCPeeringRequest{
@@ -348,18 +318,10 @@ var vpcpeeringUpdateCmd = &cobra.Command{
 		}
 		resp, err := client.FromNetwork().VPCPeerings().Update(ctx, projectID, vpcID, peeringID, req, nil)
 		if err != nil {
-			fmt.Printf("Error updating VPC peering: %v\n", err)
-			return
+			return fmt.Errorf("updating VPC peering: %w", err)
 		}
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to update VPC peering - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 		if resp != nil && resp.Data != nil {
 			headers := []TableColumn{
@@ -405,6 +367,7 @@ var vpcpeeringUpdateCmd = &cobra.Command{
 		} else {
 			fmt.Printf("VPC peering '%s' updated.\n", peeringID)
 		}
+		return nil
 	},
 }
 
@@ -412,7 +375,7 @@ var vpcpeeringDeleteCmd = &cobra.Command{
 	Use:   "delete [vpc-id] [peering-id]",
 	Short: "Delete a VPC peering",
 	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		peeringID := args[1]
 
@@ -421,41 +384,31 @@ var vpcpeeringDeleteCmd = &cobra.Command{
 
 		// Prompt for confirmation unless --yes flag is used
 		if !skipConfirm {
-			fmt.Printf("Are you sure you want to delete VPC peering %s? This action cannot be undone.\n", peeringID)
-			fmt.Print("Type 'yes' to confirm: ")
-			var response string
-			fmt.Scanln(&response)
-			if response != "yes" && response != "y" {
-				fmt.Println("Delete cancelled")
-				return
+			ok, err := confirmDelete("VPC peering", peeringID)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
 			}
 		}
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromNetwork().VPCPeerings().Delete(ctx, projectID, vpcID, peeringID, nil)
 		if err != nil {
-			fmt.Printf("Error deleting VPC peering: %v\n", err)
-			return
+			return fmt.Errorf("deleting VPC peering: %w", err)
 		}
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to delete VPC peering - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 		headers := []TableColumn{
 			{Header: "ID", Width: 26},
@@ -463,5 +416,6 @@ var vpcpeeringDeleteCmd = &cobra.Command{
 		}
 		status := "deleted"
 		PrintTable(headers, [][]string{{peeringID, status}})
+		return nil
 	},
 }

@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/spf13/cobra"
@@ -23,14 +25,12 @@ var (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "acloud",
-	Short: "CLI for Aruba Cloud APIs",
+	Use:          "acloud",
+	Short:        "CLI for Aruba Cloud APIs",
+	SilenceUsage: true, // Don't print usage on runtime errors
 	Long: `acloud is a command-line interface for interacting with Aruba Cloud APIs.
 It provides a simple and intuitive way to manage your Aruba Cloud resources
 directly from your terminal.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -152,6 +152,40 @@ func GetProjectID(cmd *cobra.Command) (string, error) {
 	}
 
 	return projectID, nil
+}
+
+// newCtx returns a context with a 30-second timeout for SDK calls (TD-006).
+func newCtx() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), 30*time.Second)
+}
+
+// fmtAPIError formats an SDK API error response into a Go error (TD-001/TD-003).
+func fmtAPIError(statusCode int, title, detail *string) error {
+	msg := fmt.Sprintf("API error (status %d)", statusCode)
+	if title != nil {
+		msg += ": " + *title
+	}
+	if detail != nil {
+		msg += " — " + *detail
+	}
+	return fmt.Errorf("%s", msg)
+}
+
+// confirmDelete prompts the user for confirmation before a destructive operation.
+// Returns true if the user confirmed, false if they declined or stdin is non-interactive (TD-005).
+func confirmDelete(resourceType, id string) (bool, error) {
+	fi, err := os.Stdin.Stat()
+	if err != nil || (fi.Mode()&os.ModeCharDevice) == 0 {
+		return false, fmt.Errorf("delete requires --yes/-y in non-interactive mode")
+	}
+	fmt.Printf("Are you sure you want to delete %s %s? (yes/no): ", resourceType, id)
+	var response string
+	fmt.Scanln(&response)
+	if response != "yes" && response != "y" {
+		fmt.Println("Delete cancelled")
+		return false, nil
+	}
+	return true, nil
 }
 
 // TableColumn represents a column definition for the table printer

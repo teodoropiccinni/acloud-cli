@@ -93,11 +93,11 @@ var jobCmd = &cobra.Command{
 var jobCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new scheduled job",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		name, _ := cmd.Flags().GetString("name")
@@ -110,37 +110,31 @@ var jobCreateCmd = &cobra.Command{
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 
 		if name == "" || region == "" || jobType == "" {
-			fmt.Println("Error: --name, --region, and --job-type are required")
-			return
+			return fmt.Errorf("--name, --region, and --job-type are required")
 		}
 
 		// Validate job type
 		if jobType != "OneShot" && jobType != "Recurring" {
-			fmt.Println("Error: --job-type must be either 'OneShot' or 'Recurring'")
-			return
+			return fmt.Errorf("--job-type must be either 'OneShot' or 'Recurring'")
 		}
 
 		// Validate required fields based on job type
 		if jobType == "OneShot" && scheduleAt == "" {
-			fmt.Println("Error: --schedule-at is required for OneShot jobs")
-			return
+			return fmt.Errorf("--schedule-at is required for OneShot jobs")
 		}
 
 		if jobType == "Recurring" {
 			if cron == "" {
-				fmt.Println("Error: --cron is required for Recurring jobs")
-				return
+				return fmt.Errorf("--cron is required for Recurring jobs")
 			}
 			if executeUntil == "" {
-				fmt.Println("Error: --execute-until is required for Recurring jobs")
-				return
+				return fmt.Errorf("--execute-until is required for Recurring jobs")
 			}
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		properties := types.JobPropertiesRequest{
@@ -168,22 +162,15 @@ var jobCreateCmd = &cobra.Command{
 			Properties: properties,
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromSchedule().Jobs().Create(ctx, projectID, createRequest, nil)
 		if err != nil {
-			fmt.Printf("Error creating job: %v\n", err)
-			return
+			return fmt.Errorf("creating job: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to create job - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -230,6 +217,7 @@ var jobCreateCmd = &cobra.Command{
 		} else {
 			fmt.Println("Job created, but no data returned.")
 		}
+		return nil
 	},
 }
 
@@ -237,37 +225,28 @@ var jobGetCmd = &cobra.Command{
 	Use:   "get [job-id]",
 	Short: "Get job details",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		jobID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromSchedule().Jobs().Get(ctx, projectID, jobID, nil)
 		if err != nil {
-			fmt.Printf("Error getting job: %v\n", err)
-			return
+			return fmt.Errorf("getting job: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to get job - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		if resp != nil && resp.Data != nil {
@@ -303,7 +282,7 @@ var jobGetCmd = &cobra.Command{
 				fmt.Printf("Status:          %s\n", *job.Status.State)
 			}
 			if !job.Metadata.CreationDate.IsZero() {
-				fmt.Printf("Creation Date:   %s\n", job.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", job.Metadata.CreationDate.Format(DateLayout))
 			}
 			if job.Metadata.CreatedBy != nil {
 				fmt.Printf("Created By:      %s\n", *job.Metadata.CreatedBy)
@@ -317,41 +296,34 @@ var jobGetCmd = &cobra.Command{
 		} else {
 			fmt.Println("Job not found")
 		}
+		return nil
 	},
 }
 
 var jobListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all scheduled jobs",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromSchedule().Jobs().List(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error listing jobs: %v\n", err)
-			return
+			return fmt.Errorf("listing jobs: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to list jobs - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		if resp != nil && resp.Data != nil && len(resp.Data.Values) > 0 {
@@ -410,6 +382,7 @@ var jobListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No jobs found")
 		}
+		return nil
 	},
 }
 
@@ -417,13 +390,12 @@ var jobUpdateCmd = &cobra.Command{
 	Use:   "update [job-id]",
 	Short: "Update a job",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		jobID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		name, _ := cmd.Flags().GetString("name")
@@ -432,26 +404,23 @@ var jobUpdateCmd = &cobra.Command{
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 
 		if name == "" && !enabledSet && !cmd.Flags().Changed("tags") {
-			fmt.Println("Error: at least one of --name, --enabled, or --tags must be provided")
-			return
+			return fmt.Errorf("at least one of --name, --enabled, or --tags must be provided")
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		getResp, err := client.FromSchedule().Jobs().Get(ctx, projectID, jobID, nil)
 		if err != nil {
-			fmt.Printf("Error getting job: %v\n", err)
-			return
+			return fmt.Errorf("getting job: %w", err)
 		}
 
 		if getResp == nil || getResp.Data == nil {
-			fmt.Println("Job not found")
-			return
+			return fmt.Errorf("job not found")
 		}
 
 		current := getResp.Data
@@ -461,8 +430,7 @@ var jobUpdateCmd = &cobra.Command{
 			regionValue = current.Metadata.LocationResponse.Value
 		}
 		if regionValue == "" {
-			fmt.Println("Error: Unable to determine region value for job")
-			return
+			return fmt.Errorf("unable to determine region value for job")
 		}
 
 		updateRequest := types.JobRequest{
@@ -499,19 +467,11 @@ var jobUpdateCmd = &cobra.Command{
 
 		response, err := client.FromSchedule().Jobs().Update(ctx, projectID, jobID, updateRequest, nil)
 		if err != nil {
-			fmt.Printf("Error updating job: %v\n", err)
-			return
+			return fmt.Errorf("updating job: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to update job - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -525,6 +485,7 @@ var jobUpdateCmd = &cobra.Command{
 		} else {
 			fmt.Println("Warning: Update may have succeeded but response is empty")
 		}
+		return nil
 	},
 }
 
@@ -532,40 +493,39 @@ var jobDeleteCmd = &cobra.Command{
 	Use:   "delete [job-id]",
 	Short: "Delete a job",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		jobID := args[0]
-
-		projectID, err := GetProjectID(cmd)
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
-		}
 
 		confirm, _ := cmd.Flags().GetBool("yes")
 
 		if !confirm {
-			fmt.Printf("Are you sure you want to delete job %s? (yes/no): ", jobID)
-			var response string
-			fmt.Scanln(&response)
-			if response != "yes" && response != "y" {
-				fmt.Println("Delete cancelled")
-				return
+			ok, err := confirmDelete("job", jobID)
+			if err != nil {
+				return err
 			}
+			if !ok {
+				return nil
+			}
+		}
+
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		_, err = client.FromSchedule().Jobs().Delete(ctx, projectID, jobID, nil)
 		if err != nil {
-			fmt.Printf("Error deleting job: %v\n", err)
-			return
+			return fmt.Errorf("deleting job: %w", err)
 		}
 
 		fmt.Printf("\nJob %s deleted successfully!\n", jobID)
+		return nil
 	},
 }

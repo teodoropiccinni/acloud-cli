@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/Arubacloud/sdk-go/pkg/types"
@@ -35,26 +34,24 @@ var securitygroupCreateCmd = &cobra.Command{
 	Use:   "create [vpc-id]",
 	Short: "Create a new security group",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		name, _ := cmd.Flags().GetString("name")
 		region, _ := cmd.Flags().GetString("region")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 		if name == "" || region == "" {
-			fmt.Println("Error: --name and --region are required")
-			return
+			return fmt.Errorf("--name and --region are required")
 		}
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		req := types.SecurityGroupRequest{
 			Metadata: types.ResourceMetadataRequest{
 				Name: name,
@@ -63,18 +60,10 @@ var securitygroupCreateCmd = &cobra.Command{
 		}
 		resp, err := client.FromNetwork().SecurityGroups().Create(ctx, projectID, vpcID, req, nil)
 		if err != nil {
-			fmt.Printf("Error creating security group: %v\n", err)
-			return
+			return fmt.Errorf("creating security group: %w", err)
 		}
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to create security group - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 		if resp != nil && resp.Data != nil && resp.Data.Metadata.ID != nil {
 			headers := []TableColumn{
@@ -83,10 +72,14 @@ var securitygroupCreateCmd = &cobra.Command{
 				{Header: "REGION", Width: 18},
 				{Header: "STATUS", Width: 15},
 			}
+			region := ""
+			if resp.Data.Metadata.LocationResponse != nil {
+				region = resp.Data.Metadata.LocationResponse.Value
+			}
 			row := []string{
 				name,
 				*resp.Data.Metadata.ID,
-				resp.Data.Metadata.LocationResponse.Value,
+				region,
 				func() string {
 					if resp.Data.Status.State != nil {
 						return *resp.Data.Status.State
@@ -99,6 +92,7 @@ var securitygroupCreateCmd = &cobra.Command{
 		} else {
 			fmt.Println("Security group created, but no ID returned.")
 		}
+		return nil
 	},
 }
 
@@ -106,34 +100,25 @@ var securitygroupGetCmd = &cobra.Command{
 	Use:   "get [vpc-id] [securitygroup-id]",
 	Short: "Get security group details",
 	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		sgID := args[1]
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromNetwork().SecurityGroups().Get(ctx, projectID, vpcID, sgID, nil)
 		if err != nil {
-			fmt.Printf("Error getting security group: %v\n", err)
-			return
+			return fmt.Errorf("getting security group: %w", err)
 		}
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to get security group - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 		if resp != nil && resp.Data != nil {
 			sg := resp.Data
@@ -152,7 +137,7 @@ var securitygroupGetCmd = &cobra.Command{
 				fmt.Printf("Region:          %s\n", sg.Metadata.LocationResponse.Value)
 			}
 			if sg.Metadata.CreationDate != nil {
-				fmt.Printf("Creation Date:   %s\n", sg.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", sg.Metadata.CreationDate.Format(DateLayout))
 			}
 			if sg.Metadata.CreatedBy != nil {
 				fmt.Printf("Created By:      %s\n", *sg.Metadata.CreatedBy)
@@ -168,6 +153,7 @@ var securitygroupGetCmd = &cobra.Command{
 		} else {
 			fmt.Println("Security group not found or no data returned.")
 		}
+		return nil
 	},
 }
 
@@ -175,33 +161,24 @@ var securitygroupListCmd = &cobra.Command{
 	Use:   "list [vpc-id]",
 	Short: "List security groups for a VPC",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromNetwork().SecurityGroups().List(ctx, projectID, vpcID, nil)
 		if err != nil {
-			fmt.Printf("Error listing security groups: %v\n", err)
-			return
+			return fmt.Errorf("listing security groups: %w", err)
 		}
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to list security groups - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 		if resp != nil && resp.Data != nil && len(resp.Data.Values) > 0 {
 			headers := []TableColumn{
@@ -234,6 +211,7 @@ var securitygroupListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No security groups found.")
 		}
+		return nil
 	},
 }
 
@@ -241,37 +219,33 @@ var securitygroupUpdateCmd = &cobra.Command{
 	Use:   "update [vpc-id] [securitygroup-id]",
 	Short: "Update a security group",
 	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		sgID := args[1]
 		name, _ := cmd.Flags().GetString("name")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 		if name == "" && !cmd.Flags().Changed("tags") {
-			fmt.Println("Error: at least one of --name or --tags must be provided")
-			return
+			return fmt.Errorf("at least one of --name or --tags must be provided")
 		}
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		// Fetch current security group details
 		getResp, err := client.FromNetwork().SecurityGroups().Get(ctx, projectID, vpcID, sgID, nil)
 		if err != nil || getResp == nil || getResp.Data == nil {
-			fmt.Printf("Error fetching current security group: %v\n", err)
-			return
+			return fmt.Errorf("fetching current security group: %w", err)
 		}
 		current := getResp.Data
 		// Block update if security group is in 'InCreation' state
-		if current.Status.State != nil && *current.Status.State == "InCreation" {
-			fmt.Println("Error: Cannot update security group while it is in 'InCreation' state. Please wait until the security group is fully created.")
-			return
+		if current.Status.State != nil && *current.Status.State == StateInCreation {
+			return fmt.Errorf("cannot update security group while it is in 'InCreation' state. Please wait until the security group is fully created")
 		}
 		// Get region value
 		regionValue := ""
@@ -279,8 +253,7 @@ var securitygroupUpdateCmd = &cobra.Command{
 			regionValue = current.Metadata.LocationResponse.Value
 		}
 		if regionValue == "" {
-			fmt.Println("Error: Unable to determine region value for security group")
-			return
+			return fmt.Errorf("unable to determine region value for security group")
 		}
 		// Build update request by merging user input with all current valid fields
 		req := types.SecurityGroupRequest{
@@ -307,18 +280,10 @@ var securitygroupUpdateCmd = &cobra.Command{
 		}
 		resp, err := client.FromNetwork().SecurityGroups().Update(ctx, projectID, vpcID, sgID, req, nil)
 		if err != nil {
-			fmt.Printf("Error updating security group: %v\n", err)
-			return
+			return fmt.Errorf("updating security group: %w", err)
 		}
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to update security group - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 		if resp != nil && resp.Data != nil {
 			headers := []TableColumn{
@@ -326,6 +291,10 @@ var securitygroupUpdateCmd = &cobra.Command{
 				{Header: "ID", Width: 26},
 				{Header: "REGION", Width: 18},
 				{Header: "STATUS", Width: 15},
+			}
+			updateRegion := ""
+			if resp.Data.Metadata.LocationResponse != nil {
+				updateRegion = resp.Data.Metadata.LocationResponse.Value
 			}
 			row := []string{
 				func() string {
@@ -340,7 +309,7 @@ var securitygroupUpdateCmd = &cobra.Command{
 					}
 					return ""
 				}(),
-				resp.Data.Metadata.LocationResponse.Value,
+				updateRegion,
 				func() string {
 					if resp.Data.Status.State != nil {
 						return *resp.Data.Status.State
@@ -352,6 +321,7 @@ var securitygroupUpdateCmd = &cobra.Command{
 		} else {
 			fmt.Printf("Security group '%s' updated.\n", sgID)
 		}
+		return nil
 	},
 }
 
@@ -359,7 +329,7 @@ var securitygroupDeleteCmd = &cobra.Command{
 	Use:   "delete [vpc-id] [securitygroup-id]",
 	Short: "Delete a security group",
 	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		sgID := args[1]
 
@@ -368,41 +338,31 @@ var securitygroupDeleteCmd = &cobra.Command{
 
 		// Prompt for confirmation unless --yes flag is used
 		if !skipConfirm {
-			fmt.Printf("Are you sure you want to delete security group %s? This action cannot be undone.\n", sgID)
-			fmt.Print("Type 'yes' to confirm: ")
-			var response string
-			fmt.Scanln(&response)
-			if response != "yes" && response != "y" {
-				fmt.Println("Delete cancelled")
-				return
+			ok, err := confirmDelete("security group", sgID)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
 			}
 		}
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromNetwork().SecurityGroups().Delete(ctx, projectID, vpcID, sgID, nil)
 		if err != nil {
-			fmt.Printf("Error deleting security group: %v\n", err)
-			return
+			return fmt.Errorf("deleting security group: %w", err)
 		}
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to delete security group - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 		headers := []TableColumn{
 			{Header: "ID", Width: 26},
@@ -410,5 +370,6 @@ var securitygroupDeleteCmd = &cobra.Command{
 		}
 		status := "deleted"
 		PrintTable(headers, [][]string{{sgID, status}})
+		return nil
 	},
 }

@@ -146,11 +146,11 @@ var kaasCmd = &cobra.Command{
 var kaasCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new KaaS cluster",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get metadata flags
@@ -184,8 +184,7 @@ var kaasCreateCmd = &cobra.Command{
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Build node pool
@@ -265,22 +264,15 @@ var kaasCreateCmd = &cobra.Command{
 			createRequest.Properties.APIServerAccessProfile = apiServerAccessProfile
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromContainer().KaaS().Create(ctx, projectID, createRequest, nil)
 		if err != nil {
-			fmt.Printf("Error creating KaaS cluster: %v\n", err)
-			return
+			return fmt.Errorf("creating KaaS cluster: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to create KaaS cluster - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -319,6 +311,7 @@ var kaasCreateCmd = &cobra.Command{
 		} else {
 			fmt.Println("KaaS cluster created, but no data returned.")
 		}
+		return nil
 	},
 }
 
@@ -326,37 +319,28 @@ var kaasGetCmd = &cobra.Command{
 	Use:   "get [kaas-id]",
 	Short: "Get KaaS cluster details",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		kaasID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromContainer().KaaS().Get(ctx, projectID, kaasID, nil)
 		if err != nil {
-			fmt.Printf("Error getting KaaS cluster: %v\n", err)
-			return
+			return fmt.Errorf("getting KaaS cluster: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to get KaaS cluster - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		if resp != nil && resp.Data != nil {
@@ -385,7 +369,7 @@ var kaasGetCmd = &cobra.Command{
 			}
 
 			if !kaas.Metadata.CreationDate.IsZero() {
-				fmt.Printf("Creation Date:   %s\n", kaas.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", kaas.Metadata.CreationDate.Format(DateLayout))
 			}
 			if kaas.Metadata.CreatedBy != nil {
 				fmt.Printf("Created By:      %s\n", *kaas.Metadata.CreatedBy)
@@ -408,6 +392,7 @@ var kaasGetCmd = &cobra.Command{
 		} else {
 			fmt.Println("KaaS cluster not found or no data returned.")
 		}
+		return nil
 	},
 }
 
@@ -415,31 +400,28 @@ var kaasUpdateCmd = &cobra.Command{
 	Use:   "update [kaas-id]",
 	Short: "Update a KaaS cluster",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		kaasID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		getResponse, err := client.FromContainer().KaaS().Get(ctx, projectID, kaasID, nil)
 		if err != nil {
-			fmt.Printf("Error getting KaaS cluster details: %v\n", err)
-			return
+			return fmt.Errorf("getting KaaS cluster details: %w", err)
 		}
 
 		if getResponse == nil || getResponse.Data == nil {
-			fmt.Println("Error: KaaS cluster not found")
-			return
+			return fmt.Errorf("KaaS cluster not found")
 		}
 
 		current := getResponse.Data
@@ -485,8 +467,7 @@ var kaasUpdateCmd = &cobra.Command{
 			if current.Properties.KubernetesVersion.Value != nil {
 				kubernetesVersionValue = *current.Properties.KubernetesVersion.Value
 			} else {
-				fmt.Println("Error: Kubernetes version is required")
-				return
+				return fmt.Errorf("kubernetes version is required")
 			}
 		}
 
@@ -604,19 +585,11 @@ var kaasUpdateCmd = &cobra.Command{
 
 		response, err := client.FromContainer().KaaS().Update(ctx, projectID, kaasID, updateRequest, nil)
 		if err != nil {
-			fmt.Printf("Error updating KaaS cluster: %v\n", err)
-			return
+			return fmt.Errorf("updating KaaS cluster: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to update KaaS cluster - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -633,6 +606,7 @@ var kaasUpdateCmd = &cobra.Command{
 		} else {
 			fmt.Println("KaaS cluster update initiated. Use 'get' to check status.")
 		}
+		return nil
 	},
 }
 
@@ -640,76 +614,67 @@ var kaasDeleteCmd = &cobra.Command{
 	Use:   "delete [kaas-id]",
 	Short: "Delete a KaaS cluster",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		kaasID := args[0]
-
-		projectID, err := GetProjectID(cmd)
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
-		}
-
-		client, err := GetArubaClient()
-		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
-		}
 
 		// Confirmation prompt
 		skipConfirm, _ := cmd.Flags().GetBool("yes")
 		if !skipConfirm {
-			fmt.Printf("Are you sure you want to delete KaaS cluster '%s'? (yes/no): ", kaasID)
-			var confirmation string
-			fmt.Scanln(&confirmation)
-			if confirmation != "yes" && confirmation != "y" {
-				fmt.Println("Deletion cancelled.")
-				return
+			ok, err := confirmDelete("KaaS cluster", kaasID)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
 			}
 		}
 
-		ctx := context.Background()
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			return err
+		}
+
+		client, err := GetArubaClient()
+		if err != nil {
+			return fmt.Errorf("initializing client: %w", err)
+		}
+
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromContainer().KaaS().Delete(ctx, projectID, kaasID, nil)
 		if err != nil {
-			fmt.Printf("Error deleting KaaS cluster: %v\n", err)
-			return
+			return fmt.Errorf("deleting KaaS cluster: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to delete KaaS cluster - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		fmt.Printf("KaaS cluster '%s' deleted successfully.\n", kaasID)
+		return nil
 	},
 }
 
 var kaasListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all KaaS clusters",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromContainer().KaaS().List(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error listing KaaS clusters: %v\n", err)
-			return
+			return fmt.Errorf("listing KaaS clusters: %w", err)
 		}
 
 		if response != nil && response.Data != nil && len(response.Data.Values) > 0 {
@@ -757,6 +722,7 @@ var kaasListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No KaaS clusters found")
 		}
+		return nil
 	},
 }
 
@@ -764,42 +730,32 @@ var kaasConnectCmd = &cobra.Command{
 	Use:   "connect [kaas-id]",
 	Short: "Connect to a KaaS cluster and configure kubectl",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		kaasID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromContainer().KaaS().DownloadKubeconfig(ctx, projectID, kaasID, nil)
 		if err != nil {
-			fmt.Printf("Error downloading kubeconfig: %v\n", err)
-			return
+			return fmt.Errorf("downloading kubeconfig: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to connect to KaaS cluster - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response == nil || response.Data == nil {
-			fmt.Println("Error: No kubeconfig data returned")
-			return
+			return fmt.Errorf("no kubeconfig data returned")
 		}
 
 		kubeconfig := response.Data
@@ -807,39 +763,34 @@ var kaasConnectCmd = &cobra.Command{
 		// Decode base64 content
 		decodedContent, err := base64.StdEncoding.DecodeString(kubeconfig.Content)
 		if err != nil {
-			fmt.Printf("Error decoding kubeconfig content: %v\n", err)
-			return
+			return fmt.Errorf("decoding kubeconfig content: %w", err)
 		}
 
 		// Get home directory
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			fmt.Printf("Error getting home directory: %v\n", err)
-			return
+			return fmt.Errorf("getting home directory: %w", err)
 		}
 
 		// Create .kube directory if it doesn't exist
 		kubeDir := filepath.Join(homeDir, ".kube")
 		err = os.MkdirAll(kubeDir, 0755)
 		if err != nil {
-			fmt.Printf("Error creating .kube directory: %v\n", err)
-			return
+			return fmt.Errorf("creating .kube directory: %w", err)
 		}
 
 		// Write kubeconfig file with name from response
 		kubeconfigFile := filepath.Join(kubeDir, kubeconfig.Name)
 		err = os.WriteFile(kubeconfigFile, decodedContent, 0600)
 		if err != nil {
-			fmt.Printf("Error writing kubeconfig file: %v\n", err)
-			return
+			return fmt.Errorf("writing kubeconfig file: %w", err)
 		}
 
 		// Copy to config file (overwrite if exists)
 		configFile := filepath.Join(kubeDir, "config")
 		err = os.WriteFile(configFile, decodedContent, 0600)
 		if err != nil {
-			fmt.Printf("Error writing config file: %v\n", err)
-			return
+			return fmt.Errorf("writing config file: %w", err)
 		}
 
 		// Run kubectl cluster-info
@@ -858,5 +809,6 @@ var kaasConnectCmd = &cobra.Command{
 		fmt.Println("KaaS successfully connected")
 		fmt.Printf("Kubeconfig saved to: %s\n", kubeconfigFile)
 		fmt.Printf("Default config updated: %s\n", configFile)
+		return nil
 	},
 }

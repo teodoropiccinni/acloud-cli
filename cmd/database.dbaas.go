@@ -92,11 +92,11 @@ var dbaasCmd = &cobra.Command{
 var dbaasCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new DBaaS instance",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		name, _ := cmd.Flags().GetString("name")
@@ -106,14 +106,12 @@ var dbaasCreateCmd = &cobra.Command{
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 
 		if name == "" || region == "" || engineID == "" || flavor == "" {
-			fmt.Println("Error: --name, --region, --engine-id, and --flavor are required")
-			return
+			return fmt.Errorf("--name, --region, --engine-id, and --flavor are required")
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Build the create request
@@ -137,22 +135,15 @@ var dbaasCreateCmd = &cobra.Command{
 			},
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromDatabase().DBaaS().Create(ctx, projectID, createRequest, nil)
 		if err != nil {
-			fmt.Printf("Error creating DBaaS instance: %v\n", err)
-			return
+			return fmt.Errorf("creating DBaaS instance: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to create DBaaS instance - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -206,6 +197,7 @@ var dbaasCreateCmd = &cobra.Command{
 		} else {
 			fmt.Println("DBaaS instance created, but no data returned.")
 		}
+		return nil
 	},
 }
 
@@ -213,37 +205,28 @@ var dbaasGetCmd = &cobra.Command{
 	Use:   "get [dbaas-id]",
 	Short: "Get DBaaS instance details",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		dbaasID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
 		if err != nil {
-			fmt.Printf("Error getting DBaaS instance: %v\n", err)
-			return
+			return fmt.Errorf("getting DBaaS instance: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to get DBaaS instance - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		if resp != nil && resp.Data != nil {
@@ -282,7 +265,7 @@ var dbaasGetCmd = &cobra.Command{
 				fmt.Printf("Status:          %s\n", *dbaas.Status.State)
 			}
 			if !dbaas.Metadata.CreationDate.IsZero() {
-				fmt.Printf("Creation Date:   %s\n", dbaas.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", dbaas.Metadata.CreationDate.Format(DateLayout))
 			}
 			if dbaas.Metadata.CreatedBy != nil {
 				fmt.Printf("Created By:      %s\n", *dbaas.Metadata.CreatedBy)
@@ -296,41 +279,34 @@ var dbaasGetCmd = &cobra.Command{
 		} else {
 			fmt.Println("DBaaS instance not found")
 		}
+		return nil
 	},
 }
 
 var dbaasListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all DBaaS instances",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromDatabase().DBaaS().List(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error listing DBaaS instances: %v\n", err)
-			return
+			return fmt.Errorf("listing DBaaS instances: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to list DBaaS instances - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		if resp != nil && resp.Data != nil && len(resp.Data.Values) > 0 {
@@ -396,6 +372,7 @@ var dbaasListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No DBaaS instances found")
 		}
+		return nil
 	},
 }
 
@@ -403,39 +380,35 @@ var dbaasUpdateCmd = &cobra.Command{
 	Use:   "update [dbaas-id]",
 	Short: "Update a DBaaS instance",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		dbaasID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		name, _ := cmd.Flags().GetString("name")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 
 		if name == "" && !cmd.Flags().Changed("tags") {
-			fmt.Println("Error: at least one of --name or --tags must be provided")
-			return
+			return fmt.Errorf("at least one of --name or --tags must be provided")
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		getResp, err := client.FromDatabase().DBaaS().Get(ctx, projectID, dbaasID, nil)
 		if err != nil {
-			fmt.Printf("Error getting DBaaS instance: %v\n", err)
-			return
+			return fmt.Errorf("getting DBaaS instance: %w", err)
 		}
 
 		if getResp == nil || getResp.Data == nil {
-			fmt.Println("DBaaS instance not found")
-			return
+			return fmt.Errorf("DBaaS instance not found")
 		}
 
 		current := getResp.Data
@@ -445,8 +418,7 @@ var dbaasUpdateCmd = &cobra.Command{
 			regionValue = current.Metadata.LocationResponse.Value
 		}
 		if regionValue == "" {
-			fmt.Println("Error: Unable to determine region value for DBaaS instance")
-			return
+			return fmt.Errorf("unable to determine region value for DBaaS instance")
 		}
 
 		// Build update request preserving current properties
@@ -487,19 +459,11 @@ var dbaasUpdateCmd = &cobra.Command{
 
 		response, err := client.FromDatabase().DBaaS().Update(ctx, projectID, dbaasID, updateRequest, nil)
 		if err != nil {
-			fmt.Printf("Error updating DBaaS instance: %v\n", err)
-			return
+			return fmt.Errorf("updating DBaaS instance: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to update DBaaS instance - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -512,6 +476,7 @@ var dbaasUpdateCmd = &cobra.Command{
 		} else {
 			fmt.Println("Warning: Update may have succeeded but response is empty")
 		}
+		return nil
 	},
 }
 
@@ -519,40 +484,39 @@ var dbaasDeleteCmd = &cobra.Command{
 	Use:   "delete [dbaas-id]",
 	Short: "Delete a DBaaS instance",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		dbaasID := args[0]
-
-		projectID, err := GetProjectID(cmd)
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
-		}
 
 		confirm, _ := cmd.Flags().GetBool("yes")
 
 		if !confirm {
-			fmt.Printf("Are you sure you want to delete DBaaS instance %s? (yes/no): ", dbaasID)
-			var response string
-			fmt.Scanln(&response)
-			if response != "yes" && response != "y" {
-				fmt.Println("Delete cancelled")
-				return
+			ok, err := confirmDelete("DBaaS instance", dbaasID)
+			if err != nil {
+				return err
 			}
+			if !ok {
+				return nil
+			}
+		}
+
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		_, err = client.FromDatabase().DBaaS().Delete(ctx, projectID, dbaasID, nil)
 		if err != nil {
-			fmt.Printf("Error deleting DBaaS instance: %v\n", err)
-			return
+			return fmt.Errorf("deleting DBaaS instance: %w", err)
 		}
 
 		fmt.Printf("\nDBaaS instance %s deleted successfully!\n", dbaasID)
+		return nil
 	},
 }

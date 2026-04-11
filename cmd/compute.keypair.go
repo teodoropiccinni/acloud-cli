@@ -86,25 +86,23 @@ var keypairCmd = &cobra.Command{
 var keypairCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new keypair",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		name, _ := cmd.Flags().GetString("name")
 		publicKey, _ := cmd.Flags().GetString("public-key")
 
 		if name == "" || publicKey == "" {
-			fmt.Println("Error: --name and --public-key are required")
-			return
+			return fmt.Errorf("--name and --public-key are required")
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Build the create request
@@ -121,22 +119,15 @@ var keypairCreateCmd = &cobra.Command{
 			},
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromCompute().KeyPairs().Create(ctx, projectID, createRequest, nil)
 		if err != nil {
-			fmt.Printf("Error creating keypair: %v\n", err)
-			return
+			return fmt.Errorf("creating keypair: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to create keypair - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -161,6 +152,7 @@ var keypairCreateCmd = &cobra.Command{
 		} else {
 			fmt.Println("Keypair created, but no data returned.")
 		}
+		return nil
 	},
 }
 
@@ -168,37 +160,28 @@ var keypairGetCmd = &cobra.Command{
 	Use:   "get [keypair-name]",
 	Short: "Get keypair details",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		keypairName := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromCompute().KeyPairs().Get(ctx, projectID, keypairName, nil)
 		if err != nil {
-			fmt.Printf("Error getting keypair: %v\n", err)
-			return
+			return fmt.Errorf("getting keypair: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to get keypair - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		if resp != nil && resp.Data != nil {
@@ -220,7 +203,7 @@ var keypairGetCmd = &cobra.Command{
 			fmt.Printf("Status:          Active\n")
 
 			if !keypair.Metadata.CreationDate.IsZero() {
-				fmt.Printf("Creation Date:   %s\n", keypair.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", keypair.Metadata.CreationDate.Format(DateLayout))
 			}
 			if keypair.Metadata.CreatedBy != nil {
 				fmt.Printf("Created By:      %s\n", *keypair.Metadata.CreatedBy)
@@ -237,6 +220,7 @@ var keypairGetCmd = &cobra.Command{
 		} else {
 			fmt.Println("Keypair not found or no data returned.")
 		}
+		return nil
 	},
 }
 
@@ -244,13 +228,14 @@ var keypairUpdateCmd = &cobra.Command{
 	Use:   "update [keypair-name]",
 	Short: "Update a keypair (not supported - delete and recreate instead)",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("Error: Keypair update is not supported by the API.")
 		fmt.Println("To change a keypair's public key, delete it and create a new one with the same name.")
 		fmt.Println("")
 		fmt.Println("Example:")
 		fmt.Printf("  acloud compute keypair delete %s --yes\n", args[0])
 		fmt.Printf("  acloud compute keypair create --name %s --public-key \"<new-key>\"\n", args[0])
+		return nil
 	},
 }
 
@@ -258,76 +243,67 @@ var keypairDeleteCmd = &cobra.Command{
 	Use:   "delete [keypair-name]",
 	Short: "Delete a keypair",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		keypairName := args[0]
-
-		projectID, err := GetProjectID(cmd)
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
-		}
-
-		client, err := GetArubaClient()
-		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
-		}
 
 		// Confirmation prompt
 		skipConfirm, _ := cmd.Flags().GetBool("yes")
 		if !skipConfirm {
-			fmt.Printf("Are you sure you want to delete keypair '%s'? (yes/no): ", keypairName)
-			var confirmation string
-			fmt.Scanln(&confirmation)
-			if confirmation != "yes" && confirmation != "y" {
-				fmt.Println("Deletion cancelled.")
-				return
+			ok, err := confirmDelete("keypair", keypairName)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
 			}
 		}
 
-		ctx := context.Background()
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			return err
+		}
+
+		client, err := GetArubaClient()
+		if err != nil {
+			return fmt.Errorf("initializing client: %w", err)
+		}
+
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromCompute().KeyPairs().Delete(ctx, projectID, keypairName, nil)
 		if err != nil {
-			fmt.Printf("Error deleting keypair: %v\n", err)
-			return
+			return fmt.Errorf("deleting keypair: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to delete keypair - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		fmt.Printf("Keypair '%s' deleted successfully.\n", keypairName)
+		return nil
 	},
 }
 
 var keypairListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all keypairs",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromCompute().KeyPairs().List(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error listing keypairs: %v\n", err)
-			return
+			return fmt.Errorf("listing keypairs: %w", err)
 		}
 
 		if response != nil && response.Data != nil && len(response.Data.Values) > 0 {
@@ -388,5 +364,6 @@ var keypairListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No keypairs found")
 		}
+		return nil
 	},
 }

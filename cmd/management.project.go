@@ -81,7 +81,8 @@ var projectCmd = &cobra.Command{
 var projectCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new project",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get flags
 		name, _ := cmd.Flags().GetString("name")
 		description, _ := cmd.Flags().GetString("description")
@@ -91,15 +92,13 @@ var projectCreateCmd = &cobra.Command{
 
 		// Name is required
 		if name == "" {
-			fmt.Println("Error: --name is required")
-			return
+			return fmt.Errorf("--name is required")
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Build the create request
@@ -133,22 +132,15 @@ var projectCreateCmd = &cobra.Command{
 		}
 
 		// Create the project using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromProject().Create(ctx, createRequest, nil)
 		if err != nil {
-			fmt.Printf("Error creating project: %v\n", err)
-			return
+			return fmt.Errorf("creating project: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to create project - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -183,6 +175,7 @@ var projectCreateCmd = &cobra.Command{
 		} else {
 			fmt.Println("Project created, but no data returned.")
 		}
+		return nil
 	},
 }
 
@@ -190,33 +183,25 @@ var projectGetCmd = &cobra.Command{
 	Use:   "get [project-id]",
 	Short: "Get project details",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID := args[0]
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Get project details using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromProject().Get(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error getting project: %v\n", err)
-			return
+			return fmt.Errorf("getting project: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to get project - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -242,7 +227,7 @@ var projectGetCmd = &cobra.Command{
 			fmt.Printf("Resources:       %d\n", project.Properties.ResourcesNumber)
 
 			if !project.Metadata.CreationDate.IsZero() {
-				fmt.Printf("Creation Date:   %s\n", project.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", project.Metadata.CreationDate.Format(DateLayout))
 			}
 
 			if project.Metadata.CreatedBy != nil {
@@ -250,7 +235,7 @@ var projectGetCmd = &cobra.Command{
 			}
 
 			if project.Metadata.UpdateDate != nil && !project.Metadata.UpdateDate.IsZero() {
-				fmt.Printf("Update Date:     %s\n", project.Metadata.UpdateDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Update Date:     %s\n", project.Metadata.UpdateDate.Format(DateLayout))
 			}
 
 			if project.Metadata.UpdatedBy != nil {
@@ -267,6 +252,7 @@ var projectGetCmd = &cobra.Command{
 		} else {
 			fmt.Println("Project not found")
 		}
+		return nil
 	},
 }
 
@@ -274,7 +260,7 @@ var projectUpdateCmd = &cobra.Command{
 	Use:   "update [project-id]",
 	Short: "Update a project (description and/or tags only)",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID := args[0]
 
 		// Get flags
@@ -283,39 +269,29 @@ var projectUpdateCmd = &cobra.Command{
 
 		// At least one field must be provided
 		if description == "" && !cmd.Flags().Changed("tags") {
-			fmt.Println("Error: at least one of --description or --tags must be provided")
-			return
+			return fmt.Errorf("at least one of --description or --tags must be provided")
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// First, get the current project details to preserve existing values
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		getResponse, err := client.FromProject().Get(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error fetching current project: %v\n", err)
-			return
+			return fmt.Errorf("fetching current project: %w", err)
 		}
 
 		if getResponse != nil && getResponse.IsError() && getResponse.Error != nil {
-			fmt.Printf("Failed to get project - Status: %d\n", getResponse.StatusCode)
-			if getResponse.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *getResponse.Error.Title)
-			}
-			if getResponse.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *getResponse.Error.Detail)
-			}
-			return
+			return fmtAPIError(getResponse.StatusCode, getResponse.Error.Title, getResponse.Error.Detail)
 		}
 
 		if getResponse == nil || getResponse.Data == nil {
-			fmt.Println("Project not found or no data returned.")
-			return
+			return fmt.Errorf("project not found or no data returned")
 		}
 
 		currentProject := getResponse.Data
@@ -346,19 +322,11 @@ var projectUpdateCmd = &cobra.Command{
 		// Update the project using the SDK
 		response, err := client.FromProject().Update(ctx, projectID, updateRequest, nil)
 		if err != nil {
-			fmt.Printf("Error updating project: %v\n", err)
-			return
+			return fmt.Errorf("updating project: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to update project - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -393,6 +361,7 @@ var projectUpdateCmd = &cobra.Command{
 		} else {
 			fmt.Printf("Project '%s' updated.\n", projectID)
 		}
+		return nil
 	},
 }
 
@@ -400,7 +369,7 @@ var projectDeleteCmd = &cobra.Command{
 	Use:   "delete [project-id]",
 	Short: "Delete a project",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID := args[0]
 
 		// Get confirmation flag
@@ -408,40 +377,31 @@ var projectDeleteCmd = &cobra.Command{
 
 		// If not confirmed, ask for confirmation
 		if !confirm {
-			fmt.Printf("Are you sure you want to delete project %s? This action cannot be undone.\n", projectID)
-			fmt.Print("Type 'yes' to confirm: ")
-			var response string
-			fmt.Scanln(&response)
-			if response != "yes" && response != "y" {
-				fmt.Println("Delete cancelled")
-				return
+			ok, err := confirmDelete("project", projectID)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
 			}
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Delete the project using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromProject().Delete(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error deleting project: %v\n", err)
-			return
+			return fmt.Errorf("deleting project: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to delete project - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		headers := []TableColumn{
@@ -450,37 +410,31 @@ var projectDeleteCmd = &cobra.Command{
 		}
 		status := "deleted"
 		PrintTable(headers, [][]string{{projectID, status}})
+		return nil
 	},
 }
 
 var projectListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all projects",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// List projects using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromProject().List(ctx, nil)
 		if err != nil {
-			fmt.Printf("Error listing projects: %v\n", err)
-			return
+			return fmt.Errorf("listing projects: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to list projects - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil && len(response.Data.Values) > 0 {
@@ -518,5 +472,6 @@ var projectListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No projects found")
 		}
+		return nil
 	},
 }

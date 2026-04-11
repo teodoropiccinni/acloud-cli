@@ -87,11 +87,11 @@ var kmsCmd = &cobra.Command{
 var kmsCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new KMS resource",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		name, _ := cmd.Flags().GetString("name")
@@ -100,14 +100,12 @@ var kmsCreateCmd = &cobra.Command{
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 
 		if name == "" || region == "" {
-			fmt.Println("Error: --name and --region are required")
-			return
+			return fmt.Errorf("--name and --region are required")
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		createRequest := types.KmsRequest{
@@ -125,22 +123,15 @@ var kmsCreateCmd = &cobra.Command{
 			},
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromSecurity().KMS().Create(ctx, projectID, createRequest, nil)
 		if err != nil {
-			fmt.Printf("Error creating KMS: %v\n", err)
-			return
+			return fmt.Errorf("creating KMS: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to create KMS - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -180,6 +171,7 @@ var kmsCreateCmd = &cobra.Command{
 		} else {
 			fmt.Println("KMS created, but no data returned.")
 		}
+		return nil
 	},
 }
 
@@ -187,37 +179,28 @@ var kmsGetCmd = &cobra.Command{
 	Use:   "get [kms-id]",
 	Short: "Get KMS resource details",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		kmsID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromSecurity().KMS().Get(ctx, projectID, kmsID, nil)
 		if err != nil {
-			fmt.Printf("Error getting KMS: %v\n", err)
-			return
+			return fmt.Errorf("getting KMS: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to get KMS - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		if resp != nil && resp.Data != nil {
@@ -242,7 +225,7 @@ var kmsGetCmd = &cobra.Command{
 				fmt.Printf("Status:          %s\n", *kms.Status.State)
 			}
 			if !kms.Metadata.CreationDate.IsZero() {
-				fmt.Printf("Creation Date:   %s\n", kms.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", kms.Metadata.CreationDate.Format(DateLayout))
 			}
 			if kms.Metadata.CreatedBy != nil {
 				fmt.Printf("Created By:      %s\n", *kms.Metadata.CreatedBy)
@@ -256,41 +239,34 @@ var kmsGetCmd = &cobra.Command{
 		} else {
 			fmt.Println("KMS not found")
 		}
+		return nil
 	},
 }
 
 var kmsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all KMS resources",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromSecurity().KMS().List(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error listing KMS: %v\n", err)
-			return
+			return fmt.Errorf("listing KMS: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to list KMS - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		if resp != nil && resp.Data != nil && len(resp.Data.Values) > 0 {
@@ -335,6 +311,7 @@ var kmsListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No KMS resources found")
 		}
+		return nil
 	},
 }
 
@@ -342,39 +319,35 @@ var kmsUpdateCmd = &cobra.Command{
 	Use:   "update [kms-id]",
 	Short: "Update a KMS resource",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		kmsID := args[0]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		name, _ := cmd.Flags().GetString("name")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 
 		if name == "" && !cmd.Flags().Changed("tags") {
-			fmt.Println("Error: at least one of --name or --tags must be provided")
-			return
+			return fmt.Errorf("at least one of --name or --tags must be provided")
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		getResp, err := client.FromSecurity().KMS().Get(ctx, projectID, kmsID, nil)
 		if err != nil {
-			fmt.Printf("Error getting KMS: %v\n", err)
-			return
+			return fmt.Errorf("getting KMS: %w", err)
 		}
 
 		if getResp == nil || getResp.Data == nil {
-			fmt.Println("KMS not found")
-			return
+			return fmt.Errorf("KMS not found")
 		}
 
 		current := getResp.Data
@@ -384,8 +357,7 @@ var kmsUpdateCmd = &cobra.Command{
 			regionValue = current.Metadata.LocationResponse.Value
 		}
 		if regionValue == "" {
-			fmt.Println("Error: Unable to determine region value for KMS")
-			return
+			return fmt.Errorf("unable to determine region value for KMS")
 		}
 
 		updateRequest := types.KmsRequest{
@@ -413,19 +385,11 @@ var kmsUpdateCmd = &cobra.Command{
 
 		response, err := client.FromSecurity().KMS().Update(ctx, projectID, kmsID, updateRequest, nil)
 		if err != nil {
-			fmt.Printf("Error updating KMS: %v\n", err)
-			return
+			return fmt.Errorf("updating KMS: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to update KMS - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -438,6 +402,7 @@ var kmsUpdateCmd = &cobra.Command{
 		} else {
 			fmt.Println("Warning: Update may have succeeded but response is empty")
 		}
+		return nil
 	},
 }
 
@@ -445,40 +410,39 @@ var kmsDeleteCmd = &cobra.Command{
 	Use:   "delete [kms-id]",
 	Short: "Delete a KMS resource",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		kmsID := args[0]
-
-		projectID, err := GetProjectID(cmd)
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
-		}
 
 		confirm, _ := cmd.Flags().GetBool("yes")
 
 		if !confirm {
-			fmt.Printf("Are you sure you want to delete KMS %s? (yes/no): ", kmsID)
-			var response string
-			fmt.Scanln(&response)
-			if response != "yes" && response != "y" {
-				fmt.Println("Delete cancelled")
-				return
+			ok, err := confirmDelete("KMS", kmsID)
+			if err != nil {
+				return err
 			}
+			if !ok {
+				return nil
+			}
+		}
+
+		projectID, err := GetProjectID(cmd)
+		if err != nil {
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		_, err = client.FromSecurity().KMS().Delete(ctx, projectID, kmsID, nil)
 		if err != nil {
-			fmt.Printf("Error deleting KMS: %v\n", err)
-			return
+			return fmt.Errorf("deleting KMS: %w", err)
 		}
 
 		fmt.Printf("\nKMS %s deleted successfully!\n", kmsID)
+		return nil
 	},
 }

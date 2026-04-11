@@ -110,27 +110,26 @@ var vpntunnelCmd = &cobra.Command{
 var vpntunnelListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all VPN tunnels",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Get projectID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// List VPN tunnels using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromNetwork().VPNTunnels().List(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error listing VPN tunnels: %v\n", err)
-			return
+			return fmt.Errorf("listing VPN tunnels: %w", err)
 		}
 
 		if response != nil && response.Data != nil && len(response.Data.Values) > 0 {
@@ -175,6 +174,7 @@ var vpntunnelListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No VPN tunnels found")
 		}
+		return nil
 	},
 }
 
@@ -182,29 +182,27 @@ var vpntunnelGetCmd = &cobra.Command{
 	Use:   "get <vpn-tunnel-id>",
 	Short: "Get VPN tunnel details",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpnID := args[0]
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Get VPN tunnel details using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromNetwork().VPNTunnels().Get(ctx, projectID, vpnID, nil)
 		if err != nil {
-			fmt.Printf("Error getting VPN tunnel details: %v\n", err)
-			return
+			return fmt.Errorf("getting VPN tunnel details: %w", err)
 		}
 
 		if response != nil && response.Data != nil {
@@ -258,7 +256,7 @@ var vpntunnelGetCmd = &cobra.Command{
 			}
 
 			if vpn.Metadata.CreationDate != nil {
-				fmt.Printf("Creation Date:   %s\n", vpn.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", vpn.Metadata.CreationDate.Format(DateLayout))
 			}
 			if vpn.Metadata.CreatedBy != nil {
 				fmt.Printf("Created By:      %s\n", *vpn.Metadata.CreatedBy)
@@ -274,6 +272,7 @@ var vpntunnelGetCmd = &cobra.Command{
 				fmt.Printf("Status:          %s\n", *vpn.Status.State)
 			}
 		}
+		return nil
 	},
 }
 
@@ -281,7 +280,7 @@ var vpntunnelCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new VPN tunnel",
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get flags
 		name, _ := cmd.Flags().GetString("name")
 		region, _ := cmd.Flags().GetString("region")
@@ -318,42 +317,34 @@ var vpntunnelCreateCmd = &cobra.Command{
 
 		// Validate required fields
 		if name == "" {
-			fmt.Println("Error: --name is required")
-			return
+			return fmt.Errorf("--name is required")
 		}
 		if region == "" {
-			fmt.Println("Error: --region is required")
-			return
+			return fmt.Errorf("--region is required")
 		}
 		if peerIP == "" {
-			fmt.Println("Error: --peer-ip is required")
-			return
+			return fmt.Errorf("--peer-ip is required")
 		}
 		if vpcURI == "" {
-			fmt.Println("Error: --vpc-uri is required (e.g., /projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id})")
-			return
+			return fmt.Errorf("--vpc-uri is required (e.g., /projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id})")
 		}
 		if subnetCIDR == "" && subnetName == "" {
-			fmt.Println("Error: --subnet-cidr or --subnet-name is required")
-			return
+			return fmt.Errorf("--subnet-cidr or --subnet-name is required")
 		}
 		if publicIPURI == "" {
-			fmt.Println("Error: --elastic-ip-uri is required (e.g., /projects/{project-id}/providers/Aruba.Network/elasticIps/{ip-id})")
-			return
+			return fmt.Errorf("--elastic-ip-uri is required (e.g., /projects/{project-id}/providers/Aruba.Network/elasticIps/{ip-id})")
 		}
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Build subnet object with both CIDR and Name fields
@@ -460,22 +451,15 @@ var vpntunnelCreateCmd = &cobra.Command{
 		}
 
 		// Create the VPN tunnel using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromNetwork().VPNTunnels().Create(ctx, projectID, createRequest, nil)
 		if err != nil {
-			fmt.Printf("Error creating VPN tunnel: %v\n", err)
-			return
+			return fmt.Errorf("creating VPN tunnel: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to create VPN tunnel - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
@@ -501,6 +485,7 @@ var vpntunnelCreateCmd = &cobra.Command{
 		} else {
 			fmt.Println("VPN Tunnel creation initiated. Use 'list' or 'get' to check status.")
 		}
+		return nil
 	},
 }
 
@@ -508,7 +493,7 @@ var vpntunnelUpdateCmd = &cobra.Command{
 	Use:   "update <vpn-tunnel-id>",
 	Short: "Update a VPN tunnel",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpnTunnelID := args[0]
 
 		// Get flags
@@ -517,52 +502,40 @@ var vpntunnelUpdateCmd = &cobra.Command{
 
 		// At least one update flag must be provided
 		if name == "" && len(tags) == 0 {
-			fmt.Println("Error: at least one of --name or --tags must be provided")
-			return
+			return fmt.Errorf("at least one of --name or --tags must be provided")
 		}
 
 		// Get project ID
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get Aruba Cloud client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Get current VPN tunnel configuration
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		getResp, err := client.FromNetwork().VPNTunnels().Get(ctx, projectID, vpnTunnelID, nil)
 		if err != nil {
-			fmt.Printf("Error getting VPN tunnel: %v\n", err)
-			return
+			return fmt.Errorf("getting VPN tunnel: %w", err)
 		}
 
 		if getResp != nil && getResp.IsError() && getResp.Error != nil {
-			fmt.Printf("Error getting VPN tunnel - Status: %d\n", getResp.StatusCode)
-			if getResp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *getResp.Error.Title)
-			}
-			if getResp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *getResp.Error.Detail)
-			}
-			return
+			return fmtAPIError(getResp.StatusCode, getResp.Error.Title, getResp.Error.Detail)
 		}
 
 		if getResp.Data == nil {
-			fmt.Println("Error: VPN tunnel not found")
-			return
+			return fmt.Errorf("VPN tunnel not found")
 		}
 
 		// Check if VPN tunnel is in "InCreation" state
-		if getResp.Data.Status.State != nil && *getResp.Data.Status.State == "InCreation" {
-			fmt.Println("Error: Cannot update VPN tunnel while it is in 'InCreation' state. Please wait until the VPN tunnel is fully created.")
-			return
+		if getResp.Data.Status.State != nil && *getResp.Data.Status.State == StateInCreation {
+			return fmt.Errorf("cannot update VPN tunnel while it is in 'InCreation' state. Please wait until the VPN tunnel is fully created")
 		}
 
 		// Get region value
@@ -571,8 +544,7 @@ var vpntunnelUpdateCmd = &cobra.Command{
 			regionValue = getResp.Data.Metadata.LocationResponse.Value
 		}
 		if regionValue == "" {
-			fmt.Println("Error: Unable to determine region value for VPN tunnel")
-			return
+			return fmt.Errorf("unable to determine region value for VPN tunnel")
 		}
 
 		// Build update request, preserving current values
@@ -607,19 +579,11 @@ var vpntunnelUpdateCmd = &cobra.Command{
 		// Update VPN tunnel
 		resp, err := client.FromNetwork().VPNTunnels().Update(ctx, projectID, vpnTunnelID, updateReq, nil)
 		if err != nil {
-			fmt.Printf("Error updating VPN tunnel: %v\n", err)
-			return
+			return fmt.Errorf("updating VPN tunnel: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to update VPN tunnel - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		if resp.Data != nil {
@@ -636,6 +600,7 @@ var vpntunnelUpdateCmd = &cobra.Command{
 		} else {
 			fmt.Printf("\nVPN Tunnel %s update completed.\n", vpnTunnelID)
 		}
+		return nil
 	},
 }
 
@@ -643,7 +608,7 @@ var vpntunnelDeleteCmd = &cobra.Command{
 	Use:   "delete <vpn-tunnel-id>",
 	Short: "Delete a VPN tunnel",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpnTunnelID := args[0]
 
 		// Get skip confirmation flag
@@ -651,49 +616,40 @@ var vpntunnelDeleteCmd = &cobra.Command{
 
 		// Prompt for confirmation unless --yes flag is used
 		if !skipConfirm {
-			fmt.Printf("Are you sure you want to delete VPN tunnel %s? This action cannot be undone.\n", vpnTunnelID)
-			fmt.Print("Type 'yes' to confirm: ")
-			var response string
-			fmt.Scanln(&response)
-			if response != "yes" && response != "y" {
-				fmt.Println("Delete cancelled")
-				return
+			ok, err := confirmDelete("VPN tunnel", vpnTunnelID)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
 			}
 		}
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Delete the VPN tunnel using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromNetwork().VPNTunnels().Delete(ctx, projectID, vpnTunnelID, nil)
 		if err != nil {
-			fmt.Printf("Error deleting VPN tunnel: %v\n", err)
-			return
+			return fmt.Errorf("deleting VPN tunnel: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to delete VPN tunnel - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		fmt.Printf("VPN tunnel %s has been successfully deleted.\n", vpnTunnelID)
+		return nil
 	},
 }

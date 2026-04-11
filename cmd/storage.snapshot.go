@@ -96,12 +96,12 @@ var snapshotCmd = &cobra.Command{
 var snapshotCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new snapshot",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get flags
@@ -110,25 +110,10 @@ var snapshotCreateCmd = &cobra.Command{
 		volumeURI, _ := cmd.Flags().GetString("volume-uri")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 
-		// Validate required fields
-		if name == "" {
-			fmt.Println("Error: --name is required")
-			return
-		}
-		if region == "" {
-			fmt.Println("Error: --region is required")
-			return
-		}
-		if volumeURI == "" {
-			fmt.Println("Error: --volume-uri is required")
-			return
-		}
-
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Build the create request
@@ -163,23 +148,32 @@ var snapshotCreateCmd = &cobra.Command{
 		}
 
 		// Create the snapshot using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromStorage().Snapshots().Create(ctx, projectID, createRequest, nil)
 		if err != nil {
-			fmt.Printf("Error creating snapshot: %v\n", err)
-			return
+			return fmt.Errorf("creating snapshot: %w", err)
+		}
+
+		if response != nil && response.IsError() && response.Error != nil {
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
 			fmt.Println("\nSnapshot created successfully!")
-			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
-			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
+			if response.Data.Metadata.ID != nil {
+				fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
+			}
+			if response.Data.Metadata.Name != nil {
+				fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
+			}
 			if !response.Data.Metadata.CreationDate.IsZero() {
-				fmt.Printf("Creation Date:   %s\n", response.Data.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", response.Data.Metadata.CreationDate.Format(DateLayout))
 			}
 		} else {
 			fmt.Println("Warning: Snapshot may have been created but response is empty")
 		}
+		return nil
 	},
 }
 
@@ -187,29 +181,27 @@ var snapshotGetCmd = &cobra.Command{
 	Use:   "get [snapshot-id]",
 	Short: "Get snapshot details",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		snapshotID := args[0]
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Get snapshot details using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromStorage().Snapshots().Get(ctx, projectID, snapshotID, nil)
 		if err != nil {
-			fmt.Printf("Error getting snapshot details: %v\n", err)
-			return
+			return fmt.Errorf("getting snapshot details: %w", err)
 		}
 
 		if response != nil && response.Data != nil {
@@ -248,7 +240,7 @@ var snapshotGetCmd = &cobra.Command{
 			fmt.Printf("Status:          %s\n", status)
 
 			if !snapshot.Metadata.CreationDate.IsZero() {
-				fmt.Printf("Creation Date:   %s\n", snapshot.Metadata.CreationDate.Format("02-01-2006 15:04:05"))
+				fmt.Printf("Creation Date:   %s\n", snapshot.Metadata.CreationDate.Format(DateLayout))
 			}
 
 			if snapshot.Metadata.CreatedBy != nil {
@@ -265,6 +257,7 @@ var snapshotGetCmd = &cobra.Command{
 		} else {
 			fmt.Println("Snapshot not found")
 		}
+		return nil
 	},
 }
 
@@ -272,14 +265,13 @@ var snapshotUpdateCmd = &cobra.Command{
 	Use:   "update [snapshot-id]",
 	Short: "Update a snapshot (name and/or tags only)",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		snapshotID := args[0]
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get flags
@@ -288,28 +280,25 @@ var snapshotUpdateCmd = &cobra.Command{
 
 		// At least one field must be provided
 		if name == "" && !cmd.Flags().Changed("tags") {
-			fmt.Println("Error: at least one of --name or --tags must be provided")
-			return
+			return fmt.Errorf("at least one of --name or --tags must be provided")
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// First, get the current snapshot details to preserve existing values
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		getResponse, err := client.FromStorage().Snapshots().Get(ctx, projectID, snapshotID, nil)
 		if err != nil {
-			fmt.Printf("Error getting snapshot details: %v\n", err)
-			return
+			return fmt.Errorf("getting snapshot details: %w", err)
 		}
 
 		if getResponse == nil || getResponse.Data == nil {
-			fmt.Println("Snapshot not found")
-			return
+			return fmt.Errorf("snapshot not found")
 		}
 
 		currentSnapshot := getResponse.Data
@@ -320,8 +309,7 @@ var snapshotUpdateCmd = &cobra.Command{
 			regionValue = currentSnapshot.Metadata.LocationResponse.Value
 		}
 		if regionValue == "" {
-			fmt.Println("Error: Unable to determine region value for snapshot")
-			return
+			return fmt.Errorf("unable to determine region value for snapshot")
 		}
 
 		// Build the update request with current values as defaults
@@ -330,10 +318,14 @@ var snapshotUpdateCmd = &cobra.Command{
 			volumeURI = *currentSnapshot.Properties.Volume.URI
 		}
 
+		currentName := ""
+		if currentSnapshot.Metadata.Name != nil {
+			currentName = *currentSnapshot.Metadata.Name
+		}
 		updateRequest := types.SnapshotRequest{
 			Metadata: types.RegionalResourceMetadataRequest{
 				ResourceMetadataRequest: types.ResourceMetadataRequest{
-					Name: *currentSnapshot.Metadata.Name,
+					Name: currentName,
 					Tags: currentSnapshot.Metadata.Tags,
 				},
 				Location: types.LocationRequest{
@@ -359,31 +351,28 @@ var snapshotUpdateCmd = &cobra.Command{
 		// Update the snapshot using the SDK
 		response, err := client.FromStorage().Snapshots().Update(ctx, projectID, snapshotID, updateRequest, nil)
 		if err != nil {
-			fmt.Printf("Error updating snapshot: %v\n", err)
-			return
+			return fmt.Errorf("updating snapshot: %w", err)
 		}
 
 		if response != nil && response.IsError() && response.Error != nil {
-			fmt.Printf("Failed to update snapshot - Status: %d\n", response.StatusCode)
-			if response.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *response.Error.Title)
-			}
-			if response.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *response.Error.Detail)
-			}
-			return
+			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
 		if response != nil && response.Data != nil {
 			fmt.Println("\nSnapshot updated successfully!")
-			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
-			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
+			if response.Data.Metadata.ID != nil {
+				fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
+			}
+			if response.Data.Metadata.Name != nil {
+				fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
+			}
 			if len(response.Data.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
 			fmt.Println("Warning: Update may have succeeded but response is empty")
 		}
+		return nil
 	},
 }
 
@@ -391,14 +380,13 @@ var snapshotDeleteCmd = &cobra.Command{
 	Use:   "delete [snapshot-id]",
 	Short: "Delete a snapshot",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		snapshotID := args[0]
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get flags
@@ -406,66 +394,60 @@ var snapshotDeleteCmd = &cobra.Command{
 
 		// If not confirmed, ask for confirmation
 		if !confirm {
-			fmt.Printf("Are you sure you want to delete snapshot %s? (yes/no): ", snapshotID)
-			var response string
-			fmt.Scanln(&response)
-			if response != "yes" && response != "y" {
-				fmt.Println("Delete cancelled")
-				return
+			ok, err := confirmDelete("snapshot", snapshotID)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
 			}
 		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Delete the snapshot using the SDK
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		_, err = client.FromStorage().Snapshots().Delete(ctx, projectID, snapshotID, nil)
 		if err != nil {
-			fmt.Printf("Error deleting snapshot: %v\n", err)
-			return
+			return fmt.Errorf("deleting snapshot: %w", err)
 		}
 
 		fmt.Printf("\nSnapshot %s deleted successfully!\n", snapshotID)
+		return nil
 	},
 }
 
 var snapshotListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List snapshots for a block storage volume",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get block storage URI flag
 		volumeURI, _ := cmd.Flags().GetString("volume-uri")
-		if volumeURI == "" {
-			fmt.Println("Error: --volume-uri is required")
-			fmt.Println("Use: acloud storage snapshot list --volume-uri <block-storage-uri>")
-			return
-		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// List snapshots using the SDK (filter by volume URI on client side)
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		response, err := client.FromStorage().Snapshots().List(ctx, projectID, nil)
 		if err != nil {
-			fmt.Printf("Error listing snapshots: %v\n", err)
-			return
+			return fmt.Errorf("listing snapshots: %w", err)
 		}
 
 		// Check verbose flag
@@ -486,7 +468,7 @@ var snapshotListCmd = &cobra.Command{
 
 			if len(filteredSnapshots) == 0 {
 				fmt.Printf("No snapshots found for volume: %s\n", volumeURI)
-				return
+				return nil
 			}
 
 			// Define table columns
@@ -525,5 +507,6 @@ var snapshotListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No snapshots found")
 		}
+		return nil
 	},
 }

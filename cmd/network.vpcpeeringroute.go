@@ -94,7 +94,7 @@ var vpcpeeringrouteCreateCmd = &cobra.Command{
 	Use:   "create [vpc-id] [peering-id]",
 	Short: "Create a new VPC peering route",
 	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		peeringID := args[1]
 
@@ -107,28 +107,23 @@ var vpcpeeringrouteCreateCmd = &cobra.Command{
 
 		// Validate required fields
 		if name == "" {
-			fmt.Println("Error: --name is required")
-			return
+			return fmt.Errorf("--name is required")
 		}
 		if localNetwork == "" {
-			fmt.Println("Error: --local-network is required")
-			return
+			return fmt.Errorf("--local-network is required")
 		}
 		if remoteNetwork == "" {
-			fmt.Println("Error: --remote-network is required")
-			return
+			return fmt.Errorf("--remote-network is required")
 		}
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
 		// Build the create request
@@ -159,22 +154,15 @@ var vpcpeeringrouteCreateCmd = &cobra.Command{
 			fmt.Println()
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromNetwork().VPCPeeringRoutes().Create(ctx, projectID, vpcID, peeringID, req, nil)
 		if err != nil {
-			fmt.Printf("Error creating VPC peering route: %v\n", err)
-			return
+			return fmt.Errorf("creating VPC peering route: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to create VPC peering route - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		if resp != nil && resp.Data != nil {
@@ -199,6 +187,7 @@ var vpcpeeringrouteCreateCmd = &cobra.Command{
 		} else {
 			fmt.Println("VPC peering route created, but no data returned.")
 		}
+		return nil
 	},
 }
 
@@ -206,39 +195,30 @@ var vpcpeeringrouteGetCmd = &cobra.Command{
 	Use:   "get [vpc-id] [peering-id] [route-id]",
 	Short: "Get VPC peering route details",
 	Args:  cobra.ExactArgs(3),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		peeringID := args[1]
 		routeID := args[2]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromNetwork().VPCPeeringRoutes().Get(ctx, projectID, vpcID, peeringID, routeID, nil)
 		if err != nil {
-			fmt.Printf("Error getting VPC peering route: %v\n", err)
-			return
+			return fmt.Errorf("getting VPC peering route: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to get VPC peering route - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		if resp != nil && resp.Data != nil {
@@ -263,6 +243,7 @@ var vpcpeeringrouteGetCmd = &cobra.Command{
 		} else {
 			fmt.Println("VPC peering route not found or no data returned.")
 		}
+		return nil
 	},
 }
 
@@ -270,38 +251,29 @@ var vpcpeeringrouteListCmd = &cobra.Command{
 	Use:   "list [vpc-id] [peering-id]",
 	Short: "List VPC peering routes",
 	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		peeringID := args[1]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromNetwork().VPCPeeringRoutes().List(ctx, projectID, vpcID, peeringID, nil)
 		if err != nil {
-			fmt.Printf("Error listing VPC peering routes: %v\n", err)
-			return
+			return fmt.Errorf("listing VPC peering routes: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to list VPC peering routes - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		if resp != nil && resp.Data != nil && len(resp.Data.Values) > 0 {
@@ -326,6 +298,7 @@ var vpcpeeringrouteListCmd = &cobra.Command{
 		} else {
 			fmt.Println("No VPC peering routes found.")
 		}
+		return nil
 	},
 }
 
@@ -333,7 +306,7 @@ var vpcpeeringrouteUpdateCmd = &cobra.Command{
 	Use:   "update [vpc-id] [peering-id] [route-id]",
 	Short: "Update a VPC peering route",
 	Args:  cobra.ExactArgs(3),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		peeringID := args[1]
 		routeID := args[2]
@@ -346,37 +319,33 @@ var vpcpeeringrouteUpdateCmd = &cobra.Command{
 
 		// At least one field must be provided
 		if name == "" && !cmd.Flags().Changed("tags") && localNetwork == "" && remoteNetwork == "" && billingPeriod == "" {
-			fmt.Println("Error: at least one field must be provided for update")
-			return
+			return fmt.Errorf("at least one field must be provided for update")
 		}
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 
 		// Fetch current VPC peering route details
 		getResp, err := client.FromNetwork().VPCPeeringRoutes().Get(ctx, projectID, vpcID, peeringID, routeID, nil)
 		if err != nil || getResp == nil || getResp.Data == nil {
-			fmt.Printf("Error fetching current VPC peering route: %v\n", err)
-			return
+			return fmt.Errorf("fetching current VPC peering route: %w", err)
 		}
 
 		current := getResp.Data
 
 		// Block update if VPC peering route is in 'InCreation' state
-		if current.Status.State != nil && *current.Status.State == "InCreation" {
-			fmt.Println("Error: Cannot update VPC peering route while it is in 'InCreation' state. Please wait until the VPC peering route is fully created.")
-			return
+		if current.Status.State != nil && *current.Status.State == StateInCreation {
+			return fmt.Errorf("cannot update VPC peering route while it is in 'InCreation' state. Please wait until the VPC peering route is fully created")
 		}
 
 		// Build update request by merging user input with current values
@@ -424,19 +393,11 @@ var vpcpeeringrouteUpdateCmd = &cobra.Command{
 
 		resp, err := client.FromNetwork().VPCPeeringRoutes().Update(ctx, projectID, vpcID, peeringID, routeID, req, nil)
 		if err != nil {
-			fmt.Printf("Error updating VPC peering route: %v\n", err)
-			return
+			return fmt.Errorf("updating VPC peering route: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to update VPC peering route - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		if resp != nil && resp.Data != nil {
@@ -461,6 +422,7 @@ var vpcpeeringrouteUpdateCmd = &cobra.Command{
 		} else {
 			fmt.Printf("VPC peering route '%s' updated.\n", routeID)
 		}
+		return nil
 	},
 }
 
@@ -468,15 +430,14 @@ var vpcpeeringrouteDeleteCmd = &cobra.Command{
 	Use:   "delete [vpc-id] [peering-id] [route-id]",
 	Short: "Delete a VPC peering route",
 	Args:  cobra.ExactArgs(3),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		peeringID := args[1]
 		routeID := args[2]
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			return err
 		}
 
 		// Get skip confirmation flag
@@ -484,38 +445,29 @@ var vpcpeeringrouteDeleteCmd = &cobra.Command{
 
 		// Prompt for confirmation unless --yes flag is used
 		if !skipConfirm {
-			fmt.Printf("Are you sure you want to delete VPC peering route %s? This action cannot be undone.\n", routeID)
-			fmt.Print("Type 'yes' to confirm: ")
-			var response string
-			fmt.Scanln(&response)
-			if response != "yes" && response != "y" {
-				fmt.Println("Delete cancelled")
-				return
+			ok, err := confirmDelete("VPC peering route", routeID)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
 			}
 		}
 
 		client, err := GetArubaClient()
 		if err != nil {
-			fmt.Printf("Error initializing client: %v\n", err)
-			return
+			return fmt.Errorf("initializing client: %w", err)
 		}
 
-		ctx := context.Background()
+		ctx, cancel := newCtx()
+		defer cancel()
 		resp, err := client.FromNetwork().VPCPeeringRoutes().Delete(ctx, projectID, vpcID, peeringID, routeID, nil)
 		if err != nil {
-			fmt.Printf("Error deleting VPC peering route: %v\n", err)
-			return
+			return fmt.Errorf("deleting VPC peering route: %w", err)
 		}
 
 		if resp != nil && resp.IsError() && resp.Error != nil {
-			fmt.Printf("Failed to delete VPC peering route - Status: %d\n", resp.StatusCode)
-			if resp.Error.Title != nil {
-				fmt.Printf("Error: %s\n", *resp.Error.Title)
-			}
-			if resp.Error.Detail != nil {
-				fmt.Printf("Detail: %s\n", *resp.Error.Detail)
-			}
-			return
+			return fmtAPIError(resp.StatusCode, resp.Error.Title, resp.Error.Detail)
 		}
 
 		headers := []TableColumn{
@@ -524,5 +476,6 @@ var vpcpeeringrouteDeleteCmd = &cobra.Command{
 		}
 		status := "deleted"
 		PrintTable(headers, [][]string{{routeID, status}})
+		return nil
 	},
 }
