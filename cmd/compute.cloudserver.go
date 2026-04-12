@@ -172,10 +172,6 @@ var cloudserverCreateCmd = &cobra.Command{
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 		userDataFile, _ := cmd.Flags().GetString("user-data-file")
 
-		if name == "" || region == "" || flavor == "" || bootDiskURI == "" || vpcURI == "" || len(subnetURIs) == 0 || len(securityGroupURIs) == 0 {
-			return fmt.Errorf("--name, --region, --flavor, --boot-disk-uri, --vpc-uri, --subnet-uri, and --security-group-uri are required")
-		}
-
 		client, err := GetArubaClient()
 		if err != nil {
 			return fmt.Errorf("initializing client: %w", err)

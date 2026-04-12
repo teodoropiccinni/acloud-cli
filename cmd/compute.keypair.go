@@ -96,10 +96,6 @@ var keypairCreateCmd = &cobra.Command{
 		name, _ := cmd.Flags().GetString("name")
 		publicKey, _ := cmd.Flags().GetString("public-key")
 
-		if name == "" || publicKey == "" {
-			return fmt.Errorf("--name and --public-key are required")
-		}
-
 		client, err := GetArubaClient()
 		if err != nil {
 			return fmt.Errorf("initializing client: %w", err)

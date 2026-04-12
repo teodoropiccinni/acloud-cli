@@ -106,10 +106,6 @@ var backupCreateCmd = &cobra.Command{
 		billingPeriod, _ := cmd.Flags().GetString("billing-period")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 
-		if name == "" || region == "" || dbaasID == "" || databaseName == "" {
-			return fmt.Errorf("--name, --region, --dbaas-id, and --database-name are required")
-		}
-
 		client, err := GetArubaClient()
 		if err != nil {
 			return fmt.Errorf("initializing client: %w", err)

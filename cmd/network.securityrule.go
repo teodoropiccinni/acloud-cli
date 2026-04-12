@@ -32,6 +32,12 @@ func init() {
 	securityruleCreateCmd.Flags().String("target-kind", "", "Target Kind: Ip or SecurityGroup (required)")
 	securityruleCreateCmd.Flags().String("target-value", "", "Target Value: If kind = Ip, the value must be a valid network address in CIDR notation (included 0.0.0.0/0). If kind = SecurityGroup, the value must be a valid URI of any security group within the same VPC (required)")
 	securityruleCreateCmd.Flags().BoolP("verbose", "v", false, "Show detailed debug information")
+	securityruleCreateCmd.MarkFlagRequired("name")
+	securityruleCreateCmd.MarkFlagRequired("region")
+	securityruleCreateCmd.MarkFlagRequired("direction")
+	securityruleCreateCmd.MarkFlagRequired("protocol")
+	securityruleCreateCmd.MarkFlagRequired("target-kind")
+	securityruleCreateCmd.MarkFlagRequired("target-value")
 
 	securityruleGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 
@@ -115,26 +121,6 @@ var securityruleCreateCmd = &cobra.Command{
 		targetKind, _ := cmd.Flags().GetString("target-kind")
 		targetValue, _ := cmd.Flags().GetString("target-value")
 		verbose, _ := cmd.Flags().GetBool("verbose")
-
-		// Validate required fields
-		if name == "" {
-			return fmt.Errorf("--name is required")
-		}
-		if region == "" {
-			return fmt.Errorf("--region is required")
-		}
-		if direction == "" {
-			return fmt.Errorf("--direction is required")
-		}
-		if protocol == "" {
-			return fmt.Errorf("--protocol is required")
-		}
-		if targetKind == "" {
-			return fmt.Errorf("--target-kind is required")
-		}
-		if targetValue == "" {
-			return fmt.Errorf("--target-value is required")
-		}
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {

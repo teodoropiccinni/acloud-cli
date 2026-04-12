@@ -90,11 +90,6 @@ var projectCreateCmd = &cobra.Command{
 		setDefault, _ := cmd.Flags().GetBool("default")
 		verbose, _ := cmd.Flags().GetBool("verbose")
 
-		// Name is required
-		if name == "" {
-			return fmt.Errorf("--name is required")
-		}
-
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {

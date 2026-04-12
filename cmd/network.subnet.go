@@ -26,6 +26,8 @@ func init() {
 	subnetCreateCmd.Flags().String("name", "", "Subnet name (required)")
 	subnetCreateCmd.Flags().String("cidr", "", "Subnet CIDR (optional, if provided subnet type will be Advanced, otherwise Basic)")
 	subnetCreateCmd.Flags().String("region", "", "Region for the subnet (required)")
+	subnetCreateCmd.MarkFlagRequired("name")
+	subnetCreateCmd.MarkFlagRequired("region")
 	subnetCreateCmd.Flags().StringSlice("tags", []string{}, "Subnet tags (optional)")
 	subnetCreateCmd.Flags().Bool("dhcp-enabled", false, "Enable DHCP for Advanced subnet type (required when CIDR is provided)")
 	subnetCreateCmd.Flags().StringSlice("dhcp-routes", []string{}, "DHCP routes for Advanced subnet type (optional, format: destination:gateway, e.g., '0.0.0.0/0:10.0.0.1')")
@@ -61,9 +63,6 @@ var subnetCreateCmd = &cobra.Command{
 		dhcpEnabled, _ := cmd.Flags().GetBool("dhcp-enabled")
 		dhcpRoutes, _ := cmd.Flags().GetStringSlice("dhcp-routes")
 		dhcpDNS, _ := cmd.Flags().GetStringSlice("dhcp-dns")
-		if name == "" || region == "" {
-			return fmt.Errorf("--name and --region are required")
-		}
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			return err

@@ -10,6 +10,7 @@ import (
 
 	"github.com/Arubacloud/sdk-go/pkg/aruba"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var (
@@ -186,6 +187,22 @@ func confirmDelete(resourceType, id string) (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+// readSecret prompts the user for a secret value with echo disabled (TD-011).
+// Returns an error if stdin is not an interactive terminal.
+func readSecret(prompt string) (string, error) {
+	fi, err := os.Stdin.Stat()
+	if err != nil || (fi.Mode()&os.ModeCharDevice) == 0 {
+		return "", fmt.Errorf("cannot read secret interactively: stdin is not a terminal; pass the flag explicitly instead")
+	}
+	fmt.Fprint(os.Stderr, prompt)
+	secret, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(os.Stderr) // newline after hidden input
+	if err != nil {
+		return "", fmt.Errorf("reading secret: %w", err)
+	}
+	return string(secret), nil
 }
 
 // TableColumn represents a column definition for the table printer

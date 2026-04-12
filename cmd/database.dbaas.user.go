@@ -101,10 +101,6 @@ var dbaasUserCreateCmd = &cobra.Command{
 		username, _ := cmd.Flags().GetString("username")
 		password, _ := cmd.Flags().GetString("password")
 
-		if username == "" || password == "" {
-			return fmt.Errorf("--username and --password are required")
-		}
-
 		client, err := GetArubaClient()
 		if err != nil {
 			return fmt.Errorf("initializing client: %w", err)

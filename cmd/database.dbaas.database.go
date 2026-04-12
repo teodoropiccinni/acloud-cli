@@ -98,10 +98,6 @@ var dbaasDatabaseCreateCmd = &cobra.Command{
 
 		name, _ := cmd.Flags().GetString("name")
 
-		if name == "" {
-			return fmt.Errorf("--name is required")
-		}
-
 		client, err := GetArubaClient()
 		if err != nil {
 			return fmt.Errorf("initializing client: %w", err)

@@ -122,12 +122,6 @@ var blockstorageCreateCmd = &cobra.Command{
 		image, _ := cmd.Flags().GetString("image")
 
 		// Validate required fields
-		if name == "" {
-			return fmt.Errorf("--name is required")
-		}
-		if region == "" {
-			return fmt.Errorf("--region is required")
-		}
 		if size <= 0 {
 			return fmt.Errorf("--size must be greater than 0")
 		}

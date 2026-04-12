@@ -49,6 +49,11 @@ func init() {
 	vpntunnelCreateCmd.Flags().String("psk-cloud-site", "", "PSK cloud site")
 	vpntunnelCreateCmd.Flags().String("psk-onprem-site", "", "PSK on-prem site")
 	vpntunnelCreateCmd.Flags().String("psk", "", "Pre-shared key for authentication (PSK secret)")
+	vpntunnelCreateCmd.MarkFlagRequired("name")
+	vpntunnelCreateCmd.MarkFlagRequired("region")
+	vpntunnelCreateCmd.MarkFlagRequired("peer-ip")
+	vpntunnelCreateCmd.MarkFlagRequired("vpc-uri")
+	vpntunnelCreateCmd.MarkFlagRequired("elastic-ip-uri")
 	vpntunnelGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	vpntunnelUpdateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	vpntunnelUpdateCmd.Flags().String("name", "", "New name for the VPN tunnel")
@@ -315,24 +320,9 @@ var vpntunnelCreateCmd = &cobra.Command{
 		pskCloudSite, _ := cmd.Flags().GetString("psk-cloud-site")
 		pskOnpremSite, _ := cmd.Flags().GetString("psk-onprem-site")
 
-		// Validate required fields
-		if name == "" {
-			return fmt.Errorf("--name is required")
-		}
-		if region == "" {
-			return fmt.Errorf("--region is required")
-		}
-		if peerIP == "" {
-			return fmt.Errorf("--peer-ip is required")
-		}
-		if vpcURI == "" {
-			return fmt.Errorf("--vpc-uri is required (e.g., /projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id})")
-		}
+		// Validate mutual-exclusive subnet flags
 		if subnetCIDR == "" && subnetName == "" {
 			return fmt.Errorf("--subnet-cidr or --subnet-name is required")
-		}
-		if publicIPURI == "" {
-			return fmt.Errorf("--elastic-ip-uri is required (e.g., /projects/{project-id}/providers/Aruba.Network/elasticIps/{ip-id})")
 		}
 
 		// Get project ID from flag or context

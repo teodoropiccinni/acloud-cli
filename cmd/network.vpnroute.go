@@ -27,6 +27,10 @@ func init() {
 	vpnrouteCreateCmd.Flags().String("onprem-subnet", "", "CIDR of the on-prem subnet (required)")
 	vpnrouteCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
 	vpnrouteCreateCmd.Flags().BoolP("verbose", "v", false, "Show detailed debug information")
+	vpnrouteCreateCmd.MarkFlagRequired("name")
+	vpnrouteCreateCmd.MarkFlagRequired("region")
+	vpnrouteCreateCmd.MarkFlagRequired("cloud-subnet")
+	vpnrouteCreateCmd.MarkFlagRequired("onprem-subnet")
 
 	vpnrouteGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 
@@ -106,20 +110,6 @@ var vpnrouteCreateCmd = &cobra.Command{
 		onPremSubnet, _ := cmd.Flags().GetString("onprem-subnet")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 		verbose, _ := cmd.Flags().GetBool("verbose")
-
-		// Validate required fields
-		if name == "" {
-			return fmt.Errorf("--name is required")
-		}
-		if region == "" {
-			return fmt.Errorf("--region is required")
-		}
-		if cloudSubnet == "" {
-			return fmt.Errorf("--cloud-subnet is required")
-		}
-		if onPremSubnet == "" {
-			return fmt.Errorf("--onprem-subnet is required")
-		}
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {

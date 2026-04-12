@@ -24,6 +24,8 @@ func init() {
 	vpcCreateCmd.Flags().String("name", "", "Name for the VPC")
 	vpcCreateCmd.Flags().String("region", "", "Region code (e.g., IT-BG)")
 	vpcCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
+	vpcCreateCmd.MarkFlagRequired("name")
+	vpcCreateCmd.MarkFlagRequired("region")
 	vpcGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	vpcUpdateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	vpcUpdateCmd.Flags().String("name", "", "New name for the VPC")
@@ -91,14 +93,6 @@ var vpcCreateCmd = &cobra.Command{
 		name, _ := cmd.Flags().GetString("name")
 		region, _ := cmd.Flags().GetString("region")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
-
-		// Validate required fields
-		if name == "" {
-			return fmt.Errorf("--name is required")
-		}
-		if region == "" {
-			return fmt.Errorf("--region is required")
-		}
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)

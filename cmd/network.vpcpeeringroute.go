@@ -26,6 +26,9 @@ func init() {
 	vpcpeeringrouteCreateCmd.Flags().String("billing-period", "Hour", "Billing period: Hour, Month, Year")
 	vpcpeeringrouteCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
 	vpcpeeringrouteCreateCmd.Flags().BoolP("verbose", "v", false, "Show detailed debug information")
+	vpcpeeringrouteCreateCmd.MarkFlagRequired("name")
+	vpcpeeringrouteCreateCmd.MarkFlagRequired("local-network")
+	vpcpeeringrouteCreateCmd.MarkFlagRequired("remote-network")
 
 	vpcpeeringrouteGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 
@@ -104,17 +107,6 @@ var vpcpeeringrouteCreateCmd = &cobra.Command{
 		billingPeriod, _ := cmd.Flags().GetString("billing-period")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 		verbose, _ := cmd.Flags().GetBool("verbose")
-
-		// Validate required fields
-		if name == "" {
-			return fmt.Errorf("--name is required")
-		}
-		if localNetwork == "" {
-			return fmt.Errorf("--local-network is required")
-		}
-		if remoteNetwork == "" {
-			return fmt.Errorf("--remote-network is required")
-		}
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {

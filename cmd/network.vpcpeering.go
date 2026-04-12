@@ -23,6 +23,9 @@ func init() {
 	vpcpeeringCreateCmd.Flags().String("peer-vpc-id", "", "Peer VPC ID or URI (required)")
 	vpcpeeringCreateCmd.Flags().String("region", "", "Region code (e.g., ITBG-Bergamo) (required)")
 	vpcpeeringCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
+	vpcpeeringCreateCmd.MarkFlagRequired("name")
+	vpcpeeringCreateCmd.MarkFlagRequired("peer-vpc-id")
+	vpcpeeringCreateCmd.MarkFlagRequired("region")
 
 	vpcpeeringGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 
@@ -53,9 +56,6 @@ var vpcpeeringCreateCmd = &cobra.Command{
 		peerVPCID, _ := cmd.Flags().GetString("peer-vpc-id")
 		region, _ := cmd.Flags().GetString("region")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
-		if name == "" || peerVPCID == "" || region == "" {
-			return fmt.Errorf("--name, --peer-vpc-id, and --region are required")
-		}
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			return err

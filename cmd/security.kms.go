@@ -99,10 +99,6 @@ var kmsCreateCmd = &cobra.Command{
 		billingPeriod, _ := cmd.Flags().GetString("billing-period")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 
-		if name == "" || region == "" {
-			return fmt.Errorf("--name and --region are required")
-		}
-
 		client, err := GetArubaClient()
 		if err != nil {
 			return fmt.Errorf("initializing client: %w", err)

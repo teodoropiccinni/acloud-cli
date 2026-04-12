@@ -105,10 +105,6 @@ var dbaasCreateCmd = &cobra.Command{
 		flavor, _ := cmd.Flags().GetString("flavor")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 
-		if name == "" || region == "" || engineID == "" || flavor == "" {
-			return fmt.Errorf("--name, --region, --engine-id, and --flavor are required")
-		}
-
 		client, err := GetArubaClient()
 		if err != nil {
 			return fmt.Errorf("initializing client: %w", err)

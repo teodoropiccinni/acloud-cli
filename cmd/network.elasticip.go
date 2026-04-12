@@ -24,6 +24,8 @@ func init() {
 	elasticipCreateCmd.Flags().String("name", "", "Name for the Elastic IP")
 	elasticipCreateCmd.Flags().String("region", "", "Region code (e.g., IT-BG)")
 	elasticipCreateCmd.Flags().String("billing-period", "Hour", "Billing period: Hour, Month, Year")
+	elasticipCreateCmd.MarkFlagRequired("name")
+	elasticipCreateCmd.MarkFlagRequired("region")
 	elasticipCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
 	elasticipGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	elasticipUpdateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
@@ -93,14 +95,6 @@ var elasticipCreateCmd = &cobra.Command{
 		region, _ := cmd.Flags().GetString("region")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 		billingPeriod, _ := cmd.Flags().GetString("billing-period")
-
-		// Validate required fields
-		if name == "" {
-			return fmt.Errorf("--name is required")
-		}
-		if region == "" {
-			return fmt.Errorf("--region is required")
-		}
 
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)

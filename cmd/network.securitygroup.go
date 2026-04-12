@@ -20,6 +20,8 @@ func init() {
 	securitygroupCreateCmd.Flags().String("name", "", "Security group name (required)")
 	securitygroupCreateCmd.Flags().String("region", "", "Region code (required)")
 	securitygroupCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
+	securitygroupCreateCmd.MarkFlagRequired("name")
+	securitygroupCreateCmd.MarkFlagRequired("region")
 	securitygroupDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 }
 
@@ -37,11 +39,8 @@ var securitygroupCreateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		name, _ := cmd.Flags().GetString("name")
-		region, _ := cmd.Flags().GetString("region")
+		_, _ = cmd.Flags().GetString("region") // required by Cobra, not used in SDK request
 		tags, _ := cmd.Flags().GetStringSlice("tags")
-		if name == "" || region == "" {
-			return fmt.Errorf("--name and --region are required")
-		}
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			return err

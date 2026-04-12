@@ -109,10 +109,6 @@ var jobCreateCmd = &cobra.Command{
 		enabled, _ := cmd.Flags().GetBool("enabled")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 
-		if name == "" || region == "" || jobType == "" {
-			return fmt.Errorf("--name, --region, and --job-type are required")
-		}
-
 		// Validate job type
 		if jobType != "OneShot" && jobType != "Recurring" {
 			return fmt.Errorf("--job-type must be either 'OneShot' or 'Recurring'")
