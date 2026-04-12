@@ -33,9 +33,7 @@ var state = &clientState{}
 // resetClientState resets the cached client and its configuration to zero values.
 // Intended for use in tests to prevent state leaking between test cases.
 func resetClientState() {
-	state.mu.Lock()
-	defer state.mu.Unlock()
-	*state = clientState{}
+	state = &clientState{}
 }
 
 // rootCmd represents the base command when called without any subcommands
