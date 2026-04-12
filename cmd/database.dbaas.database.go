@@ -32,6 +32,8 @@ func init() {
 	dbaasDatabaseDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	dbaasDatabaseListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	dbaasDatabaseListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	dbaasDatabaseListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	dbaasDatabaseGetCmd.ValidArgsFunction = completeDBaaSDatabaseID
@@ -200,7 +202,7 @@ var dbaasDatabaseListCmd = &cobra.Command{
 
 		ctx, cancel := newCtx()
 		defer cancel()
-		resp, err := client.FromDatabase().Databases().List(ctx, projectID, dbaasID, nil)
+		resp, err := client.FromDatabase().Databases().List(ctx, projectID, dbaasID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing databases: %w", err)
 		}

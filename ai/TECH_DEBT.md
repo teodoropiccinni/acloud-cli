@@ -18,6 +18,10 @@ Issues are grouped by severity. Address Critical items before new features ship;
 | TD-014 | `cmd/constants.go` created with `StateInCreation`, `DateLayout`, `FilePermConfig`, `FilePermDirAll`; all magic strings replaced |
 | TD-009 | `MarkFlagRequired` used as the single mechanism for all required flags; redundant `if flag == ""` manual checks removed from all 19 affected commands |
 | TD-011 | `readSecret()` helper added to `root.go` using `golang.org/x/term.ReadPassword`; `config set` now prompts interactively when `--client-secret` is not passed and no secret exists in config |
+| TD-012 | `--debug` flag description updated to warn about credential/token exposure in HTTP headers |
+| TD-016 | Global `--output` flag (table/json) added; `PrintTable` serialises to JSON when `--output=json` is set; no call-site changes needed |
+| TD-017 | `listParams(cmd)` helper added; `--limit`/`--offset` flags added to all 25 list commands; list RunE handlers now pass pagination params to SDK |
+| TD-018 | Global client cache vars encapsulated in `clientState` struct with `resetClientState()` helper; all test reset blocks updated to use it |
 
 ---
 

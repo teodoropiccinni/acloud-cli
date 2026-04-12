@@ -37,6 +37,8 @@ func init() {
 	kmsDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	kmsListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	kmsListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	kmsListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	kmsGetCmd.ValidArgsFunction = completeKMSID
@@ -256,7 +258,7 @@ var kmsListCmd = &cobra.Command{
 
 		ctx, cancel := newCtx()
 		defer cancel()
-		resp, err := client.FromSecurity().KMS().List(ctx, projectID, nil)
+		resp, err := client.FromSecurity().KMS().List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing KMS: %w", err)
 		}

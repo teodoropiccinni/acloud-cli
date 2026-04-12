@@ -23,6 +23,8 @@ func init() {
 	securitygroupCreateCmd.MarkFlagRequired("name")
 	securitygroupCreateCmd.MarkFlagRequired("region")
 	securitygroupDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
+	securitygroupListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	securitygroupListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 }
 
 // SecurityGroup subcommands
@@ -172,7 +174,7 @@ var securitygroupListCmd = &cobra.Command{
 		}
 		ctx, cancel := newCtx()
 		defer cancel()
-		resp, err := client.FromNetwork().SecurityGroups().List(ctx, projectID, vpcID, nil)
+		resp, err := client.FromNetwork().SecurityGroups().List(ctx, projectID, vpcID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing security groups: %w", err)
 		}

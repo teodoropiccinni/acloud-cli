@@ -37,6 +37,8 @@ func init() {
 	vpcpeeringDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	vpcpeeringListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	vpcpeeringListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	vpcpeeringListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 }
 
 // Peering subcommands
@@ -201,7 +203,7 @@ var vpcpeeringListCmd = &cobra.Command{
 		}
 		ctx, cancel := newCtx()
 		defer cancel()
-		resp, err := client.FromNetwork().VPCPeerings().List(ctx, projectID, vpcID, nil)
+		resp, err := client.FromNetwork().VPCPeerings().List(ctx, projectID, vpcID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing VPC peerings: %w", err)
 		}

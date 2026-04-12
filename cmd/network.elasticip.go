@@ -34,6 +34,8 @@ func init() {
 	elasticipDeleteCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	elasticipDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 	elasticipListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	elasticipListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	elasticipListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	elasticipGetCmd.ValidArgsFunction = completeElasticIPID
@@ -179,7 +181,7 @@ var elasticipListCmd = &cobra.Command{
 		// List Elastic IPs using the SDK
 		ctx, cancel := newCtx()
 		defer cancel()
-		response, err := client.FromNetwork().ElasticIPs().List(ctx, projectID, nil)
+		response, err := client.FromNetwork().ElasticIPs().List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing Elastic IPs: %w", err)
 		}

@@ -41,6 +41,8 @@ func init() {
 	snapshotListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	snapshotListCmd.Flags().String("volume-uri", "", "Block storage volume URI (required)")
 	snapshotListCmd.Flags().BoolP("verbose", "v", false, "Show detailed debug information")
+	snapshotListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	snapshotListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 	snapshotListCmd.MarkFlagRequired("volume-uri")
 
 	snapshotGetCmd.ValidArgsFunction = completeSnapshotID
@@ -445,7 +447,7 @@ var snapshotListCmd = &cobra.Command{
 		// List snapshots using the SDK (filter by volume URI on client side)
 		ctx, cancel := newCtx()
 		defer cancel()
-		response, err := client.FromStorage().Snapshots().List(ctx, projectID, nil)
+		response, err := client.FromStorage().Snapshots().List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing snapshots: %w", err)
 		}

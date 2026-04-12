@@ -61,6 +61,8 @@ func init() {
 	cloudserverDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	cloudserverListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	cloudserverListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	cloudserverListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	cloudserverPowerOnCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	cloudserverPowerOffCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
@@ -544,7 +546,7 @@ var cloudserverListCmd = &cobra.Command{
 
 		ctx, cancel := newCtx()
 		defer cancel()
-		response, err := client.FromCompute().CloudServers().List(ctx, projectID, nil)
+		response, err := client.FromCompute().CloudServers().List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing cloud servers: %w", err)
 		}

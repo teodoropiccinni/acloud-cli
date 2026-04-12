@@ -56,6 +56,8 @@ func init() {
 	containerregistryDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	containerregistryListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	containerregistryListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	containerregistryListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	containerregistryGetCmd.ValidArgsFunction = completeContainerRegistryID
@@ -544,7 +546,7 @@ var containerregistryListCmd = &cobra.Command{
 		if registryClient == nil {
 			return fmt.Errorf("container Registry client returned nil — this may indicate that Container Registry is not available in your SDK version")
 		}
-		response, err := registryClient.List(ctx, projectID, nil)
+		response, err := registryClient.List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing container registries: %w", err)
 		}

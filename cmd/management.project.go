@@ -36,6 +36,10 @@ func init() {
 	// Add flags for project update command
 	projectUpdateCmd.Flags().String("description", "", "New description for the project")
 	projectUpdateCmd.Flags().StringSlice("tags", []string{}, "Tags for the project (comma-separated)")
+
+	// Add flags for project list command
+	projectListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	projectListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 }
 
 // completeProjectID provides completion for project IDs
@@ -423,7 +427,7 @@ var projectListCmd = &cobra.Command{
 		// List projects using the SDK
 		ctx, cancel := newCtx()
 		defer cancel()
-		response, err := client.FromProject().List(ctx, nil)
+		response, err := client.FromProject().List(ctx, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing projects: %w", err)
 		}

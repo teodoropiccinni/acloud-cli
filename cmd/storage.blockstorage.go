@@ -46,6 +46,8 @@ func init() {
 
 	blockstorageListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	blockstorageListCmd.Flags().BoolP("verbose", "v", false, "Show detailed debug information")
+	blockstorageListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	blockstorageListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	blockstorageGetCmd.ValidArgsFunction = completeBlockStorageID
@@ -512,7 +514,7 @@ var blockstorageListCmd = &cobra.Command{
 		// List block storage using the SDK
 		ctx, cancel := newCtx()
 		defer cancel()
-		response, err := client.FromStorage().Volumes().List(ctx, projectID, nil)
+		response, err := client.FromStorage().Volumes().List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing block storage: %w", err)
 		}

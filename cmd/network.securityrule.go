@@ -49,6 +49,8 @@ func init() {
 	securityruleDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	securityruleListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	securityruleListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	securityruleListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	securityruleGetCmd.ValidArgsFunction = completeSecurityRuleID
@@ -308,7 +310,7 @@ var securityruleListCmd = &cobra.Command{
 
 		ctx, cancel := newCtx()
 		defer cancel()
-		resp, err := client.FromNetwork().SecurityGroupRules().List(ctx, projectID, vpcID, securityGroupID, nil)
+		resp, err := client.FromNetwork().SecurityGroupRules().List(ctx, projectID, vpcID, securityGroupID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing security rules: %w", err)
 		}

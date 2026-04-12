@@ -39,6 +39,8 @@ func init() {
 	subnetUpdateCmd.Flags().StringSlice("dhcp-routes", []string{}, "DHCP routes for Advanced subnet type (optional, format: destination:gateway)")
 	subnetUpdateCmd.Flags().StringSlice("dhcp-dns", []string{}, "DHCP DNS servers for Advanced subnet type (optional)")
 	subnetListCmd.Flags().String("vpc-id", "", "Parent VPC ID (required)")
+	subnetListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	subnetListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 	subnetDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 }
 
@@ -285,7 +287,7 @@ var subnetListCmd = &cobra.Command{
 		}
 		ctx, cancel := newCtx()
 		defer cancel()
-		resp, err := client.FromNetwork().Subnets().List(ctx, projectID, vpcID, nil)
+		resp, err := client.FromNetwork().Subnets().List(ctx, projectID, vpcID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing subnets: %w", err)
 		}

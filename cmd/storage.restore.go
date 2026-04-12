@@ -27,6 +27,8 @@ func init() {
 	storageRestoreCmd.MarkFlagRequired("name")
 
 	storageRestoreListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	storageRestoreListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	storageRestoreListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 	storageRestoreGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	storageRestoreUpdateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	storageRestoreUpdateCmd.Flags().String("name", "", "New name for the restore operation")
@@ -227,7 +229,7 @@ var storageRestoreListCmd = &cobra.Command{
 
 		ctx, cancel := newCtx()
 		defer cancel()
-		response, err := client.FromStorage().Restores().List(ctx, projectID, backupID, nil)
+		response, err := client.FromStorage().Restores().List(ctx, projectID, backupID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing restores: %w", err)
 		}
