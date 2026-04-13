@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"acloud/pkg/formatter"
 	"github.com/Arubacloud/sdk-go/pkg/types"
 	"github.com/spf13/cobra"
 )
@@ -38,8 +37,7 @@ func init() {
 	projectUpdateCmd.Flags().String("description", "", "New description for the project")
 	projectUpdateCmd.Flags().StringSlice("tags", []string{}, "Tags for the project (comma-separated)")
 
-	// Add flags for project list command (if needed, e.g., filtering)
-	formatter.AddFormatFlag(projectListCmd, formatter.FormatTable)
+	// Output format is provided globally via root persistent --format flag.
 }
 
 // completeProjectID provides completion for project IDs
@@ -461,7 +459,7 @@ var projectListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all projects",
 	Run: func(cmd *cobra.Command, args []string) {
-		format, err := formatter.GetOutputFormat(cmd)
+		format, err := GetOutputFormat(cmd)
 		if err != nil {
 			fmt.Println(err.Error())
 			return
@@ -498,7 +496,7 @@ var projectListCmd = &cobra.Command{
 			projects = response.Data.Values
 		}
 
-		if err := formatter.RenderOutput(format, projects, func() {
+		if err := RenderOutput(format, projects, func() {
 			if len(projects) == 0 {
 				fmt.Println("No projects found")
 				return
