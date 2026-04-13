@@ -35,6 +35,17 @@ github.com/cespare/xxhash/v2
 # github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f
 ## explicit
 github.com/dgryski/go-rendezvous
+# github.com/drewstinnett/gout/v2 v2.3.0
+## explicit; go 1.19
+github.com/drewstinnett/gout/v2
+github.com/drewstinnett/gout/v2/config
+github.com/drewstinnett/gout/v2/formats
+github.com/drewstinnett/gout/v2/formats/builtin
+github.com/drewstinnett/gout/v2/formats/gotemplate
+github.com/drewstinnett/gout/v2/formats/json
+github.com/drewstinnett/gout/v2/formats/plain
+github.com/drewstinnett/gout/v2/formats/xml
+github.com/drewstinnett/gout/v2/formats/yaml
 # github.com/go-jose/go-jose/v4 v4.1.3
 ## explicit; go 1.24.0
 github.com/go-jose/go-jose/v4

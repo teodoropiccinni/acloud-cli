@@ -1,12 +1,16 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/Arubacloud/sdk-go/pkg/aruba"
+	"github.com/drewstinnett/gout/v2"
+	"github.com/drewstinnett/gout/v2/formats"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +23,13 @@ var (
 	cachedDebug       bool
 	cachedBaseURL     string
 	cachedTokenIssuer string
+	outputFormat      string
+)
+
+const (
+	FormatTable = "table"
+	FormatJSON  = "json"
+	FormatYAML  = "yaml"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -51,6 +62,72 @@ func init() {
 
 	// Add global debug flag
 	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug logging (shows HTTP requests/responses)")
+	AddPersistentFormatFlag(rootCmd, FormatTable)
+}
+
+// AddPersistentFormatFlag attaches a reusable persistent --format flag to a command.
+func AddPersistentFormatFlag(cmd *cobra.Command, defaultFormat string) {
+	if strings.TrimSpace(defaultFormat) == "" {
+		defaultFormat = FormatTable
+	}
+	cmd.PersistentFlags().StringVar(&outputFormat, "format", defaultFormat, "Output format (table, json, yaml)")
+}
+
+// GetOutputFormat reads, normalizes, and validates the --format flag.
+func GetOutputFormat(cmd *cobra.Command) (string, error) {
+	format, _ := cmd.Flags().GetString("format")
+	format = strings.ToLower(strings.TrimSpace(format))
+	if format == "" {
+		format = FormatTable
+	}
+
+	switch format {
+	case FormatTable, FormatJSON, FormatYAML:
+		return format, nil
+	default:
+		return "", fmt.Errorf("unknown format: %s. Supported formats: table, json, yaml", format)
+	}
+}
+
+// RenderOutput prints the provided data according to the selected format.
+// tablePrinter is called only when format=table.
+func RenderOutput(format string, data any, tablePrinter func()) error {
+	switch format {
+	case FormatJSON:
+		creator, ok := formats.Formats[FormatJSON]
+		if !ok {
+			return fmt.Errorf("json formatter not registered in gout")
+		}
+		var out bytes.Buffer
+		g := gout.New(gout.WithWriter(&out), gout.WithFormatter(creator()))
+		err := g.Print(data)
+		if err != nil {
+			return fmt.Errorf("error formatting JSON output: %v", err)
+		}
+		fmt.Print(out.String())
+		return nil
+	case FormatYAML:
+		creator, ok := formats.Formats[FormatYAML]
+		if !ok {
+			return fmt.Errorf("yaml formatter not registered in gout")
+		}
+		var out bytes.Buffer
+		g := gout.New(gout.WithWriter(&out), gout.WithFormatter(creator()))
+		err := g.Print(data)
+		if err != nil {
+			return fmt.Errorf("error formatting YAML output: %v", err)
+		}
+		fmt.Print(out.String())
+		return nil
+	case FormatTable:
+		if tablePrinter == nil {
+			return fmt.Errorf("table output requires a table printer")
+		}
+		tablePrinter()
+		return nil
+	default:
+		return fmt.Errorf("unknown format: %s. Supported formats: table, json, yaml", format)
+	}
 }
 
 // GetArubaClient creates and returns an Aruba Cloud SDK client using stored credentials
@@ -164,26 +241,48 @@ type TableColumn struct {
 // headers: slice of TableColumn defining each column
 // rows: slice of string slices, each inner slice represents a row
 func PrintTable(headers []TableColumn, rows [][]string) {
-	// Print header row
-	formatStr := ""
-	headerValues := make([]interface{}, len(headers))
-	for i, col := range headers {
-		formatStr += fmt.Sprintf("%%-%ds ", col.Width)
-		headerValues[i] = col.Header
+	format, err := GetOutputFormat(rootCmd)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
 	}
-	formatStr += "\n"
-	fmt.Printf(formatStr, headerValues...)
 
-	// Print data rows
+	data := make([]map[string]string, 0, len(rows))
 	for _, row := range rows {
-		rowValues := make([]interface{}, len(row))
-		for i, val := range row {
-			// Truncate if value is too long
-			if len(headers) > i && len(val) > headers[i].Width {
-				val = val[:headers[i].Width-3] + "..."
+		entry := map[string]string{}
+		for i, col := range headers {
+			key := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(col.Header), " ", "_"))
+			value := ""
+			if i < len(row) {
+				value = row[i]
 			}
-			rowValues[i] = val
+			entry[key] = value
 		}
-		fmt.Printf(formatStr, rowValues...)
+		data = append(data, entry)
+	}
+
+	err = RenderOutput(format, data, func() {
+		formatStr := ""
+		headerValues := make([]interface{}, len(headers))
+		for i, col := range headers {
+			formatStr += fmt.Sprintf("%%-%ds ", col.Width)
+			headerValues[i] = col.Header
+		}
+		formatStr += "\n"
+		fmt.Printf(formatStr, headerValues...)
+
+		for _, row := range rows {
+			rowValues := make([]interface{}, len(row))
+			for i, val := range row {
+				if len(headers) > i && len(val) > headers[i].Width {
+					val = val[:headers[i].Width-3] + "..."
+				}
+				rowValues[i] = val
+			}
+			fmt.Printf(formatStr, rowValues...)
+		}
+	})
+	if err != nil {
+		fmt.Println(err.Error())
 	}
 }
