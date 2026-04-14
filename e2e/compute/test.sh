@@ -48,11 +48,22 @@ extract_id() {
     echo "$output" | grep -oE '[a-f0-9]{24}' | tail -1 || echo ""
 }
 
+# Function to check if a string is valid JSON
+is_valid_json() {
+    local input="$1"
+    if command -v python3 >/dev/null 2>&1; then
+        echo "$input" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null && return 0
+    elif command -v python >/dev/null 2>&1; then
+        echo "$input" | python -c "import sys,json; json.load(sys.stdin)" 2>/dev/null && return 0
+    fi
+    return 1
+}
+
 # Function to test Cloud Server operations
 test_cloudserver() {
     local server_name="${RESOURCE_PREFIX}-server"
     local flavor="${ACLOUD_FLAVOR:-small}"
-    local image="${ACLOUD_IMAGE:-your-image-id}"
+    local image="${ACLOUD_IMAGE:-LU24-DK01}"
     
     echo -e "${BLUE}--- Testing Cloud Server Operations ---${NC}"
     
@@ -222,6 +233,124 @@ test_keypair() {
     echo ""
 }
 
+# Function to test Cloud Server --format flag
+test_cloudserver_format() {
+    echo -e "${BLUE}--- Testing Cloud Server --format flag ---${NC}"
+
+    echo -e "${YELLOW}Testing cloudserver list --format json...${NC}"
+    JSON_OUTPUT=$($ACLOUD_CMD compute cloudserver list --project-id "$PROJECT_ID" --format json 2>&1)
+    JSON_EXIT=$?
+
+    if [ $JSON_EXIT -ne 0 ]; then
+        echo -e "${RED}✗ cloudserver list --format json: command failed (exit $JSON_EXIT)${NC}"
+        echo "$JSON_OUTPUT"
+    elif echo "$JSON_OUTPUT" | grep -qF "No cloud servers found"; then
+        echo -e "${YELLOW}⚠ cloudserver list --format json: no resources — format validation skipped${NC}"
+    elif is_valid_json "$JSON_OUTPUT"; then
+        echo -e "${GREEN}✓ cloudserver list --format json: valid JSON${NC}"
+        if echo "$JSON_OUTPUT" | grep -q '"metadata"'; then
+            echo -e "${GREEN}✓ cloudserver list --format json: 'metadata' key present${NC}"
+        else
+            echo -e "${RED}✗ cloudserver list --format json: 'metadata' key missing${NC}"
+        fi
+        if echo "$JSON_OUTPUT" | grep -q '"properties"'; then
+            echo -e "${GREEN}✓ cloudserver list --format json: 'properties' key present${NC}"
+        else
+            echo -e "${RED}✗ cloudserver list --format json: 'properties' key missing${NC}"
+        fi
+    else
+        echo -e "${RED}✗ cloudserver list --format json: output is not valid JSON${NC}"
+        echo "$JSON_OUTPUT"
+    fi
+
+    echo -e "${YELLOW}Testing cloudserver list --format yaml...${NC}"
+    YAML_OUTPUT=$($ACLOUD_CMD compute cloudserver list --project-id "$PROJECT_ID" --format yaml 2>&1)
+    YAML_EXIT=$?
+
+    if [ $YAML_EXIT -ne 0 ]; then
+        echo -e "${RED}✗ cloudserver list --format yaml: command failed (exit $YAML_EXIT)${NC}"
+        echo "$YAML_OUTPUT"
+    elif echo "$YAML_OUTPUT" | grep -qF "No cloud servers found"; then
+        echo -e "${YELLOW}⚠ cloudserver list --format yaml: no resources — format validation skipped${NC}"
+    elif echo "$YAML_OUTPUT" | grep -qE '^[a-zA-Z].*:|^- '; then
+        echo -e "${GREEN}✓ cloudserver list --format yaml: output looks like YAML${NC}"
+        if echo "$YAML_OUTPUT" | grep -q 'metadata:'; then
+            echo -e "${GREEN}✓ cloudserver list --format yaml: 'metadata' key present${NC}"
+        else
+            echo -e "${RED}✗ cloudserver list --format yaml: 'metadata' key missing${NC}"
+        fi
+        if echo "$YAML_OUTPUT" | grep -q 'properties:'; then
+            echo -e "${GREEN}✓ cloudserver list --format yaml: 'properties' key present${NC}"
+        else
+            echo -e "${RED}✗ cloudserver list --format yaml: 'properties' key missing${NC}"
+        fi
+    else
+        echo -e "${RED}✗ cloudserver list --format yaml: output does not look like YAML${NC}"
+        echo "$YAML_OUTPUT"
+    fi
+
+    echo ""
+}
+
+# Function to test Key Pair --format flag
+test_keypair_format() {
+    echo -e "${BLUE}--- Testing Key Pair --format flag ---${NC}"
+
+    echo -e "${YELLOW}Testing keypair list --format json...${NC}"
+    JSON_OUTPUT=$($ACLOUD_CMD compute keypair list --project-id "$PROJECT_ID" --format json 2>&1)
+    JSON_EXIT=$?
+
+    if [ $JSON_EXIT -ne 0 ]; then
+        echo -e "${RED}✗ keypair list --format json: command failed (exit $JSON_EXIT)${NC}"
+        echo "$JSON_OUTPUT"
+    elif echo "$JSON_OUTPUT" | grep -qF "No keypairs found"; then
+        echo -e "${YELLOW}⚠ keypair list --format json: no resources — format validation skipped${NC}"
+    elif is_valid_json "$JSON_OUTPUT"; then
+        echo -e "${GREEN}✓ keypair list --format json: valid JSON${NC}"
+        if echo "$JSON_OUTPUT" | grep -q '"metadata"'; then
+            echo -e "${GREEN}✓ keypair list --format json: 'metadata' key present${NC}"
+        else
+            echo -e "${RED}✗ keypair list --format json: 'metadata' key missing${NC}"
+        fi
+        if echo "$JSON_OUTPUT" | grep -q '"properties"'; then
+            echo -e "${GREEN}✓ keypair list --format json: 'properties' key present${NC}"
+        else
+            echo -e "${RED}✗ keypair list --format json: 'properties' key missing${NC}"
+        fi
+    else
+        echo -e "${RED}✗ keypair list --format json: output is not valid JSON${NC}"
+        echo "$JSON_OUTPUT"
+    fi
+
+    echo -e "${YELLOW}Testing keypair list --format yaml...${NC}"
+    YAML_OUTPUT=$($ACLOUD_CMD compute keypair list --project-id "$PROJECT_ID" --format yaml 2>&1)
+    YAML_EXIT=$?
+
+    if [ $YAML_EXIT -ne 0 ]; then
+        echo -e "${RED}✗ keypair list --format yaml: command failed (exit $YAML_EXIT)${NC}"
+        echo "$YAML_OUTPUT"
+    elif echo "$YAML_OUTPUT" | grep -qF "No keypairs found"; then
+        echo -e "${YELLOW}⚠ keypair list --format yaml: no resources — format validation skipped${NC}"
+    elif echo "$YAML_OUTPUT" | grep -qE '^[a-zA-Z].*:|^- '; then
+        echo -e "${GREEN}✓ keypair list --format yaml: output looks like YAML${NC}"
+        if echo "$YAML_OUTPUT" | grep -q 'metadata:'; then
+            echo -e "${GREEN}✓ keypair list --format yaml: 'metadata' key present${NC}"
+        else
+            echo -e "${RED}✗ keypair list --format yaml: 'metadata' key missing${NC}"
+        fi
+        if echo "$YAML_OUTPUT" | grep -q 'properties:'; then
+            echo -e "${GREEN}✓ keypair list --format yaml: 'properties' key present${NC}"
+        else
+            echo -e "${RED}✗ keypair list --format yaml: 'properties' key missing${NC}"
+        fi
+    else
+        echo -e "${RED}✗ keypair list --format yaml: output does not look like YAML${NC}"
+        echo "$YAML_OUTPUT"
+    fi
+
+    echo ""
+}
+
 # Cleanup function
 cleanup() {
     echo -e "${BLUE}--- Cleanup ---${NC}"
@@ -257,6 +386,8 @@ trap cleanup EXIT
 # Run tests
 test_cloudserver
 test_keypair
+test_cloudserver_format
+test_keypair_format
 
 # Summary
 echo -e "${BLUE}=== Test Summary ===${NC}"

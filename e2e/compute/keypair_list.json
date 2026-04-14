@@ -1,0 +1,11 @@
+[
+  {
+    "metadata": {
+      "id": "xxxxxxxxxxxxxxxxxxxxxxxx",
+      "name": "test-keypair"
+    },
+    "properties": {
+      "value": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC... test@example.com"
+    }
+  }
+]

@@ -1,0 +1,16 @@
+- metadata:
+    id: xxxxxxxxxxxxxxxxxxxxxxxx
+    name: test-server
+    locationresponse:
+      value: ITBG-Bergamo
+  properties:
+    datacenter: itbg1-a
+    flavor:
+      id: xxxxxxxxxxxxxxxxxxxxxxxx
+      name: small
+      category: compute
+      cpu: 2
+      ram: 4096
+      hd: 50
+  status:
+    state: Running
