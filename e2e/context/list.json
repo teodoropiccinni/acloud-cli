@@ -1,1 +1,8 @@
-{"current_context":"dev","contexts":{"dev":{"project_id":"xxxxxxxxxxxxxxxxxxxxxxxx"}}}
+{
+    "current_context": "dev",
+    "contexts": {
+        "dev": {
+            "project_id": "xxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+    }
+}
