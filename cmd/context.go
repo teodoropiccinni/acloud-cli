@@ -11,14 +11,20 @@ import (
 
 // Context represents the CLI context configuration
 type Context struct {
-	CurrentContext string             `yaml:"current-context"`
-	Contexts       map[string]CtxInfo `yaml:"contexts"`
+	CurrentContext string             `yaml:"current-context" json:"current_context"`
+	Contexts       map[string]CtxInfo `yaml:"contexts" json:"contexts"`
 }
 
 // CtxInfo represents a single context
 type CtxInfo struct {
-	ProjectID string `yaml:"project-id"`
-	Name      string `yaml:"name,omitempty"`
+	ProjectID string `yaml:"project-id" json:"project_id"`
+	Name      string `yaml:"name,omitempty" json:"name,omitempty"`
+}
+
+// contextCurrentOutput is the structured output for the current context command
+type contextCurrentOutput struct {
+	Name      string `yaml:"name" json:"name"`
+	ProjectID string `yaml:"project_id" json:"project_id"`
 }
 
 var contextCmd = &cobra.Command{
@@ -71,6 +77,12 @@ var contextUseCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		contextName := args[0]
 
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		// Load context
 		ctx, err := LoadContext()
 		if err != nil {
@@ -97,8 +109,17 @@ var contextUseCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("Switched to context '%s'\n", contextName)
-		fmt.Printf("Project ID: %s\n", ctx.Contexts[contextName].ProjectID)
+		output := contextCurrentOutput{
+			Name:      contextName,
+			ProjectID: ctx.Contexts[contextName].ProjectID,
+		}
+
+		if err := RenderOutput(format, output, func() {
+			fmt.Printf("Switched to context '%s'\n", contextName)
+			fmt.Printf("Project ID: %s\n", ctx.Contexts[contextName].ProjectID)
+		}); err != nil {
+			fmt.Println(err.Error())
+		}
 	},
 }
 
@@ -106,6 +127,12 @@ var contextListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all contexts",
 	Run: func(cmd *cobra.Command, args []string) {
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		// Load context
 		ctx, err := LoadContext()
 		if err != nil {
@@ -118,17 +145,21 @@ var contextListCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Println("\nContexts:")
-		fmt.Println("=========")
-		for name, info := range ctx.Contexts {
-			current := ""
-			if name == ctx.CurrentContext {
-				current = " *"
+		if err := RenderOutput(format, ctx, func() {
+			fmt.Println("\nContexts:")
+			fmt.Println("=========")
+			for name, info := range ctx.Contexts {
+				current := ""
+				if name == ctx.CurrentContext {
+					current = " *"
+				}
+				fmt.Printf("%-20s Project ID: %s%s\n", name, info.ProjectID, current)
 			}
-			fmt.Printf("%-20s Project ID: %s%s\n", name, info.ProjectID, current)
-		}
-		if ctx.CurrentContext != "" {
-			fmt.Printf("\n* = current context\n")
+			if ctx.CurrentContext != "" {
+				fmt.Printf("\n* = current context\n")
+			}
+		}); err != nil {
+			fmt.Println(err.Error())
 		}
 	},
 }
@@ -137,6 +168,12 @@ var contextCurrentCmd = &cobra.Command{
 	Use:   "current",
 	Short: "Show current context",
 	Run: func(cmd *cobra.Command, args []string) {
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		// Load context
 		ctx, err := LoadContext()
 		if err != nil || ctx.CurrentContext == "" {
@@ -150,8 +187,17 @@ var contextCurrentCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("Current context: %s\n", ctx.CurrentContext)
-		fmt.Printf("Project ID:      %s\n", info.ProjectID)
+		output := contextCurrentOutput{
+			Name:      ctx.CurrentContext,
+			ProjectID: info.ProjectID,
+		}
+
+		if err := RenderOutput(format, output, func() {
+			fmt.Printf("Current context: %s\n", ctx.CurrentContext)
+			fmt.Printf("Project ID:      %s\n", info.ProjectID)
+		}); err != nil {
+			fmt.Println(err.Error())
+		}
 	},
 }
 
