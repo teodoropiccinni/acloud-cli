@@ -140,6 +140,11 @@ var keypairCreateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
+			format, err := GetOutputFormat(cmd)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
 			headers := []TableColumn{
 				{Header: "NAME", Width: 40},
 				{Header: "PUBLIC_KEY", Width: 60},
@@ -157,7 +162,11 @@ var keypairCreateCmd = &cobra.Command{
 				}(),
 				publicKeyValue,
 			}
-			PrintTable(headers, [][]string{row})
+			if err := RenderOutput(format, response.Data, func() {
+				PrintTable(headers, [][]string{row})
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("Keypair created, but no data returned.")
 		}
@@ -311,6 +320,12 @@ var keypairListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all keypairs",
 	Run: func(cmd *cobra.Command, args []string) {
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -384,7 +399,11 @@ var keypairListCmd = &cobra.Command{
 				rows = append(rows, []string{name, id, publicKey, status})
 			}
 
-			PrintTable(headers, rows)
+			if err := RenderOutput(format, response.Data.Values, func() {
+				PrintTable(headers, rows)
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("No keypairs found")
 		}

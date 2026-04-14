@@ -264,6 +264,12 @@ var cloudserverCreateCmd = &cobra.Command{
 			return
 		}
 
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		if response != nil && response.Data != nil {
 			headers := []TableColumn{
 				{Header: "ID", Width: 30},
@@ -298,7 +304,11 @@ var cloudserverCreateCmd = &cobra.Command{
 				fmt.Sprintf("%d", hd),
 				regionValue,
 			}
-			PrintTable(headers, [][]string{row})
+			if err := RenderOutput(format, response.Data, func() {
+				PrintTable(headers, [][]string{row})
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("Cloud server created, but no data returned.")
 		}
@@ -572,6 +582,12 @@ var cloudserverListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all cloud servers",
 	Run: func(cmd *cobra.Command, args []string) {
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -651,7 +667,11 @@ var cloudserverListCmd = &cobra.Command{
 				})
 			}
 
-			PrintTable(headers, rows)
+			if err := RenderOutput(format, response.Data.Values, func() {
+				PrintTable(headers, rows)
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("No cloud servers found")
 		}
