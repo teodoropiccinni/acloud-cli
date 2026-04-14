@@ -1,0 +1,60 @@
+[
+    {
+        "metadata": {
+            "id": "xxxxxxxxxxxxxxxxxxxxx",
+            "name": "default",
+            "creationDate": "2026-03-26T10:57:16.047Z",
+            "createdBy": "aru-123456"
+        },
+        "properties": {
+            "description": "default  project",
+            "default": true
+        }
+    },
+    {
+        "metadata": {
+            "id": "xxxxxxxxxxxxxxxxxxxxx",
+            "name": "default-baremetal",
+            "creationDate": "2026-03-26T10:57:16.09Z",
+            "createdBy": "aru-123456"
+        },
+        "properties": {
+            "description": "default-baremetal default project",
+            "default": false
+        }
+    },
+    {
+        "metadata": {
+            "id": "xxxxxxxxxxxxxxxxxxxxx",
+            "name": "cloud-v1",
+            "creationDate": "2026-03-26T10:57:16.13Z",
+            "createdBy": "aru-123456"
+        },
+        "properties": {
+            "description": "cloud-v1 default project",
+            "default": false
+        }
+    },
+    {
+        "metadata": {
+            "id": "xxxxxxxxxxxxxxxxxxxxx",
+            "name": "project-1-dev",
+            "creationDate": "2026-04-09T13:23:08.378Z",
+            "createdBy": "aru-123456"
+        },
+        "properties": {
+            "default": false
+        }
+    },
+    {
+        "metadata": {
+            "id": "xxxxxxxxxxxxxxxxxxxxx",
+            "name": "project-2-dev",
+            "creationDate": "2026-04-09T13:56:58.434Z",
+            "createdBy": "aru-123456"
+        },
+        "properties": {
+            "default": false
+        }
+    }
+]

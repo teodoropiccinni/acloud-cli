@@ -1,0 +1,95 @@
+- metadata:
+    id: xxxxxxxxxxxxxxxxxx
+    uri: null
+    name: default
+    locationresponse: null
+    projectresponsemetadata: null
+    tags: []
+    category: null
+    creationdate: 2026-03-26T10:57:16.047Z
+    createdby: aru-123456
+    updatedate: null
+    updatedby: null
+    version: null
+    createduser: null
+    updateduser: null
+  properties:
+    description: default  project
+    default: true
+    resourcesnumber: 0
+- metadata:
+    id: xxxxxxxxxxxxxxxxxx
+    uri: null
+    name: default-baremetal
+    locationresponse: null
+    projectresponsemetadata: null
+    tags: []
+    category: null
+    creationdate: 2026-03-26T10:57:16.09Z
+    createdby: aru-123456
+    updatedate: null
+    updatedby: null
+    version: null
+    createduser: null
+    updateduser: null
+  properties:
+    description: default-baremetal default project
+    default: false
+    resourcesnumber: 0
+- metadata:
+    id: xxxxxxxxxxxxxxxxxx
+    uri: null
+    name: cloud-v1
+    locationresponse: null
+    projectresponsemetadata: null
+    tags: []
+    category: null
+    creationdate: 2026-03-26T10:57:16.13Z
+    createdby: aru-123456
+    updatedate: null
+    updatedby: null
+    version: null
+    createduser: null
+    updateduser: null
+  properties:
+    description: cloud-v1 default project
+    default: false
+    resourcesnumber: 0
+- metadata:
+    id: xxxxxxxxxxxxxxxxxx
+    uri: null
+    name: project-1-dev
+    locationresponse: null
+    projectresponsemetadata: null
+    tags: []
+    category: null
+    creationdate: 2026-04-09T13:23:08.378Z
+    createdby: aru-123456
+    updatedate: null
+    updatedby: null
+    version: null
+    createduser: null
+    updateduser: null
+  properties:
+    description: null
+    default: false
+    resourcesnumber: 0
+- metadata:
+    id: xxxxxxxxxxxxxxxxxx
+    uri: null
+    name: project-2-dev
+    locationresponse: null
+    projectresponsemetadata: null
+    tags: []
+    category: null
+    creationdate: 2026-04-09T13:56:58.434Z
+    createdby: aru-123456
+    updatedate: null
+    updatedby: null
+    version: null
+    createduser: null
+    updateduser: null
+  properties:
+    description: null
+    default: false
+    resourcesnumber: 0
