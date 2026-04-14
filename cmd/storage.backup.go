@@ -196,7 +196,7 @@ var storageBackupCmd = &cobra.Command{
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			fmt.Printf("Type:            %s\n", response.Data.Properties.Type)
-			if !response.Data.Metadata.CreationDate.IsZero() {
+			if response.Data.Metadata.CreationDate != nil && !response.Data.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", response.Data.Metadata.CreationDate.Format(DateLayout))
 			}
 		}
@@ -320,13 +320,15 @@ var storageBackupGetCmd = &cobra.Command{
 				fmt.Printf("Billing Period:  %s\n", *backup.Properties.BillingPeriod)
 			}
 
-			fmt.Printf("Region:          %s\n", backup.Metadata.LocationResponse.Value)
+			if backup.Metadata.LocationResponse != nil {
+				fmt.Printf("Region:          %s\n", backup.Metadata.LocationResponse.Value)
+			}
 
 			if backup.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *backup.Status.State)
 			}
 
-			if !backup.Metadata.CreationDate.IsZero() {
+			if backup.Metadata.CreationDate != nil && !backup.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", backup.Metadata.CreationDate.Format(DateLayout))
 			}
 

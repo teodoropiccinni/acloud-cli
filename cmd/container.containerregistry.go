@@ -218,7 +218,9 @@ var containerregistryCreateCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			}
 			if response.Data.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", response.Data.Metadata.LocationResponse.Value)
+				if response.Data.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", response.Data.Metadata.LocationResponse.Value)
+				}
 			}
 			if response.Data.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *response.Data.Status.State)
@@ -282,7 +284,9 @@ var containerregistryGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *registry.Metadata.Name)
 			}
 			if registry.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", registry.Metadata.LocationResponse.Value)
+				if registry.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", registry.Metadata.LocationResponse.Value)
+				}
 			}
 
 			if registry.Properties.PublicIp.URI != "" {
@@ -315,7 +319,7 @@ var containerregistryGetCmd = &cobra.Command{
 				fmt.Printf("Status:          %s\n", *registry.Status.State)
 			}
 
-			if !registry.Metadata.CreationDate.IsZero() {
+			if registry.Metadata.CreationDate != nil && !registry.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", registry.Metadata.CreationDate.Format(DateLayout))
 			}
 			if registry.Metadata.CreatedBy != nil {

@@ -263,7 +263,9 @@ var jobGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *job.Metadata.Name)
 			}
 			if job.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", job.Metadata.LocationResponse.Value)
+				if job.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", job.Metadata.LocationResponse.Value)
+				}
 			}
 			fmt.Printf("Job Type:        %s\n", job.Properties.JobType)
 			fmt.Printf("Enabled:         %t\n", job.Properties.Enabled)
@@ -279,7 +281,7 @@ var jobGetCmd = &cobra.Command{
 			if job.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *job.Status.State)
 			}
-			if !job.Metadata.CreationDate.IsZero() {
+			if job.Metadata.CreationDate != nil && !job.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", job.Metadata.CreationDate.Format(DateLayout))
 			}
 			if job.Metadata.CreatedBy != nil {

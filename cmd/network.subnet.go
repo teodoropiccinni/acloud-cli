@@ -23,6 +23,7 @@ func init() {
 	subnetCmd.AddCommand(subnetDeleteCmd)
 	subnetCmd.AddCommand(subnetListCmd)
 
+	subnetCreateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	subnetCreateCmd.Flags().String("name", "", "Subnet name (required)")
 	subnetCreateCmd.Flags().String("cidr", "", "Subnet CIDR (optional, if provided subnet type will be Advanced, otherwise Basic)")
 	subnetCreateCmd.Flags().String("region", "", "Region for the subnet (required)")
@@ -32,16 +33,20 @@ func init() {
 	subnetCreateCmd.Flags().Bool("dhcp-enabled", false, "Enable DHCP for Advanced subnet type (required when CIDR is provided)")
 	subnetCreateCmd.Flags().StringSlice("dhcp-routes", []string{}, "DHCP routes for Advanced subnet type (optional, format: destination:gateway, e.g., '0.0.0.0/0:10.0.0.1')")
 	subnetCreateCmd.Flags().StringSlice("dhcp-dns", []string{}, "DHCP DNS servers for Advanced subnet type (optional, e.g., '8.8.8.8,8.8.4.4')")
+	subnetGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	subnetUpdateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	subnetUpdateCmd.Flags().String("name", "", "Subnet name (optional)")
 	subnetUpdateCmd.Flags().String("cidr", "", "Subnet CIDR (optional)")
 	subnetUpdateCmd.Flags().StringSlice("tags", []string{}, "Subnet tags (optional)")
 	subnetUpdateCmd.Flags().Bool("dhcp-enabled", false, "Enable DHCP for Advanced subnet type")
 	subnetUpdateCmd.Flags().StringSlice("dhcp-routes", []string{}, "DHCP routes for Advanced subnet type (optional, format: destination:gateway)")
 	subnetUpdateCmd.Flags().StringSlice("dhcp-dns", []string{}, "DHCP DNS servers for Advanced subnet type (optional)")
+	subnetDeleteCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	subnetDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
+	subnetListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	subnetListCmd.Flags().String("vpc-id", "", "Parent VPC ID (required)")
 	subnetListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
 	subnetListCmd.Flags().Int32("offset", 0, "Number of results to skip")
-	subnetDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 }
 
 // Subnet subcommands
@@ -229,7 +234,9 @@ var subnetGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *subnet.Metadata.Name)
 			}
 			if subnet.Metadata.LocationResponse != nil && subnet.Metadata.LocationResponse.Value != "" {
-				fmt.Printf("Region:          %s\n", subnet.Metadata.LocationResponse.Value)
+				if subnet.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", subnet.Metadata.LocationResponse.Value)
+				}
 			}
 			if subnet.Properties.Type != "" {
 				fmt.Printf("Type:            %s\n", subnet.Properties.Type)

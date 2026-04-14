@@ -198,7 +198,7 @@ var storageRestoreCmd = &cobra.Command{
 			fmt.Println("Restore operation created successfully!")
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
-			if !response.Data.Metadata.CreationDate.IsZero() {
+			if response.Data.Metadata.CreationDate != nil && !response.Data.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", response.Data.Metadata.CreationDate.Format(DateLayout))
 			}
 			if response.Data.Status.State != nil {
@@ -315,13 +315,15 @@ var storageRestoreGetCmd = &cobra.Command{
 				fmt.Printf("Target Volume:   %s\n", restore.Properties.Destination.URI)
 			}
 
-			fmt.Printf("Region:          %s\n", restore.Metadata.LocationResponse.Value)
+			if restore.Metadata.LocationResponse != nil {
+				fmt.Printf("Region:          %s\n", restore.Metadata.LocationResponse.Value)
+			}
 
 			if restore.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *restore.Status.State)
 			}
 
-			if !restore.Metadata.CreationDate.IsZero() {
+			if restore.Metadata.CreationDate != nil && !restore.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", restore.Metadata.CreationDate.Format(DateLayout))
 			}
 

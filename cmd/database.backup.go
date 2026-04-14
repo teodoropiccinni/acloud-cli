@@ -259,12 +259,14 @@ var backupGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *backup.Metadata.Name)
 			}
 			if backup.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", backup.Metadata.LocationResponse.Value)
+				if backup.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", backup.Metadata.LocationResponse.Value)
+				}
 			}
 			if backup.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *backup.Status.State)
 			}
-			if !backup.Metadata.CreationDate.IsZero() {
+			if backup.Metadata.CreationDate != nil && !backup.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", backup.Metadata.CreationDate.Format(DateLayout))
 			}
 			if backup.Metadata.CreatedBy != nil {

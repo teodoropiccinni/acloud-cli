@@ -260,7 +260,9 @@ var securityruleGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *rule.Metadata.Name)
 			}
 			if rule.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", rule.Metadata.LocationResponse.Value)
+				if rule.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", rule.Metadata.LocationResponse.Value)
+				}
 			}
 			fmt.Printf("Direction:       %s\n", rule.Properties.Direction)
 			fmt.Printf("Protocol:        %s\n", rule.Properties.Protocol)

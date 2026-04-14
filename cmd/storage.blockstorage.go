@@ -222,11 +222,13 @@ var blockstorageCreateCmd = &cobra.Command{
 			fmt.Printf("Size (GB):       %d\n", response.Data.Properties.SizeGB)
 			fmt.Printf("Type:            %s\n", response.Data.Properties.Type)
 			fmt.Printf("Zone:            %s\n", response.Data.Properties.Zone)
-			fmt.Printf("Region:          %s\n", response.Data.Metadata.LocationResponse.Value)
+			if response.Data.Metadata.LocationResponse != nil {
+				fmt.Printf("Region:          %s\n", response.Data.Metadata.LocationResponse.Value)
+			}
 			if response.Data.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *response.Data.Status.State)
 			}
-			if !response.Data.Metadata.CreationDate.IsZero() {
+			if response.Data.Metadata.CreationDate != nil && !response.Data.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", response.Data.Metadata.CreationDate.Format(DateLayout))
 			}
 		} else {
@@ -298,7 +300,7 @@ var blockstorageGetCmd = &cobra.Command{
 				fmt.Printf("Status:          %s\n", *volume.Status.State)
 			}
 
-			if !volume.Metadata.CreationDate.IsZero() {
+			if volume.Metadata.CreationDate != nil && !volume.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", volume.Metadata.CreationDate.Format(DateLayout))
 			}
 
@@ -579,7 +581,10 @@ var blockstorageListCmd = &cobra.Command{
 
 				size := fmt.Sprintf("%d", volume.Properties.SizeGB)
 
-				region := volume.Metadata.LocationResponse.Value
+				region := ""
+				if volume.Metadata.LocationResponse != nil {
+					region = volume.Metadata.LocationResponse.Value
+				}
 				zone := volume.Properties.Zone
 
 				volumeType := fmt.Sprintf("%v", volume.Properties.Type)

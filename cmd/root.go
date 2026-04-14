@@ -26,6 +26,7 @@ type clientState struct {
 	debug       bool
 	baseURL     string
 	tokenIssuer string
+	override    aruba.Client // tests only: bypasses config loading when non-nil
 }
 
 var state = &clientState{}
@@ -34,6 +35,14 @@ var state = &clientState{}
 // Intended for use in tests to prevent state leaking between test cases.
 func resetClientState() {
 	state = &clientState{}
+}
+
+// setClientForTesting injects a mock client that GetArubaClient returns directly,
+// bypassing config file loading entirely. Only for use in tests.
+func setClientForTesting(c aruba.Client) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.override = c
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -72,6 +81,15 @@ func init() {
 // It automatically checks for the --debug flag from the root command to enable verbose logging
 // The client is cached to avoid recreating it on every call, but is invalidated if credentials or debug flag change
 func GetArubaClient() (aruba.Client, error) {
+	// Short-circuit for tests: return the injected mock without loading config.
+	state.mu.Lock()
+	if state.override != nil {
+		c := state.override
+		state.mu.Unlock()
+		return c, nil
+	}
+	state.mu.Unlock()
+
 	config, err := LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load configuration: %w. Please run 'acloud config set' to configure credentials", err)

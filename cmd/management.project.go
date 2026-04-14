@@ -225,7 +225,7 @@ var projectGetCmd = &cobra.Command{
 			fmt.Printf("Default:         %t\n", project.Properties.Default)
 			fmt.Printf("Resources:       %d\n", project.Properties.ResourcesNumber)
 
-			if !project.Metadata.CreationDate.IsZero() {
+			if project.Metadata.CreationDate != nil && !project.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", project.Metadata.CreationDate.Format(DateLayout))
 			}
 
@@ -459,7 +459,7 @@ var projectListCmd = &cobra.Command{
 
 				// Format creation date as dd-mm-yyyy
 				creationDate := "N/A"
-				if !project.Metadata.CreationDate.IsZero() {
+				if project.Metadata.CreationDate != nil && !project.Metadata.CreationDate.IsZero() {
 					creationDate = project.Metadata.CreationDate.Format("02-01-2006")
 				}
 

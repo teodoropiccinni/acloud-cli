@@ -361,7 +361,9 @@ var kaasGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *kaas.Metadata.Name)
 			}
 			if kaas.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", kaas.Metadata.LocationResponse.Value)
+				if kaas.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", kaas.Metadata.LocationResponse.Value)
+				}
 			}
 			if kaas.Properties.KubernetesVersion.Value != nil {
 				fmt.Printf("Kubernetes Version: %s\n", *kaas.Properties.KubernetesVersion.Value)
@@ -370,7 +372,7 @@ var kaasGetCmd = &cobra.Command{
 				fmt.Printf("Status:          %s\n", *kaas.Status.State)
 			}
 
-			if !kaas.Metadata.CreationDate.IsZero() {
+			if kaas.Metadata.CreationDate != nil && !kaas.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", kaas.Metadata.CreationDate.Format(DateLayout))
 			}
 			if kaas.Metadata.CreatedBy != nil {

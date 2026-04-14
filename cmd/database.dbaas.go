@@ -243,7 +243,9 @@ var dbaasGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *dbaas.Metadata.Name)
 			}
 			if dbaas.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", dbaas.Metadata.LocationResponse.Value)
+				if dbaas.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", dbaas.Metadata.LocationResponse.Value)
+				}
 			}
 			if dbaas.Properties.Engine != nil {
 				if dbaas.Properties.Engine.Type != nil {
@@ -262,7 +264,7 @@ var dbaasGetCmd = &cobra.Command{
 			if dbaas.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *dbaas.Status.State)
 			}
-			if !dbaas.Metadata.CreationDate.IsZero() {
+			if dbaas.Metadata.CreationDate != nil && !dbaas.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", dbaas.Metadata.CreationDate.Format(DateLayout))
 			}
 			if dbaas.Metadata.CreatedBy != nil {

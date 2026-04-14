@@ -200,7 +200,7 @@ var keypairGetCmd = &cobra.Command{
 			// Show status as 'Active' for consistency
 			fmt.Printf("Status:          Active\n")
 
-			if !keypair.Metadata.CreationDate.IsZero() {
+			if keypair.Metadata.CreationDate != nil && !keypair.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", keypair.Metadata.CreationDate.Format(DateLayout))
 			}
 			if keypair.Metadata.CreatedBy != nil {

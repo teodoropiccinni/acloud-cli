@@ -169,7 +169,7 @@ var snapshotCreateCmd = &cobra.Command{
 			if response.Data.Metadata.Name != nil {
 				fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			}
-			if !response.Data.Metadata.CreationDate.IsZero() {
+			if response.Data.Metadata.CreationDate != nil && !response.Data.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", response.Data.Metadata.CreationDate.Format(DateLayout))
 			}
 		} else {
@@ -232,7 +232,9 @@ var snapshotGetCmd = &cobra.Command{
 			}
 
 			if snapshot.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", snapshot.Metadata.LocationResponse.Value)
+				if snapshot.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", snapshot.Metadata.LocationResponse.Value)
+				}
 			}
 
 			status := ""
@@ -241,7 +243,7 @@ var snapshotGetCmd = &cobra.Command{
 			}
 			fmt.Printf("Status:          %s\n", status)
 
-			if !snapshot.Metadata.CreationDate.IsZero() {
+			if snapshot.Metadata.CreationDate != nil && !snapshot.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", snapshot.Metadata.CreationDate.Format(DateLayout))
 			}
 

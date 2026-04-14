@@ -164,7 +164,9 @@ var vpcpeeringGetCmd = &cobra.Command{
 				fmt.Printf("Peer VPC:        %s\n", peering.Properties.RemoteVPC.URI)
 			}
 			if peering.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", peering.Metadata.LocationResponse.Value)
+				if peering.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", peering.Metadata.LocationResponse.Value)
+				}
 			}
 			if peering.Metadata.CreationDate != nil {
 				fmt.Printf("Creation Date:   %s\n", peering.Metadata.CreationDate.Format(DateLayout))

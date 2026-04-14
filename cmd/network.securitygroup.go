@@ -17,12 +17,19 @@ func init() {
 	securitygroupCmd.AddCommand(securitygroupListCmd)
 
 	// SecurityGroup flags
+	securitygroupCreateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	securitygroupCreateCmd.Flags().String("name", "", "Security group name (required)")
 	securitygroupCreateCmd.Flags().String("region", "", "Region code (required)")
 	securitygroupCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
 	securitygroupCreateCmd.MarkFlagRequired("name")
 	securitygroupCreateCmd.MarkFlagRequired("region")
+	securitygroupGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	securitygroupUpdateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	securitygroupUpdateCmd.Flags().String("name", "", "New name for the security group")
+	securitygroupUpdateCmd.Flags().StringSlice("tags", []string{}, "New tags (comma-separated)")
+	securitygroupDeleteCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	securitygroupDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
+	securitygroupListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	securitygroupListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
 	securitygroupListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 }
@@ -135,7 +142,9 @@ var securitygroupGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *sg.Metadata.Name)
 			}
 			if sg.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", sg.Metadata.LocationResponse.Value)
+				if sg.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", sg.Metadata.LocationResponse.Value)
+				}
 			}
 			if sg.Metadata.CreationDate != nil {
 				fmt.Printf("Creation Date:   %s\n", sg.Metadata.CreationDate.Format(DateLayout))

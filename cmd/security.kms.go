@@ -217,12 +217,14 @@ var kmsGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *kms.Metadata.Name)
 			}
 			if kms.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", kms.Metadata.LocationResponse.Value)
+				if kms.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", kms.Metadata.LocationResponse.Value)
+				}
 			}
 			if kms.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *kms.Status.State)
 			}
-			if !kms.Metadata.CreationDate.IsZero() {
+			if kms.Metadata.CreationDate != nil && !kms.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", kms.Metadata.CreationDate.Format(DateLayout))
 			}
 			if kms.Metadata.CreatedBy != nil {
