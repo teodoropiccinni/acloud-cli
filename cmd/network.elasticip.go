@@ -280,9 +280,7 @@ var elasticipGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *eip.Metadata.Name)
 			}
 			if eip.Metadata.LocationResponse != nil && eip.Metadata.LocationResponse.Value != "" {
-				if eip.Metadata.LocationResponse != nil {
-					fmt.Printf("Region:          %s\n", eip.Metadata.LocationResponse.Value)
-				}
+				fmt.Printf("Region:          %s\n", eip.Metadata.LocationResponse.Value)
 			}
 			if eip.Properties.Address != nil {
 				fmt.Printf("Address:         %s\n", *eip.Properties.Address)

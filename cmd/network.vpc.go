@@ -208,9 +208,7 @@ var vpcGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *vpc.Metadata.Name)
 			}
 			if vpc.Metadata.LocationResponse != nil && vpc.Metadata.LocationResponse.Value != "" {
-				if vpc.Metadata.LocationResponse != nil {
-					fmt.Printf("Region:          %s\n", vpc.Metadata.LocationResponse.Value)
-				}
+				fmt.Printf("Region:          %s\n", vpc.Metadata.LocationResponse.Value)
 			}
 			fmt.Printf("Default:         %t\n", vpc.Properties.Default)
 			fmt.Printf("Linked Resources: %d\n", len(vpc.Properties.LinkedResources))

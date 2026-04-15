@@ -232,9 +232,7 @@ var vpntunnelGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *vpn.Metadata.Name)
 			}
 			if vpn.Metadata.LocationResponse != nil && vpn.Metadata.LocationResponse.Value != "" {
-				if vpn.Metadata.LocationResponse != nil {
-					fmt.Printf("Region:          %s\n", vpn.Metadata.LocationResponse.Value)
-				}
+				fmt.Printf("Region:          %s\n", vpn.Metadata.LocationResponse.Value)
 			}
 
 			if vpn.Properties.VPNType != nil {

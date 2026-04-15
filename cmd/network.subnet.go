@@ -234,9 +234,7 @@ var subnetGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *subnet.Metadata.Name)
 			}
 			if subnet.Metadata.LocationResponse != nil && subnet.Metadata.LocationResponse.Value != "" {
-				if subnet.Metadata.LocationResponse != nil {
-					fmt.Printf("Region:          %s\n", subnet.Metadata.LocationResponse.Value)
-				}
+				fmt.Printf("Region:          %s\n", subnet.Metadata.LocationResponse.Value)
 			}
 			if subnet.Properties.Type != "" {
 				fmt.Printf("Type:            %s\n", subnet.Properties.Type)

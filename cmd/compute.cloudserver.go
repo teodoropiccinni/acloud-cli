@@ -334,9 +334,7 @@ var cloudserverGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *server.Metadata.Name)
 			}
 			if server.Metadata.LocationResponse != nil && server.Metadata.LocationResponse.Value != "" {
-				if server.Metadata.LocationResponse != nil {
-					fmt.Printf("Region:          %s\n", server.Metadata.LocationResponse.Value)
-				}
+				fmt.Printf("Region:          %s\n", server.Metadata.LocationResponse.Value)
 			}
 
 			// Flavor is a direct struct, not a pointer
