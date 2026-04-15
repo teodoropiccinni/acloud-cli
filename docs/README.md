@@ -48,9 +48,21 @@ acloud management project --help
 acloud management project create --help
 ```
 
+## Output Format
+
+All list and get commands accept a global `--output json` (or `-o json`) flag for machine-readable output. The default is a fixed-width table. See [Getting Started - Output Format](getting-started.md#output-format) for details.
+
+## Pagination
+
+All list commands accept `--limit` and `--offset` flags for page-based navigation through large result sets. See [Getting Started - Pagination](getting-started.md#pagination) for details.
+
 ## Debug Mode
 
-The CLI provides a global `--debug` (or `-d`) flag for troubleshooting. When enabled, it shows HTTP request/response details, request payloads, and full error information. See [Getting Started - Debug Mode](getting-started.md#debug-mode) for more details.
+The CLI provides a global `--debug` (or `-d`) flag for troubleshooting. When enabled, it shows HTTP request/response details, request payloads, and full error information.
+
+> **Security Warning**: Debug output may include credentials and tokens from HTTP headers. Do not use in shared terminal sessions or paste its output publicly.
+
+See [Getting Started - Debug Mode](getting-started.md#debug-mode) for more details.
 
 ## Additional Resources
 

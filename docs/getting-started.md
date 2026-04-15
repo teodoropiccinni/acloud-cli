@@ -103,23 +103,27 @@ The Aruba Cloud CLI requires API credentials to authenticate with Aruba Cloud se
 
 1. **Obtain API Credentials**: Get your Client ID and Client Secret from the Aruba Cloud console.
 
-2. **Configure the CLI**:
+2. **Configure the CLI** — pass `--client-id` on the command line; the secret is read securely with echo disabled:
    ```bash
-   acloud config set
+   acloud config set --client-id YOUR_CLIENT_ID
+   # Enter client secret: (hidden input, does not appear in shell history)
    ```
 
-3. **Enter your credentials** when prompted:
-   - Client ID
-   - Client Secret
+   Alternatively, pass both flags at once (suitable for CI/automation where shell history is not a concern):
+   ```bash
+   acloud config set --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET
+   ```
 
-4. **Verify configuration**:
+   > **Security note**: Avoid passing `--client-secret` interactively — it will appear in your shell history. Omitting the flag causes the CLI to prompt for it with echo disabled, keeping the value out of history.
+
+3. **Verify configuration**:
    ```bash
    acloud config show
    ```
 
 ### Configuration File
 
-Credentials are stored in `~/.acloud.yaml`:
+Credentials are stored in `~/.acloud.yaml` (file permissions `0600`):
 
 ```yaml
 clientId: your-client-id
@@ -127,15 +131,6 @@ clientSecret: your-client-secret
 ```
 
 **Security Note**: Keep your credentials secure. The configuration file contains sensitive information.
-
-### Environment Variables
-
-You can also set credentials via environment variables:
-
-```bash
-export ACLOUD_CLIENT_ID="your-client-id"
-export ACLOUD_CLIENT_SECRET="your-client-secret"
-```
 
 ## Context Management
 
@@ -367,6 +362,52 @@ acloud management project list
 - Explore [Storage Resources](resources/storage.md)
 - Read the [Command Reference](command-reference.md)
 
+## Output Format
+
+All list and get commands support a global `--output` (or `-o`) flag that controls the output format.
+
+| Value | Description |
+|-------|-------------|
+| `table` | Human-readable fixed-width table (default) |
+| `json` | JSON array, one object per row, keyed by column header |
+
+```bash
+# Default table output
+acloud network vpc list
+
+# Machine-readable JSON output
+acloud network vpc list --output json
+acloud network vpc list -o json
+```
+
+The JSON format is useful for scripting and integration with tools like `jq`:
+
+```bash
+acloud storage blockstorage list -o json | jq '.[].Name'
+```
+
+## Pagination
+
+All list commands support `--limit` and `--offset` flags to paginate large result sets.
+
+| Flag | Description |
+|------|-------------|
+| `--limit N` | Return at most N results |
+| `--offset N` | Skip the first N results (for page-based navigation) |
+
+```bash
+# First page of 10 results
+acloud storage blockstorage list --limit 10
+
+# Second page of 10 results
+acloud storage blockstorage list --limit 10 --offset 10
+
+# Third page
+acloud storage blockstorage list --limit 10 --offset 20
+```
+
+When neither flag is passed the API returns its default result set.
+
 ## Debug Mode
 
 The CLI provides a global `--debug` (or `-d`) flag that enables verbose logging to help troubleshoot issues. When enabled, it shows:
@@ -374,6 +415,8 @@ The CLI provides a global `--debug` (or `-d`) flag that enables verbose logging 
 - **HTTP Request/Response details**: All HTTP requests and responses made by the SDK
 - **Request payloads**: JSON-formatted request bodies being sent to the API
 - **Error details**: Full error response bodies when requests fail
+
+> **Security Warning**: Debug output may include credentials and tokens from HTTP headers. Do not use `--debug` in shared terminal sessions or paste its output publicly.
 
 ### Usage
 

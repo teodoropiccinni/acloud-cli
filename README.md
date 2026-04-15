@@ -77,16 +77,15 @@ Before using the CLI, you must configure your Aruba Cloud API credentials.
 
 ### Set Credentials
 ```bash
-acloud config set \
-  --client-id YOUR_CLIENT_ID \
-  --client-secret YOUR_CLIENT_SECRET
+# Recommended: pass --client-id on the command line; the secret is prompted securely (echo disabled)
+acloud config set --client-id YOUR_CLIENT_ID
+# Enter client secret: (hidden input)
+
+# Alternative for CI/automation (both flags on the command line)
+acloud config set --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET
 ```
 
-You can also set values individually:
-```bash
-acloud config set --client-id YOUR_CLIENT_ID
-acloud config set --client-secret YOUR_CLIENT_SECRET
-```
+> **Security note**: Avoid passing `--client-secret` interactively — it will appear in your shell history. Omitting the flag causes the CLI to prompt for it with echo disabled.
 
 Credentials are stored securely in:
 ```bash
@@ -157,7 +156,32 @@ Debug mode enables:
 - Detailed JSON payloads
 - Full error response details
 
+> **Security Warning**: Debug output may include credentials and tokens from HTTP headers. Do not use in shared terminal sessions or paste its output publicly.
+
 Debug output is sent to stderr and does not interfere with command output.
+
+## Output Format
+
+All list and get commands accept a global `--output` (`-o`) flag:
+
+```bash
+acloud network vpc list            # table (default)
+acloud network vpc list -o json    # JSON array, one object per row
+```
+
+Useful for scripting with tools like `jq`:
+```bash
+acloud storage blockstorage list -o json | jq '.[].Name'
+```
+
+## Pagination
+
+All list commands accept `--limit` and `--offset` flags:
+
+```bash
+acloud storage blockstorage list --limit 10           # first 10 results
+acloud storage blockstorage list --limit 10 --offset 10  # second page
+```
 
 ## Documentation
 📚 Full documentation is available at:
