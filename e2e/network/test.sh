@@ -111,6 +111,103 @@ is_valid_id() {
     [[ "$id" =~ ^[a-f0-9]{24}$ ]]
 }
 
+# Check if string is valid JSON
+is_valid_json() {
+    local input="$1"
+    if command -v python3 >/dev/null 2>&1; then
+        echo "$input" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null && return 0
+    elif command -v python >/dev/null 2>&1; then
+        echo "$input" | python -c "import sys,json; json.load(sys.stdin)" 2>/dev/null && return 0
+    fi
+    return 1
+}
+
+# Generic --format flag test helper
+# Usage: test_format_flags "Label" "no resources msg" cmd arg1 arg2...
+test_format_flags() {
+    local label="$1"
+    local no_resources_msg="$2"
+    shift 2
+    local cmd_args=("$@")
+
+    echo -e "${BLUE}--- Testing $label --format flag ---${NC}"
+
+    for fmt in "" table; do
+        local lbl="--format \"$fmt\""
+        [ -z "$fmt" ] && lbl='--format "" (default)'
+        echo -e "${YELLOW}Testing $lbl...${NC}"
+        if [ -z "$fmt" ]; then
+            OUT=$($ACLOUD_CMD "${cmd_args[@]}" 2>&1)
+        else
+            OUT=$($ACLOUD_CMD "${cmd_args[@]}" --format "$fmt" 2>&1)
+        fi
+        EXIT=$?
+        if [ $EXIT -eq 0 ]; then
+            echo -e "${GREEN}✓ $lbl: command succeeded${NC}"
+            if ! is_valid_json "$OUT" || echo "$OUT" | grep -qF "$no_resources_msg"; then
+                echo -e "${GREEN}✓ $lbl: output is table/plain (not JSON)${NC}"
+            else
+                echo -e "${RED}✗ $lbl: output unexpectedly looks like JSON${NC}"
+            fi
+        else
+            echo -e "${RED}✗ $lbl: command failed (exit $EXIT)${NC}"
+            echo "$OUT"
+        fi
+    done
+
+    echo -e "${YELLOW}Testing --format json...${NC}"
+    JSON_OUTPUT=$($ACLOUD_CMD "${cmd_args[@]}" --format json 2>&1)
+    JSON_EXIT=$?
+    if [ $JSON_EXIT -ne 0 ]; then
+        echo -e "${RED}✗ --format json: command failed (exit $JSON_EXIT)${NC}"
+        echo "$JSON_OUTPUT"
+    elif echo "$JSON_OUTPUT" | grep -qF "$no_resources_msg"; then
+        echo -e "${YELLOW}⚠ --format json: no resources — format validation skipped${NC}"
+    elif is_valid_json "$JSON_OUTPUT"; then
+        echo -e "${GREEN}✓ --format json: valid JSON${NC}"
+        if echo "$JSON_OUTPUT" | grep -q '"metadata"'; then
+            echo -e "${GREEN}✓ --format json: 'metadata' key present${NC}"
+        else
+            echo -e "${RED}✗ --format json: 'metadata' key missing${NC}"
+        fi
+        if echo "$JSON_OUTPUT" | grep -q '"properties"'; then
+            echo -e "${GREEN}✓ --format json: 'properties' key present${NC}"
+        else
+            echo -e "${RED}✗ --format json: 'properties' key missing${NC}"
+        fi
+    else
+        echo -e "${RED}✗ --format json: output is not valid JSON${NC}"
+        echo "$JSON_OUTPUT"
+    fi
+
+    echo -e "${YELLOW}Testing --format yaml...${NC}"
+    YAML_OUTPUT=$($ACLOUD_CMD "${cmd_args[@]}" --format yaml 2>&1)
+    YAML_EXIT=$?
+    if [ $YAML_EXIT -ne 0 ]; then
+        echo -e "${RED}✗ --format yaml: command failed (exit $YAML_EXIT)${NC}"
+        echo "$YAML_OUTPUT"
+    elif echo "$YAML_OUTPUT" | grep -qF "$no_resources_msg"; then
+        echo -e "${YELLOW}⚠ --format yaml: no resources — format validation skipped${NC}"
+    elif echo "$YAML_OUTPUT" | grep -qE '^[a-zA-Z].*:|^- '; then
+        echo -e "${GREEN}✓ --format yaml: output looks like YAML${NC}"
+        if echo "$YAML_OUTPUT" | grep -q 'metadata:'; then
+            echo -e "${GREEN}✓ --format yaml: 'metadata' key present${NC}"
+        else
+            echo -e "${RED}✗ --format yaml: 'metadata' key missing${NC}"
+        fi
+        if echo "$YAML_OUTPUT" | grep -q 'properties:'; then
+            echo -e "${GREEN}✓ --format yaml: 'properties' key present${NC}"
+        else
+            echo -e "${RED}✗ --format yaml: 'properties' key missing${NC}"
+        fi
+    else
+        echo -e "${RED}✗ --format yaml: output does not look like YAML${NC}"
+        echo "$YAML_OUTPUT"
+    fi
+
+    echo ""
+}
+
 # Function to check VPC status
 check_vpc_status() {
     local vpc_id="$1"
@@ -720,6 +817,8 @@ else
 fi
 
 echo -e "${GREEN}=== All Network Tests Completed! ===${NC}\n"
+
+test_format_flags "network vpc list" "No VPCs found" network vpc list --project-id "$PROJECT_ID"
 
 # Print summary
 echo -e "${BLUE}=== Test Summary ===${NC}"

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # E2E Test Script for context commands
-# Validates --format json and --format yaml output structure
+# Validates --format "", table, json and yaml output structure
 # against the fixture files list.json, list.yaml, use.json, use.yaml
 
 GREEN='\033[0;32m'
@@ -61,6 +61,43 @@ is_valid_json() {
 fixture_json_keys() {
     local fixture="$1"
     json_keys "$(cat "$fixture")"
+}
+
+# ---------------------------------------------------------------------------
+# test_context_list_default_and_table
+# ---------------------------------------------------------------------------
+test_context_list_default_and_table() {
+    echo -e "${YELLOW}--- context list default/table format ---${NC}"
+
+    OUTPUT=$($ACLOUD_CMD context list 2>&1)
+    EXIT_CODE=$?
+    if [ $EXIT_CODE -ne 0 ]; then
+        fail "context list (default format): command failed (exit $EXIT_CODE)"
+        echo "    Output: $OUTPUT"
+    else
+        pass "context list (default format): command succeeded"
+        if ! is_valid_json "$OUTPUT"; then
+            pass "context list (default format): output is not JSON (table/plain)"
+        else
+            fail "context list (default format): output unexpectedly looks like JSON"
+        fi
+    fi
+
+    OUTPUT=$($ACLOUD_CMD context list --format table 2>&1)
+    EXIT_CODE=$?
+    if [ $EXIT_CODE -ne 0 ]; then
+        fail "context list --format table: command failed (exit $EXIT_CODE)"
+        echo "    Output: $OUTPUT"
+    else
+        pass "context list --format table: command succeeded"
+        if ! is_valid_json "$OUTPUT"; then
+            pass "context list --format table: output is not JSON (table/plain)"
+        else
+            fail "context list --format table: output unexpectedly looks like JSON"
+        fi
+    fi
+
+    echo ""
 }
 
 # ---------------------------------------------------------------------------
@@ -258,6 +295,7 @@ test_context_use_yaml() {
 # ---------------------------------------------------------------------------
 echo -e "${BLUE}Starting Context E2E Tests...${NC}\n"
 
+test_context_list_default_and_table
 test_context_list_json
 test_context_list_yaml
 test_context_use_json
