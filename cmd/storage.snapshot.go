@@ -476,6 +476,11 @@ var snapshotListCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil && len(response.Data.Values) > 0 {
+			format, err := GetOutputFormat(cmd)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
 			// Filter snapshots by volume URI
 			var filteredSnapshots []types.SnapshotResponse
 			for _, snapshot := range response.Data.Values {
@@ -521,7 +526,11 @@ var snapshotListCmd = &cobra.Command{
 			}
 
 			// Print the table
-			PrintTable(headers, rows)
+			if err := RenderOutput(format, filteredSnapshots, func() {
+				PrintTable(headers, rows)
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("No snapshots found")
 		}

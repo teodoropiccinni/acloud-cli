@@ -244,6 +244,11 @@ var dbaasUserListCmd = &cobra.Command{
 		}
 
 		if resp != nil && resp.Data != nil && len(resp.Data.Values) > 0 {
+			format, err := GetOutputFormat(cmd)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
 			headers := []TableColumn{
 				{Header: "USERNAME", Width: 40},
 				{Header: "CREATION DATE", Width: 25},
@@ -269,7 +274,11 @@ var dbaasUserListCmd = &cobra.Command{
 				}
 				rows = append(rows, row)
 			}
-			PrintTable(headers, rows)
+			if err := RenderOutput(format, resp.Data.Values, func() {
+				PrintTable(headers, rows)
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("No users found")
 		}

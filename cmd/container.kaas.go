@@ -284,6 +284,11 @@ var kaasCreateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
+			format, err := GetOutputFormat(cmd)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
 			headers := []TableColumn{
 				{Header: "ID", Width: 30},
 				{Header: "NAME", Width: 40},
@@ -315,7 +320,11 @@ var kaasCreateCmd = &cobra.Command{
 					return ""
 				}(),
 			}
-			PrintTable(headers, [][]string{row})
+			if err := RenderOutput(format, response.Data, func() {
+				PrintTable(headers, [][]string{row})
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("KaaS cluster created, but no data returned.")
 		}
@@ -693,6 +702,12 @@ var kaasListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all KaaS clusters",
 	Run: func(cmd *cobra.Command, args []string) {
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -753,7 +768,11 @@ var kaasListCmd = &cobra.Command{
 				})
 			}
 
-			PrintTable(headers, rows)
+			if err := RenderOutput(format, response.Data.Values, func() {
+				PrintTable(headers, rows)
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("No KaaS clusters found")
 		}

@@ -528,6 +528,12 @@ var blockstorageListCmd = &cobra.Command{
 		// Get flags
 		verbose, _ := cmd.Flags().GetBool("verbose")
 
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
@@ -623,8 +629,11 @@ var blockstorageListCmd = &cobra.Command{
 				rows = append(rows, []string{name, id, size, region, zone, volumeType, status})
 			}
 
-			// Print the table
-			PrintTable(headers, rows)
+			if err := RenderOutput(format, response.Data.Values, func() {
+				PrintTable(headers, rows)
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("No block storage found")
 		}

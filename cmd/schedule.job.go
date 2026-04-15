@@ -187,6 +187,11 @@ var jobCreateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
+			format, err := GetOutputFormat(cmd)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
 			headers := []TableColumn{
 				{Header: "ID", Width: 30},
 				{Header: "NAME", Width: 40},
@@ -226,7 +231,11 @@ var jobCreateCmd = &cobra.Command{
 					return ""
 				}(),
 			}
-			PrintTable(headers, [][]string{row})
+			if err := RenderOutput(format, response.Data, func() {
+				PrintTable(headers, [][]string{row})
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("Job created, but no data returned.")
 		}
@@ -324,6 +333,12 @@ var jobListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all scheduled jobs",
 	Run: func(cmd *cobra.Command, args []string) {
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -406,7 +421,11 @@ var jobListCmd = &cobra.Command{
 				}
 				rows = append(rows, row)
 			}
-			PrintTable(headers, rows)
+			if err := RenderOutput(format, resp.Data.Values, func() {
+				PrintTable(headers, rows)
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("No jobs found")
 		}

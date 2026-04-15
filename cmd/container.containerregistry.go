@@ -612,6 +612,11 @@ var containerregistryListCmd = &cobra.Command{
 		}
 
 		if response.Data != nil && len(response.Data.Values) > 0 {
+			format, err := GetOutputFormat(cmd)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
 			headers := []TableColumn{
 				{Header: "NAME", Width: 40},
 				{Header: "ID", Width: 30},
@@ -649,7 +654,11 @@ var containerregistryListCmd = &cobra.Command{
 				})
 			}
 
-			PrintTable(headers, rows)
+			if err := RenderOutput(format, response.Data.Values, func() {
+				PrintTable(headers, rows)
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("No container registries found")
 		}

@@ -161,6 +161,11 @@ var subnetCreateCmd = &cobra.Command{
 			return
 		}
 		if resp != nil && resp.Data != nil && resp.Data.Metadata.ID != nil {
+			format, err := GetOutputFormat(cmd)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
 			headers := []TableColumn{
 				{Header: "NAME", Width: 30},
 				{Header: "ID", Width: 26},
@@ -190,7 +195,11 @@ var subnetCreateCmd = &cobra.Command{
 					}
 				}(),
 			}
-			PrintTable(headers, [][]string{row})
+			if err := RenderOutput(format, resp.Data, func() {
+				PrintTable(headers, [][]string{row})
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("Subnet created, but no ID returned.")
 		}
@@ -318,6 +327,11 @@ var subnetListCmd = &cobra.Command{
 			return
 		}
 		if resp != nil && resp.Data != nil && len(resp.Data.Values) > 0 {
+			format, err := GetOutputFormat(cmd)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
 			headers := []TableColumn{
 				{Header: "NAME", Width: 30},
 				{Header: "ID", Width: 26},
@@ -346,7 +360,11 @@ var subnetListCmd = &cobra.Command{
 				}
 				rows = append(rows, []string{name, id, region, cidr, status})
 			}
-			PrintTable(headers, rows)
+			if err := RenderOutput(format, resp.Data.Values, func() {
+				PrintTable(headers, rows)
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("No subnets found.")
 		}
@@ -515,6 +533,11 @@ var subnetUpdateCmd = &cobra.Command{
 			return
 		}
 		if resp != nil && resp.Data != nil {
+			format, err := GetOutputFormat(cmd)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
 			headers := []TableColumn{
 				{Header: "NAME", Width: 30},
 				{Header: "ID", Width: 26},
@@ -537,7 +560,11 @@ var subnetUpdateCmd = &cobra.Command{
 			if resp.Data.Status.State != nil {
 				status = *resp.Data.Status.State
 			}
-			PrintTable(headers, [][]string{{name, id, cidr, status}})
+			if err := RenderOutput(format, resp.Data, func() {
+				PrintTable(headers, [][]string{{name, id, cidr, status}})
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Printf("Subnet '%s' updated.\n", subnetID)
 		}

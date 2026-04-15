@@ -119,6 +119,12 @@ var vpcpeeringrouteCreateCmd = &cobra.Command{
 			return
 		}
 
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -195,7 +201,11 @@ var vpcpeeringrouteCreateCmd = &cobra.Command{
 					return ""
 				}(),
 			}
-			PrintTable(headers, [][]string{row})
+			if err := RenderOutput(format, resp.Data, func() {
+				PrintTable(headers, [][]string{row})
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("VPC peering route created, but no data returned.")
 		}
@@ -274,6 +284,12 @@ var vpcpeeringrouteListCmd = &cobra.Command{
 		vpcID := args[0]
 		peeringID := args[1]
 
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -322,7 +338,11 @@ var vpcpeeringrouteListCmd = &cobra.Command{
 				}
 				rows = append(rows, []string{name, localNetwork, remoteNetwork, status})
 			}
-			PrintTable(headers, rows)
+			if err := RenderOutput(format, resp.Data.Values, func() {
+				PrintTable(headers, rows)
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("No VPC peering routes found.")
 		}
@@ -440,6 +460,11 @@ var vpcpeeringrouteUpdateCmd = &cobra.Command{
 		}
 
 		if resp != nil && resp.Data != nil {
+			format, err := GetOutputFormat(cmd)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
 			headers := []TableColumn{
 				{Header: "NAME", Width: 30},
 				{Header: "LOCAL NETWORK", Width: 18},
@@ -457,7 +482,11 @@ var vpcpeeringrouteUpdateCmd = &cobra.Command{
 					return ""
 				}(),
 			}
-			PrintTable(headers, [][]string{row})
+			if err := RenderOutput(format, resp.Data, func() {
+				PrintTable(headers, [][]string{row})
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Printf("VPC peering route '%s' updated.\n", routeID)
 		}

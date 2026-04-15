@@ -116,6 +116,12 @@ var securityruleCreateCmd = &cobra.Command{
 		targetValue, _ := cmd.Flags().GetString("target-value")
 		verbose, _ := cmd.Flags().GetBool("verbose")
 
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		// Validate required fields
 		if name == "" {
 			fmt.Println("Error: --name is required")
@@ -235,7 +241,11 @@ var securityruleCreateCmd = &cobra.Command{
 					return ""
 				}(),
 			}
-			PrintTable(headers, [][]string{row})
+			if err := RenderOutput(format, resp.Data, func() {
+				PrintTable(headers, [][]string{row})
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("Security rule created, but no ID returned.")
 		}
@@ -332,6 +342,12 @@ var securityruleListCmd = &cobra.Command{
 		vpcID := args[0]
 		securityGroupID := args[1]
 
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -395,7 +411,11 @@ var securityruleListCmd = &cobra.Command{
 				}
 				rows = append(rows, []string{name, id, direction, protocol, port, target, status})
 			}
-			PrintTable(headers, rows)
+			if err := RenderOutput(format, resp.Data.Values, func() {
+				PrintTable(headers, rows)
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("No security rules found.")
 		}
@@ -569,6 +589,11 @@ var securityruleUpdateCmd = &cobra.Command{
 		}
 
 		if resp != nil && resp.Data != nil {
+			format, err := GetOutputFormat(cmd)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
 			headers := []TableColumn{
 				{Header: "NAME", Width: 30},
 				{Header: "ID", Width: 26},
@@ -600,7 +625,11 @@ var securityruleUpdateCmd = &cobra.Command{
 					return ""
 				}(),
 			}
-			PrintTable(headers, [][]string{row})
+			if err := RenderOutput(format, resp.Data, func() {
+				PrintTable(headers, [][]string{row})
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Printf("Security rule '%s' updated.\n", securityRuleID)
 		}

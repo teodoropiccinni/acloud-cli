@@ -107,6 +107,12 @@ var vpnrouteCreateCmd = &cobra.Command{
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 		verbose, _ := cmd.Flags().GetBool("verbose")
 
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		// Validate required fields
 		if name == "" {
 			fmt.Println("Error: --name is required")
@@ -205,7 +211,11 @@ var vpnrouteCreateCmd = &cobra.Command{
 					return ""
 				}(),
 			}
-			PrintTable(headers, [][]string{row})
+			if err := RenderOutput(format, resp.Data, func() {
+				PrintTable(headers, [][]string{row})
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("VPN route created, but no ID returned.")
 		}
@@ -295,6 +305,12 @@ var vpnrouteListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		vpnTunnelID := args[0]
 
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -351,7 +367,11 @@ var vpnrouteListCmd = &cobra.Command{
 				}
 				rows = append(rows, []string{name, id, cloudSubnet, onPremSubnet, status})
 			}
-			PrintTable(headers, rows)
+			if err := RenderOutput(format, resp.Data.Values, func() {
+				PrintTable(headers, rows)
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("No VPN routes found.")
 		}
@@ -477,6 +497,11 @@ var vpnrouteUpdateCmd = &cobra.Command{
 		}
 
 		if resp != nil && resp.Data != nil {
+			format, err := GetOutputFormat(cmd)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
 			headers := []TableColumn{
 				{Header: "NAME", Width: 30},
 				{Header: "ID", Width: 26},
@@ -506,7 +531,11 @@ var vpnrouteUpdateCmd = &cobra.Command{
 					return ""
 				}(),
 			}
-			PrintTable(headers, [][]string{row})
+			if err := RenderOutput(format, resp.Data, func() {
+				PrintTable(headers, [][]string{row})
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Printf("VPN route '%s' updated.\n", routeID)
 		}

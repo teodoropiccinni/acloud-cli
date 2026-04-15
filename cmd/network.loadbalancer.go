@@ -71,6 +71,12 @@ var loadbalancerListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all Load Balancers",
 	Run: func(cmd *cobra.Command, args []string) {
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
@@ -132,7 +138,11 @@ var loadbalancerListCmd = &cobra.Command{
 			}
 
 			// Print the table
-			PrintTable(headers, rows)
+			if err := RenderOutput(format, response.Data.Values, func() {
+				PrintTable(headers, rows)
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("No Load Balancers found")
 		}

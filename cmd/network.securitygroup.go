@@ -44,6 +44,11 @@ var securitygroupCreateCmd = &cobra.Command{
 			fmt.Println("Error: --name and --region are required")
 			return
 		}
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -95,7 +100,11 @@ var securitygroupCreateCmd = &cobra.Command{
 					}
 				}(),
 			}
-			PrintTable(headers, [][]string{row})
+			if err := RenderOutput(format, resp.Data, func() {
+				PrintTable(headers, [][]string{row})
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("Security group created, but no ID returned.")
 		}
@@ -177,6 +186,11 @@ var securitygroupListCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		vpcID := args[0]
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -230,7 +244,11 @@ var securitygroupListCmd = &cobra.Command{
 				}
 				rows = append(rows, []string{name, id, region, status})
 			}
-			PrintTable(headers, rows)
+			if err := RenderOutput(format, resp.Data.Values, func() {
+				PrintTable(headers, rows)
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("No security groups found.")
 		}
@@ -321,6 +339,11 @@ var securitygroupUpdateCmd = &cobra.Command{
 			return
 		}
 		if resp != nil && resp.Data != nil {
+			format, err := GetOutputFormat(cmd)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
 			headers := []TableColumn{
 				{Header: "NAME", Width: 30},
 				{Header: "ID", Width: 26},
@@ -348,7 +371,11 @@ var securitygroupUpdateCmd = &cobra.Command{
 					return ""
 				}(),
 			}
-			PrintTable(headers, [][]string{row})
+			if err := RenderOutput(format, resp.Data, func() {
+				PrintTable(headers, [][]string{row})
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Printf("Security group '%s' updated.\n", sgID)
 		}

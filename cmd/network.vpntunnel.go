@@ -111,6 +111,12 @@ var vpntunnelListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all VPN tunnels",
 	Run: func(cmd *cobra.Command, args []string) {
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		// Get SDK client
 		client, err := GetArubaClient()
 		if err != nil {
@@ -171,7 +177,11 @@ var vpntunnelListCmd = &cobra.Command{
 			}
 
 			// Print the table
-			PrintTable(headers, rows)
+			if err := RenderOutput(format, response.Data.Values, func() {
+				PrintTable(headers, rows)
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("No VPN tunnels found")
 		}

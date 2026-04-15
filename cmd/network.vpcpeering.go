@@ -58,6 +58,11 @@ var vpcpeeringCreateCmd = &cobra.Command{
 			fmt.Println("Error: --name, --peer-vpc-id, and --region are required")
 			return
 		}
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -127,7 +132,11 @@ var vpcpeeringCreateCmd = &cobra.Command{
 					}
 				}(),
 			}
-			PrintTable(headers, [][]string{row})
+			if err := RenderOutput(format, resp.Data, func() {
+				PrintTable(headers, [][]string{row})
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("VPC peering created, but no ID returned.")
 		}
@@ -209,6 +218,11 @@ var vpcpeeringListCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		vpcID := args[0]
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -267,7 +281,11 @@ var vpcpeeringListCmd = &cobra.Command{
 				}
 				rows = append(rows, []string{name, id, peerVPC, region, status})
 			}
-			PrintTable(headers, rows)
+			if err := RenderOutput(format, resp.Data.Values, func() {
+				PrintTable(headers, rows)
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("No VPC peerings found.")
 		}
@@ -362,6 +380,11 @@ var vpcpeeringUpdateCmd = &cobra.Command{
 			return
 		}
 		if resp != nil && resp.Data != nil {
+			format, err := GetOutputFormat(cmd)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
 			headers := []TableColumn{
 				{Header: "NAME", Width: 30},
 				{Header: "ID", Width: 26},
@@ -401,7 +424,11 @@ var vpcpeeringUpdateCmd = &cobra.Command{
 					return ""
 				}(),
 			}
-			PrintTable(headers, [][]string{row})
+			if err := RenderOutput(format, resp.Data, func() {
+				PrintTable(headers, [][]string{row})
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Printf("VPC peering '%s' updated.\n", peeringID)
 		}

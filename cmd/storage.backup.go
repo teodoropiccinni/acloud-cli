@@ -229,6 +229,12 @@ var storageBackupListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List storage backups",
 	Run: func(cmd *cobra.Command, args []string) {
+		format, err := GetOutputFormat(cmd)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -278,7 +284,11 @@ var storageBackupListCmd = &cobra.Command{
 				rows = append(rows, []string{name, id, backupType, status})
 			}
 
-			PrintTable(headers, rows)
+			if err := RenderOutput(format, response.Data.Values, func() {
+				PrintTable(headers, rows)
+			}); err != nil {
+				fmt.Println(err.Error())
+			}
 		} else {
 			fmt.Println("No backups found")
 		}
