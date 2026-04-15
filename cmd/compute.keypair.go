@@ -148,7 +148,7 @@ var keypairCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("Keypair created, but no data returned.")
+			fmt.Println(msgCreatedAsync("Keypair", name))
 		}
 		return nil
 	},
@@ -277,7 +277,7 @@ var keypairDeleteCmd = &cobra.Command{
 			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
-		fmt.Printf("Keypair '%s' deleted successfully.\n", keypairName)
+		fmt.Println(msgDeleted("Keypair", keypairName))
 		return nil
 	},
 }

@@ -120,7 +120,7 @@ var vpcpeeringCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("VPC peering created, but no ID returned.")
+			fmt.Println(msgCreatedAsync("VPC peering", name))
 		}
 		return nil
 	},
@@ -369,7 +369,7 @@ var vpcpeeringUpdateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Printf("VPC peering '%s' updated.\n", peeringID)
+			fmt.Println(msgUpdatedAsync("VPC peering", peeringID))
 		}
 		return nil
 	},

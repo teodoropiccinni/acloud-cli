@@ -195,7 +195,7 @@ var storageRestoreCmd = &cobra.Command{
 		}
 
 		if response.Data != nil {
-			fmt.Println("Restore operation created successfully!")
+			fmt.Println(msgCreated("Restore operation", name))
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			if response.Data.Metadata.CreationDate != nil && !response.Data.Metadata.CreationDate.IsZero() {
@@ -432,14 +432,14 @@ var storageRestoreUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nRestore operation updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("Restore operation", restoreID))
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			if len(response.Data.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Println("Warning: Update may have succeeded but response is empty")
+			fmt.Println(msgUpdatedAsync("Restore operation", restoreID))
 		}
 		return nil
 	},
@@ -482,7 +482,7 @@ var storageRestoreDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting restore: %w", err)
 		}
 
-		fmt.Printf("\nRestore operation %s deleted successfully!\n", restoreID)
+		fmt.Println(msgDeleted("Restore operation", restoreID))
 		return nil
 	},
 }

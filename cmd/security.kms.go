@@ -167,7 +167,7 @@ var kmsCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("KMS created, but no data returned.")
+			fmt.Println(msgCreatedAsync("KMS", name))
 		}
 		return nil
 	},
@@ -393,14 +393,14 @@ var kmsUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nKMS updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("KMS", kmsID))
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			if len(response.Data.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Println("Warning: Update may have succeeded but response is empty")
+			fmt.Println(msgUpdatedAsync("KMS", kmsID))
 		}
 		return nil
 	},
@@ -442,7 +442,7 @@ var kmsDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting KMS: %w", err)
 		}
 
-		fmt.Printf("\nKMS %s deleted successfully!\n", kmsID)
+		fmt.Println(msgDeleted("KMS", kmsID))
 		return nil
 	},
 }

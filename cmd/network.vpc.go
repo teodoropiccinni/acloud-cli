@@ -142,7 +142,7 @@ var vpcCreateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nVPC created successfully!")
+			fmt.Printf("\n%s\n", msgCreated("VPC", name))
 			if response.Data.Metadata.ID != nil {
 				fmt.Printf("ID:      %s\n", *response.Data.Metadata.ID)
 			}
@@ -154,7 +154,7 @@ var vpcCreateCmd = &cobra.Command{
 				fmt.Printf("Tags:    %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Println("VPC creation initiated. Use 'list' or 'get' to check status.")
+			fmt.Println(msgCreatedAsync("VPC", name))
 		}
 		return nil
 	},
@@ -323,7 +323,7 @@ var vpcUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nVPC updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("VPC", vpcID))
 			if response.Data.Metadata.ID != nil {
 				fmt.Printf("ID:      %s\n", *response.Data.Metadata.ID)
 			}
@@ -334,7 +334,7 @@ var vpcUpdateCmd = &cobra.Command{
 				fmt.Printf("Tags:    %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Printf("\nVPC %s update completed.\n", vpcID)
+			fmt.Println(msgUpdatedAsync("VPC", vpcID))
 		}
 		return nil
 	},
@@ -381,7 +381,7 @@ var vpcDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting VPC: %w", err)
 		}
 
-		fmt.Printf("\nVPC %s deleted successfully!\n", vpcID)
+		fmt.Println(msgDeleted("VPC", vpcID))
 		return nil
 	},
 }

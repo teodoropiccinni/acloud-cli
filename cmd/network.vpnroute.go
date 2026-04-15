@@ -186,7 +186,7 @@ var vpnrouteCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("VPN route created, but no ID returned.")
+			fmt.Println(msgCreatedAsync("VPN route", name))
 		}
 		return nil
 	},
@@ -461,7 +461,7 @@ var vpnrouteUpdateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Printf("VPN route '%s' updated.\n", routeID)
+			fmt.Println(msgUpdatedAsync("VPN route", routeID))
 		}
 		return nil
 	},

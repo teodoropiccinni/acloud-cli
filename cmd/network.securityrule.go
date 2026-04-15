@@ -210,7 +210,7 @@ var securityruleCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("Security rule created, but no ID returned.")
+			fmt.Println(msgCreatedAsync("Security rule", name))
 		}
 		return nil
 	},
@@ -540,7 +540,7 @@ var securityruleUpdateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Printf("Security rule '%s' updated.\n", securityRuleID)
+			fmt.Println(msgUpdatedAsync("Security rule", securityRuleID))
 		}
 		return nil
 	},

@@ -210,7 +210,7 @@ var containerregistryCreateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nContainer registry created successfully!")
+			fmt.Printf("\n%s\n", msgCreated("Container registry", name))
 			if response.Data.Metadata.ID != nil {
 				fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			}
@@ -218,15 +218,13 @@ var containerregistryCreateCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			}
 			if response.Data.Metadata.LocationResponse != nil {
-				if response.Data.Metadata.LocationResponse != nil {
-					fmt.Printf("Region:          %s\n", response.Data.Metadata.LocationResponse.Value)
-				}
+				fmt.Printf("Region:          %s\n", response.Data.Metadata.LocationResponse.Value)
 			}
 			if response.Data.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *response.Data.Status.State)
 			}
 		} else {
-			fmt.Println("Container registry creation initiated. Use 'list' or 'get' to check status.")
+			fmt.Println(msgCreatedAsync("Container registry", name))
 		}
 		return nil
 	},
@@ -454,7 +452,7 @@ var containerregistryUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nContainer registry updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("Container registry", registryID))
 			if response.Data.Metadata.Name != nil {
 				fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			}
@@ -465,7 +463,7 @@ var containerregistryUpdateCmd = &cobra.Command{
 				fmt.Printf("Status:          %s\n", *response.Data.Status.State)
 			}
 		} else {
-			fmt.Println("Container registry update initiated. Use 'get' to check status.")
+			fmt.Println(msgUpdatedAsync("Container registry", registryID))
 		}
 		return nil
 	},
@@ -519,7 +517,7 @@ var containerregistryDeleteCmd = &cobra.Command{
 			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
-		fmt.Printf("\nContainer registry '%s' deleted successfully!\n", registryID)
+		fmt.Println(msgDeleted("Container registry", registryID))
 		return nil
 	},
 }

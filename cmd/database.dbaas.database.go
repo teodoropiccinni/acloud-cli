@@ -121,13 +121,13 @@ var dbaasDatabaseCreateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nDatabase created successfully!")
+			fmt.Printf("\n%s\n", msgCreated("Database", name))
 			fmt.Printf("Name:            %s\n", response.Data.Name)
 			if response.Data.CreationDate != nil {
 				fmt.Printf("Creation Date:   %s\n", response.Data.CreationDate.Format(DateLayout))
 			}
 		} else {
-			fmt.Println("Database created, but no data returned.")
+			fmt.Println(msgCreatedAsync("Database", name))
 		}
 		return nil
 	},
@@ -285,10 +285,10 @@ var dbaasDatabaseUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nDatabase updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("Database", databaseName))
 			fmt.Printf("Name:            %s\n", response.Data.Name)
 		} else {
-			fmt.Println("Warning: Update may have succeeded but response is empty")
+			fmt.Println(msgUpdatedAsync("Database", databaseName))
 		}
 		return nil
 	},
@@ -331,7 +331,7 @@ var dbaasDatabaseDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting database: %w", err)
 		}
 
-		fmt.Printf("\nDatabase '%s' deleted successfully!\n", databaseName)
+		fmt.Println(msgDeleted("Database", databaseName))
 		return nil
 	},
 }

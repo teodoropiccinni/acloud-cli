@@ -192,7 +192,7 @@ var storageBackupCmd = &cobra.Command{
 		}
 
 		if response.Data != nil {
-			fmt.Println("Storage backup created successfully!")
+			fmt.Println(msgCreated("Storage backup", name))
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			fmt.Printf("Type:            %s\n", response.Data.Properties.Type)
@@ -445,14 +445,14 @@ var storageBackupUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nBackup updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("Backup", backupID))
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			if len(response.Data.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Println("Warning: Update may have succeeded but response is empty")
+			fmt.Println(msgUpdatedAsync("Backup", backupID))
 		}
 		return nil
 	},
@@ -494,7 +494,7 @@ var storageBackupDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting backup: %w", err)
 		}
 
-		fmt.Printf("\nBackup %s deleted successfully!\n", backupID)
+		fmt.Println(msgDeleted("Backup", backupID))
 		return nil
 	},
 }

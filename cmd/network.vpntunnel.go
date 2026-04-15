@@ -458,7 +458,7 @@ var vpntunnelCreateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nVPN Tunnel created successfully!")
+			fmt.Printf("\n%s\n", msgCreated("VPN Tunnel", name))
 			if response.Data.Metadata.ID != nil {
 				fmt.Printf("ID:       %s\n", *response.Data.Metadata.ID)
 			}
@@ -478,7 +478,7 @@ var vpntunnelCreateCmd = &cobra.Command{
 				fmt.Printf("Tags:     %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Println("VPN Tunnel creation initiated. Use 'list' or 'get' to check status.")
+			fmt.Println(msgCreatedAsync("VPN Tunnel", name))
 		}
 		return nil
 	},
@@ -582,7 +582,7 @@ var vpntunnelUpdateCmd = &cobra.Command{
 		}
 
 		if resp.Data != nil {
-			fmt.Println("\nVPN Tunnel updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("VPN Tunnel", vpnTunnelID))
 			if resp.Data.Metadata.ID != nil {
 				fmt.Printf("ID:      %s\n", *resp.Data.Metadata.ID)
 			}
@@ -593,7 +593,7 @@ var vpntunnelUpdateCmd = &cobra.Command{
 				fmt.Printf("Tags:    %v\n", resp.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Printf("\nVPN Tunnel %s update completed.\n", vpnTunnelID)
+			fmt.Println(msgUpdatedAsync("VPN Tunnel", vpnTunnelID))
 		}
 		return nil
 	},
@@ -644,7 +644,7 @@ var vpntunnelDeleteCmd = &cobra.Command{
 			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
-		fmt.Printf("VPN tunnel %s has been successfully deleted.\n", vpnTunnelID)
+		fmt.Println(msgDeleted("VPN tunnel", vpnTunnelID))
 		return nil
 	},
 }

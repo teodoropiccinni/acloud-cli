@@ -213,7 +213,7 @@ var jobCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("Job created, but no data returned.")
+			fmt.Println(msgCreatedAsync("Job", name))
 		}
 		return nil
 	},
@@ -475,7 +475,7 @@ var jobUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nJob updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("Job", jobID))
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			fmt.Printf("Enabled:         %t\n", response.Data.Properties.Enabled)
@@ -483,7 +483,7 @@ var jobUpdateCmd = &cobra.Command{
 				fmt.Printf("Tags:            %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Println("Warning: Update may have succeeded but response is empty")
+			fmt.Println(msgUpdatedAsync("Job", jobID))
 		}
 		return nil
 	},
@@ -525,7 +525,7 @@ var jobDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting job: %w", err)
 		}
 
-		fmt.Printf("\nJob %s deleted successfully!\n", jobID)
+		fmt.Println(msgDeleted("Job", jobID))
 		return nil
 	},
 }

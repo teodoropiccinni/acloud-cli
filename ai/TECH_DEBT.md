@@ -23,6 +23,7 @@ Issues are grouped by severity. Address Critical items before new features ship;
 | TD-017 | `listParams(cmd)` helper added; `--limit`/`--offset` flags added to all 25 list commands; list RunE handlers now pass pagination params to SDK |
 | TD-018 | Global client cache vars encapsulated in `clientState` struct with `resetClientState()` helper; all test reset blocks updated to use it |
 | TD-010 | Table-driven `RunE` tests added for all 23 testable command files (24 including pre-existing `network.vpc_test.go`); mock infrastructure in `cmd/mock_test.go` covers all sub-clients; `security.kms.go` skipped (concrete SDK type, cannot mock); nil-pointer bugs in `LocationResponse.Value` and `CreationDate.IsZero()` fixed as a side effect of test authoring; redundant double nil-check blocks left by AWK generation cleaned up in 5 files |
+| TD-020 | Six helper functions added to `cmd/root.go` (`msgCreated`, `msgCreatedAsync`, `msgUpdated`, `msgUpdatedAsync`, `msgDeleted`, `msgAction`); all ~91 success `fmt.Print*` calls replaced across 20 cmd files; one double-nil-check fixed in `container.containerregistry.go` as a side effect |
 
 ---
 
@@ -43,13 +44,6 @@ Issues are grouped by severity. Address Critical items before new features ship;
 Users cannot validate that a delete command would succeed (permissions, resource existence) without actually deleting the resource.
 
 **Fix:** Add `--dry-run` to all delete commands. In dry-run mode, perform a `get` to validate the resource exists and the client has access, then print what would happen without calling `delete`.
-
----
-
-### TD-020 · Inconsistent success messages across resources
-Success messages vary: `"...created successfully!"`, `"...initiated. Use 'get' to check status."`, `"Resource created, but no details returned."`. The last form is especially confusing — it implies partial success.
-
-**Fix:** Standardise to two patterns: a definitive success message when the API confirms completion, and an async-operation message when the API returns accepted-but-pending.
 
 ---
 

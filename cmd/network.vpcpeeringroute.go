@@ -179,7 +179,7 @@ var vpcpeeringrouteCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("VPC peering route created, but no data returned.")
+			fmt.Println(msgCreatedAsync("VPC peering route", name))
 		}
 		return nil
 	},
@@ -414,7 +414,7 @@ var vpcpeeringrouteUpdateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Printf("VPC peering route '%s' updated.\n", routeID)
+			fmt.Println(msgUpdatedAsync("VPC peering route", routeID))
 		}
 		return nil
 	},

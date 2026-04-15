@@ -237,6 +237,36 @@ func readSecret(prompt string) (string, error) {
 	return string(secret), nil
 }
 
+// msgCreated returns a consistent success message for synchronous create operations (TD-020).
+func msgCreated(kind, name string) string {
+	return fmt.Sprintf("%s '%s' created successfully.", kind, name)
+}
+
+// msgCreatedAsync returns a consistent message for async create operations (TD-020).
+func msgCreatedAsync(kind, name string) string {
+	return fmt.Sprintf("%s '%s' creation initiated. Use 'get' to check status.", kind, name)
+}
+
+// msgUpdated returns a consistent success message for synchronous update operations (TD-020).
+func msgUpdated(kind, name string) string {
+	return fmt.Sprintf("%s '%s' updated successfully.", kind, name)
+}
+
+// msgUpdatedAsync returns a consistent message for async update operations (TD-020).
+func msgUpdatedAsync(kind, name string) string {
+	return fmt.Sprintf("%s '%s' update initiated. Use 'get' to check status.", kind, name)
+}
+
+// msgDeleted returns a consistent success message for delete operations (TD-020).
+func msgDeleted(kind, name string) string {
+	return fmt.Sprintf("%s '%s' deleted successfully.", kind, name)
+}
+
+// msgAction returns a consistent success message for arbitrary actions (TD-020).
+func msgAction(kind, name, verb string) string {
+	return fmt.Sprintf("%s '%s' %s successfully.", kind, name, verb)
+}
+
 // listParams builds pagination RequestParameters from --limit and --offset flags (TD-017).
 // Returns nil when neither flag is set, preserving the existing nil-means-no-options contract.
 func listParams(cmd *cobra.Command) *types.RequestParameters {

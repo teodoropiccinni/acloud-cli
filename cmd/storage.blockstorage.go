@@ -216,7 +216,7 @@ var blockstorageCreateCmd = &cobra.Command{
 		}
 
 		if response.Data != nil {
-			fmt.Println("\nBlock storage created successfully!")
+			fmt.Printf("\n%s\n", msgCreated("Block storage", name))
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			fmt.Printf("Size (GB):       %d\n", response.Data.Properties.SizeGB)
@@ -232,7 +232,7 @@ var blockstorageCreateCmd = &cobra.Command{
 				fmt.Printf("Creation Date:   %s\n", response.Data.Metadata.CreationDate.Format(DateLayout))
 			}
 		} else {
-			fmt.Println("Block storage created but no details returned")
+			fmt.Println(msgCreatedAsync("Block storage", name))
 		}
 		return nil
 	},
@@ -432,7 +432,7 @@ var blockstorageUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nBlock storage updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("Block storage", volumeID))
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			if len(response.Data.Metadata.Tags) > 0 {
@@ -441,7 +441,7 @@ var blockstorageUpdateCmd = &cobra.Command{
 			fmt.Printf("Size (GB):       %d\n", response.Data.Properties.SizeGB)
 			fmt.Printf("Type:            %s\n", response.Data.Properties.Type)
 		} else {
-			fmt.Println("Warning: Update may have succeeded but response is empty")
+			fmt.Println(msgUpdatedAsync("Block storage", volumeID))
 		}
 		return nil
 	},
@@ -488,7 +488,7 @@ var blockstorageDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting block storage: %w", err)
 		}
 
-		fmt.Printf("\nBlock storage %s deleted successfully!\n", volumeID)
+		fmt.Println(msgDeleted("Block storage", volumeID))
 		return nil
 	},
 }

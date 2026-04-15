@@ -209,7 +209,7 @@ var backupCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("Backup created, but no data returned.")
+			fmt.Println(msgCreatedAsync("Backup", name))
 		}
 		return nil
 	},
@@ -404,7 +404,7 @@ var backupDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting backup: %w", err)
 		}
 
-		fmt.Printf("\nBackup %s deleted successfully!\n", backupID)
+		fmt.Println(msgDeleted("Backup", backupID))
 		return nil
 	},
 }

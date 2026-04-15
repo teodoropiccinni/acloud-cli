@@ -190,7 +190,7 @@ var subnetCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("Subnet created, but no ID returned.")
+			fmt.Println(msgCreatedAsync("Subnet", name))
 		}
 		return nil
 	},
@@ -512,7 +512,7 @@ var subnetUpdateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{{name, id, cidr, status}})
 		} else {
-			fmt.Printf("Subnet '%s' updated.\n", subnetID)
+			fmt.Println(msgUpdatedAsync("Subnet", subnetID))
 		}
 		return nil
 	},

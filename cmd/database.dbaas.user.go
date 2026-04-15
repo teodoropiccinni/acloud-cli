@@ -125,13 +125,13 @@ var dbaasUserCreateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nUser created successfully!")
+			fmt.Printf("\n%s\n", msgCreated("User", username))
 			fmt.Printf("Username:        %s\n", response.Data.Username)
 			if response.Data.CreationDate != nil {
 				fmt.Printf("Creation Date:   %s\n", response.Data.CreationDate.Format(DateLayout))
 			}
 		} else {
-			fmt.Println("User created, but no data returned.")
+			fmt.Println(msgCreatedAsync("User", username))
 		}
 		return nil
 	},
@@ -290,10 +290,10 @@ var dbaasUserUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nUser updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("User", username))
 			fmt.Printf("Username:        %s\n", response.Data.Username)
 		} else {
-			fmt.Println("Warning: Update may have succeeded but response is empty")
+			fmt.Println(msgUpdatedAsync("User", username))
 		}
 		return nil
 	},
@@ -336,7 +336,7 @@ var dbaasUserDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting user: %w", err)
 		}
 
-		fmt.Printf("\nUser '%s' deleted successfully!\n", username)
+		fmt.Println(msgDeleted("User", username))
 		return nil
 	},
 }

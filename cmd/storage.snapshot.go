@@ -162,7 +162,7 @@ var snapshotCreateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nSnapshot created successfully!")
+			fmt.Printf("\n%s\n", msgCreated("Snapshot", name))
 			if response.Data.Metadata.ID != nil {
 				fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			}
@@ -173,7 +173,7 @@ var snapshotCreateCmd = &cobra.Command{
 				fmt.Printf("Creation Date:   %s\n", response.Data.Metadata.CreationDate.Format(DateLayout))
 			}
 		} else {
-			fmt.Println("Warning: Snapshot may have been created but response is empty")
+			fmt.Println(msgCreatedAsync("Snapshot", name))
 		}
 		return nil
 	},
@@ -363,7 +363,7 @@ var snapshotUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nSnapshot updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("Snapshot", snapshotID))
 			if response.Data.Metadata.ID != nil {
 				fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			}
@@ -374,7 +374,7 @@ var snapshotUpdateCmd = &cobra.Command{
 				fmt.Printf("Tags:            %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Println("Warning: Update may have succeeded but response is empty")
+			fmt.Println(msgUpdatedAsync("Snapshot", snapshotID))
 		}
 		return nil
 	},
@@ -421,7 +421,7 @@ var snapshotDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting snapshot: %w", err)
 		}
 
-		fmt.Printf("\nSnapshot %s deleted successfully!\n", snapshotID)
+		fmt.Println(msgDeleted("Snapshot", snapshotID))
 		return nil
 	},
 }

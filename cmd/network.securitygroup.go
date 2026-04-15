@@ -98,7 +98,7 @@ var securitygroupCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("Security group created, but no ID returned.")
+			fmt.Println(msgCreatedAsync("Security group", name))
 		}
 		return nil
 	},
@@ -329,7 +329,7 @@ var securitygroupUpdateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Printf("Security group '%s' updated.\n", sgID)
+			fmt.Println(msgUpdatedAsync("Security group", sgID))
 		}
 		return nil
 	},

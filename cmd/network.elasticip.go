@@ -141,7 +141,7 @@ var elasticipCreateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nElastic IP created successfully!")
+			fmt.Printf("\n%s\n", msgCreated("Elastic IP", name))
 			if response.Data.Metadata.ID != nil {
 				fmt.Printf("ID:      %s\n", *response.Data.Metadata.ID)
 			}
@@ -155,7 +155,7 @@ var elasticipCreateCmd = &cobra.Command{
 				fmt.Printf("Tags:    %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Println("Elastic IP creation initiated. Use 'list' or 'get' to check status.")
+			fmt.Println(msgCreatedAsync("Elastic IP", name))
 		}
 		return nil
 	},
@@ -395,7 +395,7 @@ var elasticipUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nElastic IP updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("Elastic IP", eipID))
 			if response.Data.Metadata.ID != nil {
 				fmt.Printf("ID:      %s\n", *response.Data.Metadata.ID)
 			}
@@ -406,7 +406,7 @@ var elasticipUpdateCmd = &cobra.Command{
 				fmt.Printf("Tags:    %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Printf("\nElastic IP %s update completed.\n", eipID)
+			fmt.Println(msgUpdatedAsync("Elastic IP", eipID))
 		}
 		return nil
 	},
@@ -453,7 +453,7 @@ var elasticipDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting Elastic IP: %w", err)
 		}
 
-		fmt.Printf("\nElastic IP %s deleted successfully!\n", eipID)
+		fmt.Println(msgDeleted("Elastic IP", eipID))
 		return nil
 	},
 }

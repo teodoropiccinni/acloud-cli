@@ -172,7 +172,7 @@ var projectCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("Project created, but no data returned.")
+			fmt.Println(msgCreatedAsync("Project", name))
 		}
 		return nil
 	},
@@ -358,7 +358,7 @@ var projectUpdateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Printf("Project '%s' updated.\n", projectID)
+			fmt.Println(msgUpdatedAsync("Project", projectID))
 		}
 		return nil
 	},
