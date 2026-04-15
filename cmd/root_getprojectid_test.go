@@ -136,12 +136,7 @@ func TestGetProjectID_NoFlagNoContext(t *testing.T) {
 			os.Setenv("USERPROFILE", originalUserProfile)
 		}
 		// Clear client cache to avoid interference
-		clientCacheLock.Lock()
-		clientCache = nil
-		cachedClientID = ""
-		cachedSecret = ""
-		cachedDebug = false
-		clientCacheLock.Unlock()
+		resetClientState()
 	}()
 
 	// Ensure no context file exists in temp dir

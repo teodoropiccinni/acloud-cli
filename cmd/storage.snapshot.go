@@ -41,6 +41,8 @@ func init() {
 	snapshotListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	snapshotListCmd.Flags().String("volume-uri", "", "Block storage volume URI (required)")
 	snapshotListCmd.Flags().BoolP("verbose", "v", false, "Show detailed debug information")
+	snapshotListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	snapshotListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 	snapshotListCmd.MarkFlagRequired("volume-uri")
 
 	snapshotGetCmd.ValidArgsFunction = completeSnapshotID
@@ -160,18 +162,18 @@ var snapshotCreateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nSnapshot created successfully!")
+			fmt.Printf("\n%s\n", msgCreated("Snapshot", name))
 			if response.Data.Metadata.ID != nil {
 				fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			}
 			if response.Data.Metadata.Name != nil {
 				fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			}
-			if !response.Data.Metadata.CreationDate.IsZero() {
+			if response.Data.Metadata.CreationDate != nil && !response.Data.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", response.Data.Metadata.CreationDate.Format(DateLayout))
 			}
 		} else {
-			fmt.Println("Warning: Snapshot may have been created but response is empty")
+			fmt.Println(msgCreatedAsync("Snapshot", name))
 		}
 		return nil
 	},
@@ -230,7 +232,9 @@ var snapshotGetCmd = &cobra.Command{
 			}
 
 			if snapshot.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", snapshot.Metadata.LocationResponse.Value)
+				if snapshot.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", snapshot.Metadata.LocationResponse.Value)
+				}
 			}
 
 			status := ""
@@ -239,7 +243,7 @@ var snapshotGetCmd = &cobra.Command{
 			}
 			fmt.Printf("Status:          %s\n", status)
 
-			if !snapshot.Metadata.CreationDate.IsZero() {
+			if snapshot.Metadata.CreationDate != nil && !snapshot.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", snapshot.Metadata.CreationDate.Format(DateLayout))
 			}
 
@@ -359,7 +363,7 @@ var snapshotUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nSnapshot updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("Snapshot", snapshotID))
 			if response.Data.Metadata.ID != nil {
 				fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			}
@@ -370,7 +374,7 @@ var snapshotUpdateCmd = &cobra.Command{
 				fmt.Printf("Tags:            %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Println("Warning: Update may have succeeded but response is empty")
+			fmt.Println(msgUpdatedAsync("Snapshot", snapshotID))
 		}
 		return nil
 	},
@@ -417,7 +421,7 @@ var snapshotDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting snapshot: %w", err)
 		}
 
-		fmt.Printf("\nSnapshot %s deleted successfully!\n", snapshotID)
+		fmt.Println(msgDeleted("Snapshot", snapshotID))
 		return nil
 	},
 }
@@ -445,7 +449,7 @@ var snapshotListCmd = &cobra.Command{
 		// List snapshots using the SDK (filter by volume URI on client side)
 		ctx, cancel := newCtx()
 		defer cancel()
-		response, err := client.FromStorage().Snapshots().List(ctx, projectID, nil)
+		response, err := client.FromStorage().Snapshots().List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing snapshots: %w", err)
 		}

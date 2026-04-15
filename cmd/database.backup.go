@@ -42,6 +42,8 @@ func init() {
 	backupDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	backupListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	backupListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	backupListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	backupGetCmd.ValidArgsFunction = completeDatabaseBackupID
@@ -105,10 +107,6 @@ var backupCreateCmd = &cobra.Command{
 		databaseName, _ := cmd.Flags().GetString("database-name")
 		billingPeriod, _ := cmd.Flags().GetString("billing-period")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
-
-		if name == "" || region == "" || dbaasID == "" || databaseName == "" {
-			return fmt.Errorf("--name, --region, --dbaas-id, and --database-name are required")
-		}
 
 		client, err := GetArubaClient()
 		if err != nil {
@@ -211,7 +209,7 @@ var backupCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("Backup created, but no data returned.")
+			fmt.Println(msgCreatedAsync("Backup", name))
 		}
 		return nil
 	},
@@ -261,12 +259,14 @@ var backupGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *backup.Metadata.Name)
 			}
 			if backup.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", backup.Metadata.LocationResponse.Value)
+				if backup.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", backup.Metadata.LocationResponse.Value)
+				}
 			}
 			if backup.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *backup.Status.State)
 			}
-			if !backup.Metadata.CreationDate.IsZero() {
+			if backup.Metadata.CreationDate != nil && !backup.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", backup.Metadata.CreationDate.Format(DateLayout))
 			}
 			if backup.Metadata.CreatedBy != nil {
@@ -302,7 +302,7 @@ var backupListCmd = &cobra.Command{
 
 		ctx, cancel := newCtx()
 		defer cancel()
-		resp, err := client.FromDatabase().Backups().List(ctx, projectID, nil)
+		resp, err := client.FromDatabase().Backups().List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing backups: %w", err)
 		}
@@ -404,7 +404,7 @@ var backupDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting backup: %w", err)
 		}
 
-		fmt.Printf("\nBackup %s deleted successfully!\n", backupID)
+		fmt.Println(msgDeleted("Backup", backupID))
 		return nil
 	},
 }

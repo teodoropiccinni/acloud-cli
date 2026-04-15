@@ -61,6 +61,8 @@ func init() {
 	cloudserverDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	cloudserverListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	cloudserverListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	cloudserverListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	cloudserverPowerOnCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	cloudserverPowerOffCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
@@ -171,10 +173,6 @@ var cloudserverCreateCmd = &cobra.Command{
 		keypairURI, _ := cmd.Flags().GetString("keypair-uri")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 		userDataFile, _ := cmd.Flags().GetString("user-data-file")
-
-		if name == "" || region == "" || flavor == "" || bootDiskURI == "" || vpcURI == "" || len(subnetURIs) == 0 || len(securityGroupURIs) == 0 {
-			return fmt.Errorf("--name, --region, --flavor, --boot-disk-uri, --vpc-uri, --subnet-uri, and --security-group-uri are required")
-		}
 
 		client, err := GetArubaClient()
 		if err != nil {
@@ -290,7 +288,7 @@ var cloudserverCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("Cloud server created, but no data returned.")
+			fmt.Println(msgCreatedAsync("Cloud server", name))
 		}
 		return nil
 	},
@@ -472,7 +470,7 @@ var cloudserverUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nCloud server updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("Cloud server", serverID))
 			if response.Data.Metadata.Name != nil {
 				fmt.Printf("Name:    %s\n", *response.Data.Metadata.Name)
 			}
@@ -480,7 +478,7 @@ var cloudserverUpdateCmd = &cobra.Command{
 				fmt.Printf("Tags:    %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Println("Cloud server update initiated. Use 'get' to check status.")
+			fmt.Println(msgUpdatedAsync("Cloud server", serverID))
 		}
 		return nil
 	},
@@ -526,7 +524,7 @@ var cloudserverDeleteCmd = &cobra.Command{
 			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
-		fmt.Printf("Cloud server '%s' deleted successfully.\n", serverID)
+		fmt.Println(msgDeleted("Cloud server", serverID))
 		return nil
 	},
 }
@@ -548,7 +546,7 @@ var cloudserverListCmd = &cobra.Command{
 
 		ctx, cancel := newCtx()
 		defer cancel()
-		response, err := client.FromCompute().CloudServers().List(ctx, projectID, nil)
+		response, err := client.FromCompute().CloudServers().List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing cloud servers: %w", err)
 		}
@@ -650,7 +648,7 @@ var cloudserverPowerOnCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("Cloud server powered on successfully!")
+			fmt.Println(msgAction("Cloud server", serverID, "powered on"))
 			if response.Data.Metadata.Name != nil {
 				fmt.Printf("Server: %s\n", *response.Data.Metadata.Name)
 			}
@@ -658,7 +656,7 @@ var cloudserverPowerOnCmd = &cobra.Command{
 				fmt.Printf("Status: %s\n", *response.Data.Status.State)
 			}
 		} else {
-			fmt.Println("Cloud server power-on initiated. Use 'get' to check status.")
+			fmt.Println(msgAction("Cloud server", serverID, "power-on initiated"))
 		}
 		return nil
 	},
@@ -693,7 +691,7 @@ var cloudserverPowerOffCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("Cloud server powered off successfully!")
+			fmt.Println(msgAction("Cloud server", serverID, "powered off"))
 			if response.Data.Metadata.Name != nil {
 				fmt.Printf("Server: %s\n", *response.Data.Metadata.Name)
 			}
@@ -701,7 +699,7 @@ var cloudserverPowerOffCmd = &cobra.Command{
 				fmt.Printf("Status: %s\n", *response.Data.Status.State)
 			}
 		} else {
-			fmt.Println("Cloud server power-off initiated. Use 'get' to check status.")
+			fmt.Println(msgAction("Cloud server", serverID, "power-off initiated"))
 		}
 		return nil
 	},
@@ -748,7 +746,7 @@ var cloudserverSetPasswordCmd = &cobra.Command{
 			// Try to cast to CloudServerResponse to get detailed info
 			// response.Data is *any, so we need to dereference and assert
 			if data, ok := (*response.Data).(*types.CloudServerResponse); ok && data != nil {
-				fmt.Println("Cloud server password set successfully!")
+				fmt.Println(msgAction("Cloud server", serverID, "password set"))
 				if data.Metadata.Name != nil {
 					fmt.Printf("Server: %s\n", *data.Metadata.Name)
 				}
@@ -756,13 +754,10 @@ var cloudserverSetPasswordCmd = &cobra.Command{
 					fmt.Printf("Status: %s\n", *data.Status.State)
 				}
 			} else {
-				// If response doesn't have CloudServerResponse structure, show simple success
-				fmt.Println("Cloud server password set successfully!")
-				fmt.Printf("Server ID: %s\n", serverID)
+				fmt.Println(msgAction("Cloud server", serverID, "password set"))
 			}
 		} else {
-			fmt.Println("Cloud server password set successfully!")
-			fmt.Printf("Server ID: %s\n", serverID)
+			fmt.Println(msgAction("Cloud server", serverID, "password set"))
 		}
 		return nil
 	},

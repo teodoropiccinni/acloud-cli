@@ -36,6 +36,8 @@ func init() {
 	keypairDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	keypairListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	keypairListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	keypairListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	keypairGetCmd.ValidArgsFunction = completeKeyPairID
@@ -96,10 +98,6 @@ var keypairCreateCmd = &cobra.Command{
 		name, _ := cmd.Flags().GetString("name")
 		publicKey, _ := cmd.Flags().GetString("public-key")
 
-		if name == "" || publicKey == "" {
-			return fmt.Errorf("--name and --public-key are required")
-		}
-
 		client, err := GetArubaClient()
 		if err != nil {
 			return fmt.Errorf("initializing client: %w", err)
@@ -150,7 +148,7 @@ var keypairCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("Keypair created, but no data returned.")
+			fmt.Println(msgCreatedAsync("Keypair", name))
 		}
 		return nil
 	},
@@ -202,7 +200,7 @@ var keypairGetCmd = &cobra.Command{
 			// Show status as 'Active' for consistency
 			fmt.Printf("Status:          Active\n")
 
-			if !keypair.Metadata.CreationDate.IsZero() {
+			if keypair.Metadata.CreationDate != nil && !keypair.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", keypair.Metadata.CreationDate.Format(DateLayout))
 			}
 			if keypair.Metadata.CreatedBy != nil {
@@ -279,7 +277,7 @@ var keypairDeleteCmd = &cobra.Command{
 			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
-		fmt.Printf("Keypair '%s' deleted successfully.\n", keypairName)
+		fmt.Println(msgDeleted("Keypair", keypairName))
 		return nil
 	},
 }
@@ -301,7 +299,7 @@ var keypairListCmd = &cobra.Command{
 
 		ctx, cancel := newCtx()
 		defer cancel()
-		response, err := client.FromCompute().KeyPairs().List(ctx, projectID, nil)
+		response, err := client.FromCompute().KeyPairs().List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing keypairs: %w", err)
 		}

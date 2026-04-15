@@ -45,12 +45,7 @@ func setupMockConfig(t *testing.T) (string, func()) {
 			os.Setenv("HOME", originalHome)
 		}
 		// Clear client cache
-		clientCacheLock.Lock()
-		clientCache = nil
-		cachedClientID = ""
-		cachedSecret = ""
-		cachedDebug = false
-		clientCacheLock.Unlock()
+		resetClientState()
 	}
 
 	return configPath, cleanup
@@ -61,12 +56,7 @@ func TestGetArubaClient(t *testing.T) {
 	defer cleanup()
 
 	// Clear cache before test
-	clientCacheLock.Lock()
-	clientCache = nil
-	cachedClientID = ""
-	cachedSecret = ""
-	cachedDebug = false
-	clientCacheLock.Unlock()
+	resetClientState()
 
 	client, err := GetArubaClient()
 	if err != nil {
@@ -83,12 +73,7 @@ func TestGetArubaClient_Caching(t *testing.T) {
 	defer cleanup()
 
 	// Clear cache
-	clientCacheLock.Lock()
-	clientCache = nil
-	cachedClientID = ""
-	cachedSecret = ""
-	cachedDebug = false
-	clientCacheLock.Unlock()
+	resetClientState()
 
 	client1, err1 := GetArubaClient()
 	if err1 != nil {
@@ -125,12 +110,7 @@ func TestGetArubaClient_NoConfig(t *testing.T) {
 			os.Setenv("HOME", originalHome)
 		}
 		// Clear client cache
-		clientCacheLock.Lock()
-		clientCache = nil
-		cachedClientID = ""
-		cachedSecret = ""
-		cachedDebug = false
-		clientCacheLock.Unlock()
+		resetClientState()
 	}()
 
 	client, err := GetArubaClient()
@@ -166,12 +146,7 @@ func TestGetArubaClient_EmptyCredentials(t *testing.T) {
 			os.Setenv("HOME", originalHome)
 		}
 		// Clear client cache
-		clientCacheLock.Lock()
-		clientCache = nil
-		cachedClientID = ""
-		cachedSecret = ""
-		cachedDebug = false
-		clientCacheLock.Unlock()
+		resetClientState()
 	}()
 
 	// Create config with empty credentials
@@ -260,12 +235,7 @@ func TestGetArubaClient_DebugFlagChange(t *testing.T) {
 	defer cleanup()
 
 	// Clear cache
-	clientCacheLock.Lock()
-	clientCache = nil
-	cachedClientID = ""
-	cachedSecret = ""
-	cachedDebug = false
-	clientCacheLock.Unlock()
+	resetClientState()
 
 	// First call without debug
 	rootCmd.PersistentFlags().Set("debug", "false")
@@ -306,12 +276,7 @@ func TestGetArubaClient_CredentialChange(t *testing.T) {
 			os.Setenv("HOME", originalHome)
 		}
 		// Clear client cache
-		clientCacheLock.Lock()
-		clientCache = nil
-		cachedClientID = ""
-		cachedSecret = ""
-		cachedDebug = false
-		clientCacheLock.Unlock()
+		resetClientState()
 	}()
 
 	// Create initial config
@@ -325,12 +290,7 @@ func TestGetArubaClient_CredentialChange(t *testing.T) {
 	}
 
 	// Clear cache
-	clientCacheLock.Lock()
-	clientCache = nil
-	cachedClientID = ""
-	cachedSecret = ""
-	cachedDebug = false
-	clientCacheLock.Unlock()
+	resetClientState()
 
 	// First call
 	client1, err1 := GetArubaClient()

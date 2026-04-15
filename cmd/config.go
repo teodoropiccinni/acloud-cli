@@ -64,10 +64,15 @@ var configSetCmd = &cobra.Command{
 
 		// Validate required fields
 		if config.ClientID == "" && clientID == "" {
-			return fmt.Errorf("--client-id is required\nPlease run: acloud config set --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET")
+			return fmt.Errorf("--client-id is required")
 		}
+		// If --client-secret was not provided and there is no existing secret, prompt interactively
 		if config.ClientSecret == "" && clientSecret == "" {
-			return fmt.Errorf("--client-secret is required\nPlease run: acloud config set --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET")
+			prompted, err := readSecret("Enter client secret: ")
+			if err != nil {
+				return fmt.Errorf("--client-secret is required: %w", err)
+			}
+			clientSecret = prompted
 		}
 
 		// Update only provided values
@@ -86,7 +91,7 @@ var configSetCmd = &cobra.Command{
 
 		// Final validation: both clientID and clientSecret must be set
 		if config.ClientID == "" || config.ClientSecret == "" {
-			return fmt.Errorf("both --client-id and --client-secret are required\nPlease run: acloud config set --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET")
+			return fmt.Errorf("both client-id and client-secret are required")
 		}
 
 		// Save config

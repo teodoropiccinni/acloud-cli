@@ -17,10 +17,21 @@ func init() {
 	securitygroupCmd.AddCommand(securitygroupListCmd)
 
 	// SecurityGroup flags
+	securitygroupCreateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	securitygroupCreateCmd.Flags().String("name", "", "Security group name (required)")
 	securitygroupCreateCmd.Flags().String("region", "", "Region code (required)")
 	securitygroupCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
+	securitygroupCreateCmd.MarkFlagRequired("name")
+	securitygroupCreateCmd.MarkFlagRequired("region")
+	securitygroupGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	securitygroupUpdateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	securitygroupUpdateCmd.Flags().String("name", "", "New name for the security group")
+	securitygroupUpdateCmd.Flags().StringSlice("tags", []string{}, "New tags (comma-separated)")
+	securitygroupDeleteCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	securitygroupDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
+	securitygroupListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	securitygroupListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	securitygroupListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 }
 
 // SecurityGroup subcommands
@@ -37,11 +48,8 @@ var securitygroupCreateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vpcID := args[0]
 		name, _ := cmd.Flags().GetString("name")
-		region, _ := cmd.Flags().GetString("region")
+		_, _ = cmd.Flags().GetString("region") // required by Cobra, not used in SDK request
 		tags, _ := cmd.Flags().GetStringSlice("tags")
-		if name == "" || region == "" {
-			return fmt.Errorf("--name and --region are required")
-		}
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			return err
@@ -90,7 +98,7 @@ var securitygroupCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("Security group created, but no ID returned.")
+			fmt.Println(msgCreatedAsync("Security group", name))
 		}
 		return nil
 	},
@@ -134,7 +142,9 @@ var securitygroupGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *sg.Metadata.Name)
 			}
 			if sg.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", sg.Metadata.LocationResponse.Value)
+				if sg.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", sg.Metadata.LocationResponse.Value)
+				}
 			}
 			if sg.Metadata.CreationDate != nil {
 				fmt.Printf("Creation Date:   %s\n", sg.Metadata.CreationDate.Format(DateLayout))
@@ -173,7 +183,7 @@ var securitygroupListCmd = &cobra.Command{
 		}
 		ctx, cancel := newCtx()
 		defer cancel()
-		resp, err := client.FromNetwork().SecurityGroups().List(ctx, projectID, vpcID, nil)
+		resp, err := client.FromNetwork().SecurityGroups().List(ctx, projectID, vpcID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing security groups: %w", err)
 		}
@@ -319,7 +329,7 @@ var securitygroupUpdateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Printf("Security group '%s' updated.\n", sgID)
+			fmt.Println(msgUpdatedAsync("Security group", sgID))
 		}
 		return nil
 	},

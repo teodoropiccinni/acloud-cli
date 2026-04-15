@@ -23,6 +23,9 @@ func init() {
 	vpcpeeringCreateCmd.Flags().String("peer-vpc-id", "", "Peer VPC ID or URI (required)")
 	vpcpeeringCreateCmd.Flags().String("region", "", "Region code (e.g., ITBG-Bergamo) (required)")
 	vpcpeeringCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
+	vpcpeeringCreateCmd.MarkFlagRequired("name")
+	vpcpeeringCreateCmd.MarkFlagRequired("peer-vpc-id")
+	vpcpeeringCreateCmd.MarkFlagRequired("region")
 
 	vpcpeeringGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 
@@ -34,6 +37,8 @@ func init() {
 	vpcpeeringDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	vpcpeeringListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	vpcpeeringListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	vpcpeeringListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 }
 
 // Peering subcommands
@@ -53,9 +58,6 @@ var vpcpeeringCreateCmd = &cobra.Command{
 		peerVPCID, _ := cmd.Flags().GetString("peer-vpc-id")
 		region, _ := cmd.Flags().GetString("region")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
-		if name == "" || peerVPCID == "" || region == "" {
-			return fmt.Errorf("--name, --peer-vpc-id, and --region are required")
-		}
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
 			return err
@@ -118,7 +120,7 @@ var vpcpeeringCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("VPC peering created, but no ID returned.")
+			fmt.Println(msgCreatedAsync("VPC peering", name))
 		}
 		return nil
 	},
@@ -162,7 +164,9 @@ var vpcpeeringGetCmd = &cobra.Command{
 				fmt.Printf("Peer VPC:        %s\n", peering.Properties.RemoteVPC.URI)
 			}
 			if peering.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", peering.Metadata.LocationResponse.Value)
+				if peering.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", peering.Metadata.LocationResponse.Value)
+				}
 			}
 			if peering.Metadata.CreationDate != nil {
 				fmt.Printf("Creation Date:   %s\n", peering.Metadata.CreationDate.Format(DateLayout))
@@ -201,7 +205,7 @@ var vpcpeeringListCmd = &cobra.Command{
 		}
 		ctx, cancel := newCtx()
 		defer cancel()
-		resp, err := client.FromNetwork().VPCPeerings().List(ctx, projectID, vpcID, nil)
+		resp, err := client.FromNetwork().VPCPeerings().List(ctx, projectID, vpcID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing VPC peerings: %w", err)
 		}
@@ -365,7 +369,7 @@ var vpcpeeringUpdateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Printf("VPC peering '%s' updated.\n", peeringID)
+			fmt.Println(msgUpdatedAsync("VPC peering", peeringID))
 		}
 		return nil
 	},

@@ -27,6 +27,10 @@ func init() {
 	vpnrouteCreateCmd.Flags().String("onprem-subnet", "", "CIDR of the on-prem subnet (required)")
 	vpnrouteCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
 	vpnrouteCreateCmd.Flags().BoolP("verbose", "v", false, "Show detailed debug information")
+	vpnrouteCreateCmd.MarkFlagRequired("name")
+	vpnrouteCreateCmd.MarkFlagRequired("region")
+	vpnrouteCreateCmd.MarkFlagRequired("cloud-subnet")
+	vpnrouteCreateCmd.MarkFlagRequired("onprem-subnet")
 
 	vpnrouteGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 
@@ -40,6 +44,8 @@ func init() {
 	vpnrouteDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	vpnrouteListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	vpnrouteListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	vpnrouteListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	vpnrouteGetCmd.ValidArgsFunction = completeVPNRouteID
@@ -106,20 +112,6 @@ var vpnrouteCreateCmd = &cobra.Command{
 		onPremSubnet, _ := cmd.Flags().GetString("onprem-subnet")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 		verbose, _ := cmd.Flags().GetBool("verbose")
-
-		// Validate required fields
-		if name == "" {
-			return fmt.Errorf("--name is required")
-		}
-		if region == "" {
-			return fmt.Errorf("--region is required")
-		}
-		if cloudSubnet == "" {
-			return fmt.Errorf("--cloud-subnet is required")
-		}
-		if onPremSubnet == "" {
-			return fmt.Errorf("--onprem-subnet is required")
-		}
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
@@ -194,7 +186,7 @@ var vpnrouteCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("VPN route created, but no ID returned.")
+			fmt.Println(msgCreatedAsync("VPN route", name))
 		}
 		return nil
 	},
@@ -243,7 +235,9 @@ var vpnrouteGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *route.Metadata.Name)
 			}
 			if route.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", route.Metadata.LocationResponse.Value)
+				if route.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", route.Metadata.LocationResponse.Value)
+				}
 			}
 			fmt.Printf("Cloud Subnet:    %s\n", route.Properties.CloudSubnet)
 			fmt.Printf("OnPrem Subnet:   %s\n", route.Properties.OnPremSubnet)
@@ -287,7 +281,7 @@ var vpnrouteListCmd = &cobra.Command{
 
 		ctx, cancel := newCtx()
 		defer cancel()
-		resp, err := client.FromNetwork().VPNRoutes().List(ctx, projectID, vpnTunnelID, nil)
+		resp, err := client.FromNetwork().VPNRoutes().List(ctx, projectID, vpnTunnelID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing VPN routes: %w", err)
 		}
@@ -467,7 +461,7 @@ var vpnrouteUpdateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Printf("VPN route '%s' updated.\n", routeID)
+			fmt.Println(msgUpdatedAsync("VPN route", routeID))
 		}
 		return nil
 	},

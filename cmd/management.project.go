@@ -36,6 +36,10 @@ func init() {
 	// Add flags for project update command
 	projectUpdateCmd.Flags().String("description", "", "New description for the project")
 	projectUpdateCmd.Flags().StringSlice("tags", []string{}, "Tags for the project (comma-separated)")
+
+	// Add flags for project list command
+	projectListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	projectListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 }
 
 // completeProjectID provides completion for project IDs
@@ -89,11 +93,6 @@ var projectCreateCmd = &cobra.Command{
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 		setDefault, _ := cmd.Flags().GetBool("default")
 		verbose, _ := cmd.Flags().GetBool("verbose")
-
-		// Name is required
-		if name == "" {
-			return fmt.Errorf("--name is required")
-		}
 
 		// Get SDK client
 		client, err := GetArubaClient()
@@ -173,7 +172,7 @@ var projectCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("Project created, but no data returned.")
+			fmt.Println(msgCreatedAsync("Project", name))
 		}
 		return nil
 	},
@@ -226,7 +225,7 @@ var projectGetCmd = &cobra.Command{
 			fmt.Printf("Default:         %t\n", project.Properties.Default)
 			fmt.Printf("Resources:       %d\n", project.Properties.ResourcesNumber)
 
-			if !project.Metadata.CreationDate.IsZero() {
+			if project.Metadata.CreationDate != nil && !project.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", project.Metadata.CreationDate.Format(DateLayout))
 			}
 
@@ -359,7 +358,7 @@ var projectUpdateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Printf("Project '%s' updated.\n", projectID)
+			fmt.Println(msgUpdatedAsync("Project", projectID))
 		}
 		return nil
 	},
@@ -428,7 +427,7 @@ var projectListCmd = &cobra.Command{
 		// List projects using the SDK
 		ctx, cancel := newCtx()
 		defer cancel()
-		response, err := client.FromProject().List(ctx, nil)
+		response, err := client.FromProject().List(ctx, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing projects: %w", err)
 		}
@@ -460,7 +459,7 @@ var projectListCmd = &cobra.Command{
 
 				// Format creation date as dd-mm-yyyy
 				creationDate := "N/A"
-				if !project.Metadata.CreationDate.IsZero() {
+				if project.Metadata.CreationDate != nil && !project.Metadata.CreationDate.IsZero() {
 					creationDate = project.Metadata.CreationDate.Format("02-01-2006")
 				}
 

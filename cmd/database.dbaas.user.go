@@ -34,6 +34,8 @@ func init() {
 	dbaasUserDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	dbaasUserListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	dbaasUserListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	dbaasUserListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	dbaasUserGetCmd.ValidArgsFunction = completeDBaaSUserID
@@ -101,10 +103,6 @@ var dbaasUserCreateCmd = &cobra.Command{
 		username, _ := cmd.Flags().GetString("username")
 		password, _ := cmd.Flags().GetString("password")
 
-		if username == "" || password == "" {
-			return fmt.Errorf("--username and --password are required")
-		}
-
 		client, err := GetArubaClient()
 		if err != nil {
 			return fmt.Errorf("initializing client: %w", err)
@@ -127,13 +125,13 @@ var dbaasUserCreateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nUser created successfully!")
+			fmt.Printf("\n%s\n", msgCreated("User", username))
 			fmt.Printf("Username:        %s\n", response.Data.Username)
 			if response.Data.CreationDate != nil {
 				fmt.Printf("Creation Date:   %s\n", response.Data.CreationDate.Format(DateLayout))
 			}
 		} else {
-			fmt.Println("User created, but no data returned.")
+			fmt.Println(msgCreatedAsync("User", username))
 		}
 		return nil
 	},
@@ -208,7 +206,7 @@ var dbaasUserListCmd = &cobra.Command{
 
 		ctx, cancel := newCtx()
 		defer cancel()
-		resp, err := client.FromDatabase().Users().List(ctx, projectID, dbaasID, nil)
+		resp, err := client.FromDatabase().Users().List(ctx, projectID, dbaasID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing users: %w", err)
 		}
@@ -292,10 +290,10 @@ var dbaasUserUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nUser updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("User", username))
 			fmt.Printf("Username:        %s\n", response.Data.Username)
 		} else {
-			fmt.Println("Warning: Update may have succeeded but response is empty")
+			fmt.Println(msgUpdatedAsync("User", username))
 		}
 		return nil
 	},
@@ -338,7 +336,7 @@ var dbaasUserDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting user: %w", err)
 		}
 
-		fmt.Printf("\nUser '%s' deleted successfully!\n", username)
+		fmt.Println(msgDeleted("User", username))
 		return nil
 	},
 }

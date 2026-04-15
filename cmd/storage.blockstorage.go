@@ -46,6 +46,8 @@ func init() {
 
 	blockstorageListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	blockstorageListCmd.Flags().BoolP("verbose", "v", false, "Show detailed debug information")
+	blockstorageListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	blockstorageListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	blockstorageGetCmd.ValidArgsFunction = completeBlockStorageID
@@ -122,12 +124,6 @@ var blockstorageCreateCmd = &cobra.Command{
 		image, _ := cmd.Flags().GetString("image")
 
 		// Validate required fields
-		if name == "" {
-			return fmt.Errorf("--name is required")
-		}
-		if region == "" {
-			return fmt.Errorf("--region is required")
-		}
 		if size <= 0 {
 			return fmt.Errorf("--size must be greater than 0")
 		}
@@ -220,21 +216,23 @@ var blockstorageCreateCmd = &cobra.Command{
 		}
 
 		if response.Data != nil {
-			fmt.Println("\nBlock storage created successfully!")
+			fmt.Printf("\n%s\n", msgCreated("Block storage", name))
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			fmt.Printf("Size (GB):       %d\n", response.Data.Properties.SizeGB)
 			fmt.Printf("Type:            %s\n", response.Data.Properties.Type)
 			fmt.Printf("Zone:            %s\n", response.Data.Properties.Zone)
-			fmt.Printf("Region:          %s\n", response.Data.Metadata.LocationResponse.Value)
+			if response.Data.Metadata.LocationResponse != nil {
+				fmt.Printf("Region:          %s\n", response.Data.Metadata.LocationResponse.Value)
+			}
 			if response.Data.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *response.Data.Status.State)
 			}
-			if !response.Data.Metadata.CreationDate.IsZero() {
+			if response.Data.Metadata.CreationDate != nil && !response.Data.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", response.Data.Metadata.CreationDate.Format(DateLayout))
 			}
 		} else {
-			fmt.Println("Block storage created but no details returned")
+			fmt.Println(msgCreatedAsync("Block storage", name))
 		}
 		return nil
 	},
@@ -302,7 +300,7 @@ var blockstorageGetCmd = &cobra.Command{
 				fmt.Printf("Status:          %s\n", *volume.Status.State)
 			}
 
-			if !volume.Metadata.CreationDate.IsZero() {
+			if volume.Metadata.CreationDate != nil && !volume.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", volume.Metadata.CreationDate.Format(DateLayout))
 			}
 
@@ -434,7 +432,7 @@ var blockstorageUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nBlock storage updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("Block storage", volumeID))
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			if len(response.Data.Metadata.Tags) > 0 {
@@ -443,7 +441,7 @@ var blockstorageUpdateCmd = &cobra.Command{
 			fmt.Printf("Size (GB):       %d\n", response.Data.Properties.SizeGB)
 			fmt.Printf("Type:            %s\n", response.Data.Properties.Type)
 		} else {
-			fmt.Println("Warning: Update may have succeeded but response is empty")
+			fmt.Println(msgUpdatedAsync("Block storage", volumeID))
 		}
 		return nil
 	},
@@ -490,7 +488,7 @@ var blockstorageDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting block storage: %w", err)
 		}
 
-		fmt.Printf("\nBlock storage %s deleted successfully!\n", volumeID)
+		fmt.Println(msgDeleted("Block storage", volumeID))
 		return nil
 	},
 }
@@ -518,7 +516,7 @@ var blockstorageListCmd = &cobra.Command{
 		// List block storage using the SDK
 		ctx, cancel := newCtx()
 		defer cancel()
-		response, err := client.FromStorage().Volumes().List(ctx, projectID, nil)
+		response, err := client.FromStorage().Volumes().List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing block storage: %w", err)
 		}
@@ -583,7 +581,10 @@ var blockstorageListCmd = &cobra.Command{
 
 				size := fmt.Sprintf("%d", volume.Properties.SizeGB)
 
-				region := volume.Metadata.LocationResponse.Value
+				region := ""
+				if volume.Metadata.LocationResponse != nil {
+					region = volume.Metadata.LocationResponse.Value
+				}
 				zone := volume.Properties.Zone
 
 				volumeType := fmt.Sprintf("%v", volume.Properties.Type)

@@ -43,6 +43,8 @@ func init() {
 	jobDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	jobListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	jobListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	jobListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	jobGetCmd.ValidArgsFunction = completeJobID
@@ -108,10 +110,6 @@ var jobCreateCmd = &cobra.Command{
 		executeUntil, _ := cmd.Flags().GetString("execute-until")
 		enabled, _ := cmd.Flags().GetBool("enabled")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
-
-		if name == "" || region == "" || jobType == "" {
-			return fmt.Errorf("--name, --region, and --job-type are required")
-		}
 
 		// Validate job type
 		if jobType != "OneShot" && jobType != "Recurring" {
@@ -215,7 +213,7 @@ var jobCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("Job created, but no data returned.")
+			fmt.Println(msgCreatedAsync("Job", name))
 		}
 		return nil
 	},
@@ -265,7 +263,9 @@ var jobGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *job.Metadata.Name)
 			}
 			if job.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", job.Metadata.LocationResponse.Value)
+				if job.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", job.Metadata.LocationResponse.Value)
+				}
 			}
 			fmt.Printf("Job Type:        %s\n", job.Properties.JobType)
 			fmt.Printf("Enabled:         %t\n", job.Properties.Enabled)
@@ -281,7 +281,7 @@ var jobGetCmd = &cobra.Command{
 			if job.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *job.Status.State)
 			}
-			if !job.Metadata.CreationDate.IsZero() {
+			if job.Metadata.CreationDate != nil && !job.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", job.Metadata.CreationDate.Format(DateLayout))
 			}
 			if job.Metadata.CreatedBy != nil {
@@ -317,7 +317,7 @@ var jobListCmd = &cobra.Command{
 
 		ctx, cancel := newCtx()
 		defer cancel()
-		resp, err := client.FromSchedule().Jobs().List(ctx, projectID, nil)
+		resp, err := client.FromSchedule().Jobs().List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing jobs: %w", err)
 		}
@@ -475,7 +475,7 @@ var jobUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nJob updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("Job", jobID))
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			fmt.Printf("Enabled:         %t\n", response.Data.Properties.Enabled)
@@ -483,7 +483,7 @@ var jobUpdateCmd = &cobra.Command{
 				fmt.Printf("Tags:            %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Println("Warning: Update may have succeeded but response is empty")
+			fmt.Println(msgUpdatedAsync("Job", jobID))
 		}
 		return nil
 	},
@@ -525,7 +525,7 @@ var jobDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting job: %w", err)
 		}
 
-		fmt.Printf("\nJob %s deleted successfully!\n", jobID)
+		fmt.Println(msgDeleted("Job", jobID))
 		return nil
 	},
 }

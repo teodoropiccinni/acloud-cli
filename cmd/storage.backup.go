@@ -31,6 +31,8 @@ func init() {
 	storageBackupCmd.MarkFlagRequired("name")
 
 	storageBackupListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	storageBackupListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	storageBackupListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 	storageBackupGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	storageBackupUpdateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	storageBackupUpdateCmd.Flags().String("name", "", "New name for the backup")
@@ -190,11 +192,11 @@ var storageBackupCmd = &cobra.Command{
 		}
 
 		if response.Data != nil {
-			fmt.Println("Storage backup created successfully!")
+			fmt.Println(msgCreated("Storage backup", name))
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			fmt.Printf("Type:            %s\n", response.Data.Properties.Type)
-			if !response.Data.Metadata.CreationDate.IsZero() {
+			if response.Data.Metadata.CreationDate != nil && !response.Data.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", response.Data.Metadata.CreationDate.Format(DateLayout))
 			}
 		}
@@ -220,7 +222,7 @@ var storageBackupListCmd = &cobra.Command{
 
 		ctx, cancel := newCtx()
 		defer cancel()
-		response, err := client.FromStorage().Backups().List(ctx, projectID, nil)
+		response, err := client.FromStorage().Backups().List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing backups: %w", err)
 		}
@@ -318,13 +320,15 @@ var storageBackupGetCmd = &cobra.Command{
 				fmt.Printf("Billing Period:  %s\n", *backup.Properties.BillingPeriod)
 			}
 
-			fmt.Printf("Region:          %s\n", backup.Metadata.LocationResponse.Value)
+			if backup.Metadata.LocationResponse != nil {
+				fmt.Printf("Region:          %s\n", backup.Metadata.LocationResponse.Value)
+			}
 
 			if backup.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *backup.Status.State)
 			}
 
-			if !backup.Metadata.CreationDate.IsZero() {
+			if backup.Metadata.CreationDate != nil && !backup.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", backup.Metadata.CreationDate.Format(DateLayout))
 			}
 
@@ -441,14 +445,14 @@ var storageBackupUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nBackup updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("Backup", backupID))
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			if len(response.Data.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Println("Warning: Update may have succeeded but response is empty")
+			fmt.Println(msgUpdatedAsync("Backup", backupID))
 		}
 		return nil
 	},
@@ -490,7 +494,7 @@ var storageBackupDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting backup: %w", err)
 		}
 
-		fmt.Printf("\nBackup %s deleted successfully!\n", backupID)
+		fmt.Println(msgDeleted("Backup", backupID))
 		return nil
 	},
 }

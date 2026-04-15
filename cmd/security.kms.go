@@ -37,6 +37,8 @@ func init() {
 	kmsDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	kmsListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	kmsListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	kmsListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	kmsGetCmd.ValidArgsFunction = completeKMSID
@@ -98,10 +100,6 @@ var kmsCreateCmd = &cobra.Command{
 		region, _ := cmd.Flags().GetString("region")
 		billingPeriod, _ := cmd.Flags().GetString("billing-period")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
-
-		if name == "" || region == "" {
-			return fmt.Errorf("--name and --region are required")
-		}
 
 		client, err := GetArubaClient()
 		if err != nil {
@@ -169,7 +167,7 @@ var kmsCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("KMS created, but no data returned.")
+			fmt.Println(msgCreatedAsync("KMS", name))
 		}
 		return nil
 	},
@@ -219,12 +217,14 @@ var kmsGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *kms.Metadata.Name)
 			}
 			if kms.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", kms.Metadata.LocationResponse.Value)
+				if kms.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", kms.Metadata.LocationResponse.Value)
+				}
 			}
 			if kms.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *kms.Status.State)
 			}
-			if !kms.Metadata.CreationDate.IsZero() {
+			if kms.Metadata.CreationDate != nil && !kms.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", kms.Metadata.CreationDate.Format(DateLayout))
 			}
 			if kms.Metadata.CreatedBy != nil {
@@ -260,7 +260,7 @@ var kmsListCmd = &cobra.Command{
 
 		ctx, cancel := newCtx()
 		defer cancel()
-		resp, err := client.FromSecurity().KMS().List(ctx, projectID, nil)
+		resp, err := client.FromSecurity().KMS().List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing KMS: %w", err)
 		}
@@ -393,14 +393,14 @@ var kmsUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nKMS updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("KMS", kmsID))
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			if len(response.Data.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Println("Warning: Update may have succeeded but response is empty")
+			fmt.Println(msgUpdatedAsync("KMS", kmsID))
 		}
 		return nil
 	},
@@ -442,7 +442,7 @@ var kmsDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting KMS: %w", err)
 		}
 
-		fmt.Printf("\nKMS %s deleted successfully!\n", kmsID)
+		fmt.Println(msgDeleted("KMS", kmsID))
 		return nil
 	},
 }

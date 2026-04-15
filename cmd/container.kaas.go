@@ -93,6 +93,8 @@ func init() {
 	kaasDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	kaasListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	kaasListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	kaasListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	kaasConnectCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 
@@ -309,7 +311,7 @@ var kaasCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("KaaS cluster created, but no data returned.")
+			fmt.Println(msgCreatedAsync("KaaS cluster", name))
 		}
 		return nil
 	},
@@ -359,7 +361,9 @@ var kaasGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *kaas.Metadata.Name)
 			}
 			if kaas.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", kaas.Metadata.LocationResponse.Value)
+				if kaas.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", kaas.Metadata.LocationResponse.Value)
+				}
 			}
 			if kaas.Properties.KubernetesVersion.Value != nil {
 				fmt.Printf("Kubernetes Version: %s\n", *kaas.Properties.KubernetesVersion.Value)
@@ -368,7 +372,7 @@ var kaasGetCmd = &cobra.Command{
 				fmt.Printf("Status:          %s\n", *kaas.Status.State)
 			}
 
-			if !kaas.Metadata.CreationDate.IsZero() {
+			if kaas.Metadata.CreationDate != nil && !kaas.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", kaas.Metadata.CreationDate.Format(DateLayout))
 			}
 			if kaas.Metadata.CreatedBy != nil {
@@ -593,7 +597,7 @@ var kaasUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nKaaS cluster updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("KaaS cluster", kaasID))
 			if response.Data.Metadata.ID != nil {
 				fmt.Printf("ID:      %s\n", *response.Data.Metadata.ID)
 			}
@@ -604,7 +608,7 @@ var kaasUpdateCmd = &cobra.Command{
 				fmt.Printf("Tags:    %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Println("KaaS cluster update initiated. Use 'get' to check status.")
+			fmt.Println(msgUpdatedAsync("KaaS cluster", kaasID))
 		}
 		return nil
 	},
@@ -650,7 +654,7 @@ var kaasDeleteCmd = &cobra.Command{
 			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
-		fmt.Printf("KaaS cluster '%s' deleted successfully.\n", kaasID)
+		fmt.Println(msgDeleted("KaaS cluster", kaasID))
 		return nil
 	},
 }
@@ -672,7 +676,7 @@ var kaasListCmd = &cobra.Command{
 
 		ctx, cancel := newCtx()
 		defer cancel()
-		response, err := client.FromContainer().KaaS().List(ctx, projectID, nil)
+		response, err := client.FromContainer().KaaS().List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing KaaS clusters: %w", err)
 		}
@@ -806,7 +810,7 @@ var kaasConnectCmd = &cobra.Command{
 		}
 
 		// Success message
-		fmt.Println("KaaS successfully connected")
+		fmt.Println(msgAction("KaaS cluster", kaasID, "connected"))
 		fmt.Printf("Kubeconfig saved to: %s\n", kubeconfigFile)
 		fmt.Printf("Default config updated: %s\n", configFile)
 		return nil

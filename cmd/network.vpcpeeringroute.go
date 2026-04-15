@@ -26,6 +26,9 @@ func init() {
 	vpcpeeringrouteCreateCmd.Flags().String("billing-period", "Hour", "Billing period: Hour, Month, Year")
 	vpcpeeringrouteCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
 	vpcpeeringrouteCreateCmd.Flags().BoolP("verbose", "v", false, "Show detailed debug information")
+	vpcpeeringrouteCreateCmd.MarkFlagRequired("name")
+	vpcpeeringrouteCreateCmd.MarkFlagRequired("local-network")
+	vpcpeeringrouteCreateCmd.MarkFlagRequired("remote-network")
 
 	vpcpeeringrouteGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 
@@ -40,6 +43,8 @@ func init() {
 	vpcpeeringrouteDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	vpcpeeringrouteListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	vpcpeeringrouteListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	vpcpeeringrouteListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	vpcpeeringrouteGetCmd.ValidArgsFunction = completeVPCPeeringRouteID
@@ -104,17 +109,6 @@ var vpcpeeringrouteCreateCmd = &cobra.Command{
 		billingPeriod, _ := cmd.Flags().GetString("billing-period")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 		verbose, _ := cmd.Flags().GetBool("verbose")
-
-		// Validate required fields
-		if name == "" {
-			return fmt.Errorf("--name is required")
-		}
-		if localNetwork == "" {
-			return fmt.Errorf("--local-network is required")
-		}
-		if remoteNetwork == "" {
-			return fmt.Errorf("--remote-network is required")
-		}
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
@@ -185,7 +179,7 @@ var vpcpeeringrouteCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("VPC peering route created, but no data returned.")
+			fmt.Println(msgCreatedAsync("VPC peering route", name))
 		}
 		return nil
 	},
@@ -267,7 +261,7 @@ var vpcpeeringrouteListCmd = &cobra.Command{
 
 		ctx, cancel := newCtx()
 		defer cancel()
-		resp, err := client.FromNetwork().VPCPeeringRoutes().List(ctx, projectID, vpcID, peeringID, nil)
+		resp, err := client.FromNetwork().VPCPeeringRoutes().List(ctx, projectID, vpcID, peeringID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing VPC peering routes: %w", err)
 		}
@@ -420,7 +414,7 @@ var vpcpeeringrouteUpdateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Printf("VPC peering route '%s' updated.\n", routeID)
+			fmt.Println(msgUpdatedAsync("VPC peering route", routeID))
 		}
 		return nil
 	},

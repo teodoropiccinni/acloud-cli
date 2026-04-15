@@ -24,6 +24,8 @@ func init() {
 	vpcCreateCmd.Flags().String("name", "", "Name for the VPC")
 	vpcCreateCmd.Flags().String("region", "", "Region code (e.g., IT-BG)")
 	vpcCreateCmd.Flags().StringSlice("tags", []string{}, "Tags (comma-separated)")
+	vpcCreateCmd.MarkFlagRequired("name")
+	vpcCreateCmd.MarkFlagRequired("region")
 	vpcGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	vpcUpdateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	vpcUpdateCmd.Flags().String("name", "", "New name for the VPC")
@@ -31,6 +33,8 @@ func init() {
 	vpcDeleteCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	vpcDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 	vpcListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	vpcListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	vpcListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	vpcGetCmd.ValidArgsFunction = completeVPCID
@@ -92,14 +96,6 @@ var vpcCreateCmd = &cobra.Command{
 		region, _ := cmd.Flags().GetString("region")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 
-		// Validate required fields
-		if name == "" {
-			return fmt.Errorf("--name is required")
-		}
-		if region == "" {
-			return fmt.Errorf("--region is required")
-		}
-
 		// Get project ID from flag or context
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
@@ -146,7 +142,7 @@ var vpcCreateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nVPC created successfully!")
+			fmt.Printf("\n%s\n", msgCreated("VPC", name))
 			if response.Data.Metadata.ID != nil {
 				fmt.Printf("ID:      %s\n", *response.Data.Metadata.ID)
 			}
@@ -158,7 +154,7 @@ var vpcCreateCmd = &cobra.Command{
 				fmt.Printf("Tags:    %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Println("VPC creation initiated. Use 'list' or 'get' to check status.")
+			fmt.Println(msgCreatedAsync("VPC", name))
 		}
 		return nil
 	},
@@ -327,7 +323,7 @@ var vpcUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nVPC updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("VPC", vpcID))
 			if response.Data.Metadata.ID != nil {
 				fmt.Printf("ID:      %s\n", *response.Data.Metadata.ID)
 			}
@@ -338,7 +334,7 @@ var vpcUpdateCmd = &cobra.Command{
 				fmt.Printf("Tags:    %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Printf("\nVPC %s update completed.\n", vpcID)
+			fmt.Println(msgUpdatedAsync("VPC", vpcID))
 		}
 		return nil
 	},
@@ -385,7 +381,7 @@ var vpcDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting VPC: %w", err)
 		}
 
-		fmt.Printf("\nVPC %s deleted successfully!\n", vpcID)
+		fmt.Println(msgDeleted("VPC", vpcID))
 		return nil
 	},
 }
@@ -410,7 +406,7 @@ var vpcListCmd = &cobra.Command{
 		// List VPCs using the SDK
 		ctx, cancel := newCtx()
 		defer cancel()
-		response, err := client.FromNetwork().VPCs().List(ctx, projectID, nil)
+		response, err := client.FromNetwork().VPCs().List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing VPCs: %w", err)
 		}

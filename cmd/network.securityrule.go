@@ -32,6 +32,12 @@ func init() {
 	securityruleCreateCmd.Flags().String("target-kind", "", "Target Kind: Ip or SecurityGroup (required)")
 	securityruleCreateCmd.Flags().String("target-value", "", "Target Value: If kind = Ip, the value must be a valid network address in CIDR notation (included 0.0.0.0/0). If kind = SecurityGroup, the value must be a valid URI of any security group within the same VPC (required)")
 	securityruleCreateCmd.Flags().BoolP("verbose", "v", false, "Show detailed debug information")
+	securityruleCreateCmd.MarkFlagRequired("name")
+	securityruleCreateCmd.MarkFlagRequired("region")
+	securityruleCreateCmd.MarkFlagRequired("direction")
+	securityruleCreateCmd.MarkFlagRequired("protocol")
+	securityruleCreateCmd.MarkFlagRequired("target-kind")
+	securityruleCreateCmd.MarkFlagRequired("target-value")
 
 	securityruleGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 
@@ -43,6 +49,8 @@ func init() {
 	securityruleDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	securityruleListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	securityruleListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	securityruleListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	securityruleGetCmd.ValidArgsFunction = completeSecurityRuleID
@@ -115,26 +123,6 @@ var securityruleCreateCmd = &cobra.Command{
 		targetKind, _ := cmd.Flags().GetString("target-kind")
 		targetValue, _ := cmd.Flags().GetString("target-value")
 		verbose, _ := cmd.Flags().GetBool("verbose")
-
-		// Validate required fields
-		if name == "" {
-			return fmt.Errorf("--name is required")
-		}
-		if region == "" {
-			return fmt.Errorf("--region is required")
-		}
-		if direction == "" {
-			return fmt.Errorf("--direction is required")
-		}
-		if protocol == "" {
-			return fmt.Errorf("--protocol is required")
-		}
-		if targetKind == "" {
-			return fmt.Errorf("--target-kind is required")
-		}
-		if targetValue == "" {
-			return fmt.Errorf("--target-value is required")
-		}
 
 		projectID, err := GetProjectID(cmd)
 		if err != nil {
@@ -222,7 +210,7 @@ var securityruleCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("Security rule created, but no ID returned.")
+			fmt.Println(msgCreatedAsync("Security rule", name))
 		}
 		return nil
 	},
@@ -272,7 +260,9 @@ var securityruleGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *rule.Metadata.Name)
 			}
 			if rule.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", rule.Metadata.LocationResponse.Value)
+				if rule.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", rule.Metadata.LocationResponse.Value)
+				}
 			}
 			fmt.Printf("Direction:       %s\n", rule.Properties.Direction)
 			fmt.Printf("Protocol:        %s\n", rule.Properties.Protocol)
@@ -322,7 +312,7 @@ var securityruleListCmd = &cobra.Command{
 
 		ctx, cancel := newCtx()
 		defer cancel()
-		resp, err := client.FromNetwork().SecurityGroupRules().List(ctx, projectID, vpcID, securityGroupID, nil)
+		resp, err := client.FromNetwork().SecurityGroupRules().List(ctx, projectID, vpcID, securityGroupID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing security rules: %w", err)
 		}
@@ -550,7 +540,7 @@ var securityruleUpdateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Printf("Security rule '%s' updated.\n", securityRuleID)
+			fmt.Println(msgUpdatedAsync("Security rule", securityRuleID))
 		}
 		return nil
 	},

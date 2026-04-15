@@ -49,6 +49,11 @@ func init() {
 	vpntunnelCreateCmd.Flags().String("psk-cloud-site", "", "PSK cloud site")
 	vpntunnelCreateCmd.Flags().String("psk-onprem-site", "", "PSK on-prem site")
 	vpntunnelCreateCmd.Flags().String("psk", "", "Pre-shared key for authentication (PSK secret)")
+	vpntunnelCreateCmd.MarkFlagRequired("name")
+	vpntunnelCreateCmd.MarkFlagRequired("region")
+	vpntunnelCreateCmd.MarkFlagRequired("peer-ip")
+	vpntunnelCreateCmd.MarkFlagRequired("vpc-uri")
+	vpntunnelCreateCmd.MarkFlagRequired("elastic-ip-uri")
 	vpntunnelGetCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	vpntunnelUpdateCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	vpntunnelUpdateCmd.Flags().String("name", "", "New name for the VPN tunnel")
@@ -56,6 +61,8 @@ func init() {
 	vpntunnelDeleteCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
 	vpntunnelDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 	vpntunnelListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	vpntunnelListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	vpntunnelListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	vpntunnelGetCmd.ValidArgsFunction = completeVPNTunnelID
@@ -127,7 +134,7 @@ var vpntunnelListCmd = &cobra.Command{
 		// List VPN tunnels using the SDK
 		ctx, cancel := newCtx()
 		defer cancel()
-		response, err := client.FromNetwork().VPNTunnels().List(ctx, projectID, nil)
+		response, err := client.FromNetwork().VPNTunnels().List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing VPN tunnels: %w", err)
 		}
@@ -154,7 +161,10 @@ var vpntunnelListCmd = &cobra.Command{
 					id = *vpn.Metadata.ID
 				}
 
-				region := vpn.Metadata.LocationResponse.Value
+				region := ""
+				if vpn.Metadata.LocationResponse != nil {
+					region = vpn.Metadata.LocationResponse.Value
+				}
 
 				vpnType := ""
 				if vpn.Properties.VPNType != nil {
@@ -315,24 +325,9 @@ var vpntunnelCreateCmd = &cobra.Command{
 		pskCloudSite, _ := cmd.Flags().GetString("psk-cloud-site")
 		pskOnpremSite, _ := cmd.Flags().GetString("psk-onprem-site")
 
-		// Validate required fields
-		if name == "" {
-			return fmt.Errorf("--name is required")
-		}
-		if region == "" {
-			return fmt.Errorf("--region is required")
-		}
-		if peerIP == "" {
-			return fmt.Errorf("--peer-ip is required")
-		}
-		if vpcURI == "" {
-			return fmt.Errorf("--vpc-uri is required (e.g., /projects/{project-id}/providers/Aruba.Network/vpcs/{vpc-id})")
-		}
+		// Validate mutual-exclusive subnet flags
 		if subnetCIDR == "" && subnetName == "" {
 			return fmt.Errorf("--subnet-cidr or --subnet-name is required")
-		}
-		if publicIPURI == "" {
-			return fmt.Errorf("--elastic-ip-uri is required (e.g., /projects/{project-id}/providers/Aruba.Network/elasticIps/{ip-id})")
 		}
 
 		// Get project ID from flag or context
@@ -463,7 +458,7 @@ var vpntunnelCreateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nVPN Tunnel created successfully!")
+			fmt.Printf("\n%s\n", msgCreated("VPN Tunnel", name))
 			if response.Data.Metadata.ID != nil {
 				fmt.Printf("ID:       %s\n", *response.Data.Metadata.ID)
 			}
@@ -483,7 +478,7 @@ var vpntunnelCreateCmd = &cobra.Command{
 				fmt.Printf("Tags:     %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Println("VPN Tunnel creation initiated. Use 'list' or 'get' to check status.")
+			fmt.Println(msgCreatedAsync("VPN Tunnel", name))
 		}
 		return nil
 	},
@@ -587,7 +582,7 @@ var vpntunnelUpdateCmd = &cobra.Command{
 		}
 
 		if resp.Data != nil {
-			fmt.Println("\nVPN Tunnel updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("VPN Tunnel", vpnTunnelID))
 			if resp.Data.Metadata.ID != nil {
 				fmt.Printf("ID:      %s\n", *resp.Data.Metadata.ID)
 			}
@@ -598,7 +593,7 @@ var vpntunnelUpdateCmd = &cobra.Command{
 				fmt.Printf("Tags:    %v\n", resp.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Printf("\nVPN Tunnel %s update completed.\n", vpnTunnelID)
+			fmt.Println(msgUpdatedAsync("VPN Tunnel", vpnTunnelID))
 		}
 		return nil
 	},
@@ -649,7 +644,7 @@ var vpntunnelDeleteCmd = &cobra.Command{
 			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
-		fmt.Printf("VPN tunnel %s has been successfully deleted.\n", vpnTunnelID)
+		fmt.Println(msgDeleted("VPN tunnel", vpnTunnelID))
 		return nil
 	},
 }

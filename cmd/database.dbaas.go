@@ -40,6 +40,8 @@ func init() {
 	dbaasDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	dbaasListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	dbaasListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	dbaasListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	dbaasGetCmd.ValidArgsFunction = completeDBaaSID
@@ -104,10 +106,6 @@ var dbaasCreateCmd = &cobra.Command{
 		engineID, _ := cmd.Flags().GetString("engine-id")
 		flavor, _ := cmd.Flags().GetString("flavor")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
-
-		if name == "" || region == "" || engineID == "" || flavor == "" {
-			return fmt.Errorf("--name, --region, --engine-id, and --flavor are required")
-		}
 
 		client, err := GetArubaClient()
 		if err != nil {
@@ -195,7 +193,7 @@ var dbaasCreateCmd = &cobra.Command{
 			}
 			PrintTable(headers, [][]string{row})
 		} else {
-			fmt.Println("DBaaS instance created, but no data returned.")
+			fmt.Println(msgCreatedAsync("DBaaS instance", name))
 		}
 		return nil
 	},
@@ -245,7 +243,9 @@ var dbaasGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *dbaas.Metadata.Name)
 			}
 			if dbaas.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", dbaas.Metadata.LocationResponse.Value)
+				if dbaas.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", dbaas.Metadata.LocationResponse.Value)
+				}
 			}
 			if dbaas.Properties.Engine != nil {
 				if dbaas.Properties.Engine.Type != nil {
@@ -264,7 +264,7 @@ var dbaasGetCmd = &cobra.Command{
 			if dbaas.Status.State != nil {
 				fmt.Printf("Status:          %s\n", *dbaas.Status.State)
 			}
-			if !dbaas.Metadata.CreationDate.IsZero() {
+			if dbaas.Metadata.CreationDate != nil && !dbaas.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", dbaas.Metadata.CreationDate.Format(DateLayout))
 			}
 			if dbaas.Metadata.CreatedBy != nil {
@@ -300,7 +300,7 @@ var dbaasListCmd = &cobra.Command{
 
 		ctx, cancel := newCtx()
 		defer cancel()
-		resp, err := client.FromDatabase().DBaaS().List(ctx, projectID, nil)
+		resp, err := client.FromDatabase().DBaaS().List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing DBaaS instances: %w", err)
 		}
@@ -467,14 +467,14 @@ var dbaasUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nDBaaS instance updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("DBaaS instance", dbaasID))
 			fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			if len(response.Data.Metadata.Tags) > 0 {
 				fmt.Printf("Tags:            %v\n", response.Data.Metadata.Tags)
 			}
 		} else {
-			fmt.Println("Warning: Update may have succeeded but response is empty")
+			fmt.Println(msgUpdatedAsync("DBaaS instance", dbaasID))
 		}
 		return nil
 	},
@@ -516,7 +516,7 @@ var dbaasDeleteCmd = &cobra.Command{
 			return fmt.Errorf("deleting DBaaS instance: %w", err)
 		}
 
-		fmt.Printf("\nDBaaS instance %s deleted successfully!\n", dbaasID)
+		fmt.Println(msgDeleted("DBaaS instance", dbaasID))
 		return nil
 	},
 }

@@ -56,6 +56,8 @@ func init() {
 	containerregistryDeleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	containerregistryListCmd.Flags().String("project-id", "", "Project ID (uses context if not specified)")
+	containerregistryListCmd.Flags().Int32("limit", 0, "Maximum number of results to return (0 = no limit)")
+	containerregistryListCmd.Flags().Int32("offset", 0, "Number of results to skip")
 
 	// Set up auto-completion for resource IDs
 	containerregistryGetCmd.ValidArgsFunction = completeContainerRegistryID
@@ -208,7 +210,7 @@ var containerregistryCreateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nContainer registry created successfully!")
+			fmt.Printf("\n%s\n", msgCreated("Container registry", name))
 			if response.Data.Metadata.ID != nil {
 				fmt.Printf("ID:              %s\n", *response.Data.Metadata.ID)
 			}
@@ -222,7 +224,7 @@ var containerregistryCreateCmd = &cobra.Command{
 				fmt.Printf("Status:          %s\n", *response.Data.Status.State)
 			}
 		} else {
-			fmt.Println("Container registry creation initiated. Use 'list' or 'get' to check status.")
+			fmt.Println(msgCreatedAsync("Container registry", name))
 		}
 		return nil
 	},
@@ -280,7 +282,9 @@ var containerregistryGetCmd = &cobra.Command{
 				fmt.Printf("Name:            %s\n", *registry.Metadata.Name)
 			}
 			if registry.Metadata.LocationResponse != nil {
-				fmt.Printf("Region:          %s\n", registry.Metadata.LocationResponse.Value)
+				if registry.Metadata.LocationResponse != nil {
+					fmt.Printf("Region:          %s\n", registry.Metadata.LocationResponse.Value)
+				}
 			}
 
 			if registry.Properties.PublicIp.URI != "" {
@@ -313,7 +317,7 @@ var containerregistryGetCmd = &cobra.Command{
 				fmt.Printf("Status:          %s\n", *registry.Status.State)
 			}
 
-			if !registry.Metadata.CreationDate.IsZero() {
+			if registry.Metadata.CreationDate != nil && !registry.Metadata.CreationDate.IsZero() {
 				fmt.Printf("Creation Date:   %s\n", registry.Metadata.CreationDate.Format(DateLayout))
 			}
 			if registry.Metadata.CreatedBy != nil {
@@ -448,7 +452,7 @@ var containerregistryUpdateCmd = &cobra.Command{
 		}
 
 		if response != nil && response.Data != nil {
-			fmt.Println("\nContainer registry updated successfully!")
+			fmt.Printf("\n%s\n", msgUpdated("Container registry", registryID))
 			if response.Data.Metadata.Name != nil {
 				fmt.Printf("Name:            %s\n", *response.Data.Metadata.Name)
 			}
@@ -459,7 +463,7 @@ var containerregistryUpdateCmd = &cobra.Command{
 				fmt.Printf("Status:          %s\n", *response.Data.Status.State)
 			}
 		} else {
-			fmt.Println("Container registry update initiated. Use 'get' to check status.")
+			fmt.Println(msgUpdatedAsync("Container registry", registryID))
 		}
 		return nil
 	},
@@ -513,7 +517,7 @@ var containerregistryDeleteCmd = &cobra.Command{
 			return fmtAPIError(response.StatusCode, response.Error.Title, response.Error.Detail)
 		}
 
-		fmt.Printf("\nContainer registry '%s' deleted successfully!\n", registryID)
+		fmt.Println(msgDeleted("Container registry", registryID))
 		return nil
 	},
 }
@@ -544,7 +548,7 @@ var containerregistryListCmd = &cobra.Command{
 		if registryClient == nil {
 			return fmt.Errorf("container Registry client returned nil — this may indicate that Container Registry is not available in your SDK version")
 		}
-		response, err := registryClient.List(ctx, projectID, nil)
+		response, err := registryClient.List(ctx, projectID, listParams(cmd))
 		if err != nil {
 			return fmt.Errorf("listing container registries: %w", err)
 		}
